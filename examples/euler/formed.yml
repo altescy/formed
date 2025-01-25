@@ -1,0 +1,6 @@
+workflow:
+  organizer:
+    type: filesystem
+
+required_modules:
+  - euler
