@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 import json
+from contextlib import suppress
 from typing import Any, cast
 
 from pydantic import BaseModel
@@ -12,6 +13,9 @@ from formed.types import JsonValue
 
 
 def object_fingerprint(obj: Any) -> str:
+    with suppress(TypeError, ValueError):
+        # This is a workaround for fingerprint consistency.
+        obj = json.loads(json.dumps(obj, cls=WorkflowJSONEncoder, sort_keys=True))
     return b58encode(hash_object_bytes(obj)).decode()
 
 
