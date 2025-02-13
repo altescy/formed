@@ -28,4 +28,5 @@ from .step import (  # noqa: F401
     step,
     use_step_context,
     use_step_logger,
+    use_step_workdir,
 )

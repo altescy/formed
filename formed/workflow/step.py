@@ -6,12 +6,14 @@ import typing
 from collections.abc import Callable, Mapping
 from enum import Enum
 from logging import Logger, getLogger
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, Generic, Optional, TypeVar, Union, cast, overload
 
 from colt import Lazy, Registrable
 
 from formed.common.astutils import normalize_source
 
+from .constants import WORKFLOW_WORKSPACE_DIRECTORY
 from .format import AutoFormat, Format
 from .types import StrictParamPath
 from .utils import object_fingerprint
@@ -286,3 +288,12 @@ def use_step_logger(default: Optional[Union[str, Logger]] = None) -> Optional[Lo
 
 def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
     return getLogger(f"formed.workflow.step.{info.name}.{info.fingerprint[:8]}")
+
+
+def use_step_workdir() -> Path:
+    context = use_step_context()
+    if context is None:
+        raise RuntimeError("No step context found")
+    workdir = WORKFLOW_WORKSPACE_DIRECTORY / context.info.fingerprint
+    workdir.mkdir(parents=True, exist_ok=True)
+    return workdir
