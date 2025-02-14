@@ -23,6 +23,10 @@ filelock = "*"
 pydantic = ">=2.0,<3.0"
 pyyaml = "*"
 rjsonnet = "*"
+flax = [
+  {version = ">=0.9", python = ">=3.10", optional = true},
+  {version = "<0.9", python = ">=3.9,<3.10", optional = true},
+]
 mlflow = {version = ">=2.0,<3.0", optional = true}
 numpy = { version = ">=1.26.4", optional = true}
 scipy = [
@@ -35,8 +39,9 @@ pyarrow = [
 ]
 
 [tool.poetry.extras]
+flax = ["flax"]
 mlflow = ["mlflow", "numpy", "scipy", "pyarrow"]
-all = ["mlflow", "numpy", "scipy", "pyarrow"]
+all = ["flax", "mlflow", "numpy", "scipy", "pyarrow"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -81,6 +86,7 @@ enable_mypy = true
 mypy_preset = "strict"
 line_length = 120
 py_version = "py39"
+mypy_ignore_packages = ["jax._src.*"]
 [[tool.pysen.lint.mypy_targets]]
   paths = ["."]
 
