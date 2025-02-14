@@ -1,7 +1,7 @@
 import contextvars
 import dataclasses
 import datetime
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
@@ -151,7 +151,9 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
                     if step_info.should_be_cached:
                         cache[step_info] = result
-                        result = cache[step_info]
+                        if isinstance(result, Iterator):
+                            # NOTE: iterator should be restored since it is consumed by the cache
+                            result = cache[step_info]
                 except KeyboardInterrupt:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
                     step_context = dataclasses.replace(step_context, state=step_state)
