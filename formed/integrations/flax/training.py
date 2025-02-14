@@ -187,7 +187,7 @@ class EarlyStoppingCallback(TrainerCallback):
 
         self._patience = patience
         self._metric = metric.lstrip("-")
-        self._direction = -1 if metric.startswith("-") else 1
+        self._direction = -1 if metric.startswith("-+") else 1
         self._best_metric = -float("inf")
         self._counter = 0
         self._cloudpickle = cloudpickle
@@ -312,15 +312,19 @@ class FlaxTrainer(
         model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         train_dataset: Sequence[DataT],
         val_dataset: Optional[Sequence[DataT]] = None,
+        state: Optional[TrainState] = None,
     ) -> TrainState:
         logger = use_step_logger(__name__)
 
-        state = self._training_module.create_state(rngs, self, model)
+        if state is None:
+            state = self._training_module.create_state(rngs, self, model)
 
         for callback in self._callbacks:
             callback.on_training_start(self, state)
 
         def do_evaluation() -> None:
+            assert state is not None
+
             model.eval()  # type: ignore[no-untyped-call]
             for callback in self._callbacks:
                 callback.on_eval_start(self, state)
