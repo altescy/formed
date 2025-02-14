@@ -122,6 +122,8 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
         execution_state = dataclasses.replace(execution_state, execution_id=execution_info.id)
         execution_context = dataclasses.replace(execution_context, state=execution_state)
 
+        temporary_cache: dict[WorkflowStepInfo, Any] = {}
+
         def _run_step(step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
             assert cache is not None
             assert callback is not None
@@ -137,6 +139,9 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             if step_info in cache:
                 logger.info(f"Cached value found for step {step_info.name}")
                 result = cache[step_info]
+            elif step_info in temporary_cache:
+                logger.info(f"Temporary cached value found for step {step_info.name}")
+                result = temporary_cache[step_info]
             else:
                 try:
                     callback.on_step_start(step_context, execution_context)
@@ -154,6 +159,9 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                         if isinstance(result, Iterator):
                             # NOTE: iterator should be restored since it is consumed by the cache
                             result = cache[step_info]
+                    elif not step_info.name.endswith("!"):
+                        # NOTE: You can force to run the step without caching by adding "!" at the end of the name
+                        temporary_cache[step_info] = result
                 except KeyboardInterrupt:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
                     step_context = dataclasses.replace(step_context, state=step_state)
