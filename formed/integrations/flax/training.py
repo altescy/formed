@@ -99,7 +99,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         state: TrainState,
         trainer: "FlaxTrainer",
     ) -> ModelOutputT:
-        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, state.params)
+        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, state.params)  # type: ignore[arg-type]
         return model(inputs, train=False)
 
 
