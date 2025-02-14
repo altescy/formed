@@ -4329,11 +4329,11 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
-all = ["flax", "flax", "mlflow", "numpy", "pyarrow", "pyarrow", "scipy", "scipy"]
-flax = ["flax", "flax"]
+all = ["cloudpickle", "flax", "flax", "mlflow", "numpy", "pyarrow", "pyarrow", "scipy", "scipy"]
+flax = ["cloudpickle", "flax", "flax"]
 mlflow = ["mlflow", "numpy", "pyarrow", "pyarrow", "scipy", "scipy"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "0c3ca098b9c040354cc89a5d418425d745920c621522428ace86809385f2642b"
+content-hash = "01a6065f0326565721ee23e37035f68ffdec5d458fb99f540d2f07bdad9e33b8"

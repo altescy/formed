@@ -10,7 +10,7 @@ from .training import FlaxTrainer
 from .types import DataT, ModelInputT, ModelOutputT, ModelParamsT
 
 
-@step("flax::train", cacheable=False)
+@step("flax::train", format="cloudpickle")
 def train_flax_model(
     model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
     trainer: FlaxTrainer[DataT, ModelInputT, ModelOutputT, ModelParamsT],

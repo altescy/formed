@@ -23,6 +23,7 @@ filelock = "*"
 pydantic = ">=2.0,<3.0"
 pyyaml = "*"
 rjsonnet = "*"
+cloudpickle = {version = "^3.1.1", optional = true}
 flax = [
   {version = ">=0.9", python = ">=3.10", optional = true},
   {version = "<0.9", python = ">=3.9,<3.10", optional = true},
@@ -39,9 +40,9 @@ pyarrow = [
 ]
 
 [tool.poetry.extras]
-flax = ["flax"]
+flax = ["cloudpickle", "flax"]
 mlflow = ["mlflow", "numpy", "scipy", "pyarrow"]
-all = ["flax", "mlflow", "numpy", "scipy", "pyarrow"]
+all = ["cloudpickle", "flax", "mlflow", "numpy", "scipy", "pyarrow"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
