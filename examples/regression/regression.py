@@ -42,7 +42,7 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         y = self._linear2(h)
 
         loss: Optional[jax.Array]
-        if train:
+        if inputs.y is not None:
             assert inputs.y is not None
             loss = jax.numpy.mean((inputs.y - y) ** 2)
         else:
