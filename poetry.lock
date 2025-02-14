@@ -4434,6 +4434,31 @@ test = ["Cython", "array-api-strict (>=2.0,<2.1.1)", "asv", "gmpy2", "hypothesis
 
 [[package]]
 name = "sentence-transformers"
+version = "3.0.1"
+description = "Multilingual text embeddings"
+optional = true
+python-versions = ">=3.8.0"
+files = [
+    {file = "sentence_transformers-3.0.1-py3-none-any.whl", hash = "sha256:01050cc4053c49b9f5b78f6980b5a72db3fd3a0abb9169b1792ac83875505ee6"},
+    {file = "sentence_transformers-3.0.1.tar.gz", hash = "sha256:8a3d2c537cc4d1014ccc20ac92be3d6135420a3bc60ae29a3a8a9b4bb35fbff6"},
+]
+
+[package.dependencies]
+huggingface-hub = ">=0.15.1"
+numpy = "*"
+Pillow = "*"
+scikit-learn = "*"
+scipy = "*"
+torch = ">=1.11.0"
+tqdm = "*"
+transformers = ">=4.34.0,<5.0.0"
+
+[package.extras]
+dev = ["accelerate (>=0.20.3)", "datasets", "pre-commit", "pytest", "ruff (>=0.3.0)"]
+train = ["accelerate (>=0.20.3)", "datasets"]
+
+[[package]]
+name = "sentence-transformers"
 version = "3.4.1"
 description = "State-of-the-Art Text Embeddings"
 optional = true
@@ -5666,13 +5691,13 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
-all = ["cloudpickle", "datasets", "flax", "flax", "mlflow", "numpy", "protobuf", "pyarrow", "pyarrow", "scipy", "scipy", "sentence-transformers", "transformers"]
+all = ["cloudpickle", "datasets", "flax", "flax", "mlflow", "numpy", "protobuf", "pyarrow", "pyarrow", "scipy", "scipy", "sentence-transformers", "sentence-transformers", "transformers"]
 flax = ["cloudpickle", "flax", "flax"]
 mlflow = ["mlflow", "numpy", "pyarrow", "pyarrow", "scipy", "scipy"]
-sentence-transformers = ["datasets", "sentence-transformers", "transformers"]
+sentence-transformers = ["datasets", "sentence-transformers", "sentence-transformers", "transformers"]
 transformers = ["datasets", "protobuf", "transformers"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "cb13a222b93921a632302bd02d696c52c603b92d05d1f7439089187476fc99d7"
+content-hash = "212d1ea0d803fbfe1b3f2de9b048f46b5c23ea119d3738710f72627733d6cf46"
