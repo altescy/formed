@@ -17,17 +17,11 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         x: jax.Array
         y: Optional[jax.Array] = None
 
-        def __len__(self) -> int:
-            return len(self.x)
-
     @flax.struct.dataclass
     class Output:
         y: jax.Array
         loss: Optional[jax.Array] = None
         metrics: Optional[Mapping[str, jax.Array]] = None
-
-        def __len__(self) -> int:
-            return len(self.y)
 
     Params = type[None]
 
