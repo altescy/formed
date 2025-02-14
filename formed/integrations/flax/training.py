@@ -6,7 +6,7 @@ import jax
 import optax
 from colt import Registrable
 from flax import nnx
-from flax.training import train_state
+from flax.training import common_utils, train_state
 
 from formed.workflow import use_step_logger
 
@@ -271,11 +271,12 @@ class FlaxTrainer(
                 losses.append(output.loss)
                 eval_metrics.append(output.metrics or {})
             eval_loss = float(jax.numpy.mean(jax.numpy.stack(losses)).item())
+            eval_metrics_stacked = common_utils.stack_forest(eval_metrics)  # type: ignore[no-untyped-call]
             eval_metrics_mean = {
                 f"val/{key}": float(value.item())
                 for key, value in jax.tree.map(
                     lambda x: x / len(eval_metrics),
-                    jax.tree.map(jax.numpy.sum, eval_metrics),
+                    jax.tree.map(jax.numpy.sum, eval_metrics_stacked),
                 ).items()
             }
             for callback in self._callbacks:
