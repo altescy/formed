@@ -58,7 +58,7 @@ class Collator:
 
 
 @step
-def load_dataset() -> list[tuple[float, float]]:
-    X = numpy.linspace(0, 1, 200)
+def load_dataset(size: int = 200) -> list[tuple[float, float]]:
+    X = numpy.linspace(0, 1, size)
     Y = 0.8 * X**2 + 0.1 + numpy.random.normal(0, 0.1, size=X.shape)  # type: ignore
     return [(float(x), float(y)) for x, y in zip(X, Y)]  # type: ignore

@@ -8,7 +8,7 @@ from colt import Registrable
 from flax import nnx
 from flax.training import common_utils, train_state
 
-from formed.workflow import use_step_logger
+from formed.workflow import use_step_logger, use_step_workdir
 
 from .data import DataLoader
 from .model import FlaxModel
@@ -151,14 +151,75 @@ class TrainerCallback(Registrable):
     ) -> None:
         pass
 
+    def on_eval_start(
+        self,
+        trainer: "FlaxTrainer",
+        state: TrainState,
+    ) -> None:
+        pass
+
+    def on_eval_end(
+        self,
+        trainer: "FlaxTrainer",
+        state: TrainState,
+        metrics: Mapping[str, float],
+    ) -> None:
+        pass
+
     def on_log(
         self,
         trainer: "FlaxTrainer",
         state: TrainState,
-        loss: float,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         pass
+
+
+@TrainerCallback.register("early_stopping")
+class EarlyStoppingCallback(TrainerCallback):
+    def __init__(
+        self,
+        patience: int = 5,
+        metric: str = "-loss",
+    ) -> None:
+        import cloudpickle
+
+        self._patience = patience
+        self._metric = metric.lstrip("-")
+        self._direction = -1 if metric.startswith("-") else 1
+        self._best_metric = -float("inf")
+        self._counter = 0
+        self._cloudpickle = cloudpickle
+
+    def on_eval_end(
+        self,
+        trainer: "FlaxTrainer",
+        state: TrainState,
+        metrics: Mapping[str, float],
+    ) -> None:
+        workdir = use_step_workdir()
+        metric = self._direction * metrics[self._metric]
+        if metric > self._best_metric:
+            self._best_metric = metric
+            self._counter = 0
+            with open(workdir / "best_model.pkl", "wb") as file:
+                self._cloudpickle.dump(state, file)
+        else:
+            self._counter += 1
+            if self._counter >= self._patience:
+                raise StopEarly()
+
+    def on_training_end(
+        self,
+        trainer: "FlaxTrainer",
+        state: TrainState,
+    ) -> TrainState:
+        workdir = use_step_workdir()
+        if (workdir / "best_model.pkl").exists():
+            with open(workdir / "best_model.pkl", "rb") as file:
+                return cast(TrainState, self._cloudpickle.load(file))
+        return state
 
 
 @TrainerCallback.register("mlflow")
@@ -186,13 +247,13 @@ class MlflowCallback(TrainerCallback):
         self,
         trainer: "FlaxTrainer",
         state: TrainState,
-        loss: float,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
+        metrics = {prefix + key: value for key, value in metrics.items()}
         if self._mlflow_logger is not None:
-            self._mlflow_logger.log_metric("loss", loss, step=int(state.step))
             for key, value in metrics.items():
-                self._mlflow_logger.log_metric(f"metric/{key}", value, step=int(state.step))
+                self._mlflow_logger.log_metric(key, value, step=int(state.step))
 
     def on_epoch_end(
         self,
@@ -261,6 +322,8 @@ class FlaxTrainer(
 
         def do_evaluation() -> None:
             model.eval()  # type: ignore[no-untyped-call]
+            for callback in self._callbacks:
+                callback.on_eval_start(self, state)
             if not val_dataset:
                 return
             losses: list[jax.Array] = []
@@ -273,14 +336,19 @@ class FlaxTrainer(
             eval_loss = float(jax.numpy.mean(jax.numpy.stack(losses)).item())
             eval_metrics_stacked = common_utils.stack_forest(eval_metrics)  # type: ignore[no-untyped-call]
             eval_metrics_mean = {
-                f"val/{key}": float(value.item())
-                for key, value in jax.tree.map(
-                    lambda x: x / len(eval_metrics),
-                    jax.tree.map(jax.numpy.sum, eval_metrics_stacked),
-                ).items()
+                "loss": eval_loss,
+                **{
+                    key: float(value.item())
+                    for key, value in jax.tree.map(
+                        lambda x: x / len(eval_metrics),
+                        jax.tree.map(jax.numpy.sum, eval_metrics_stacked),
+                    ).items()
+                },
             }
             for callback in self._callbacks:
-                callback.on_log(self, state, eval_loss, eval_metrics_mean)
+                callback.on_log(self, state, eval_metrics_mean, prefix="val/")
+            for callback in self._callbacks:
+                callback.on_eval_end(self, state, eval_metrics_mean)
 
         try:
             for epoch in range(1, self._max_epochs + 1):
@@ -288,6 +356,7 @@ class FlaxTrainer(
                     callback.on_epoch_start(self, state, epoch)
 
                 model.train()  # type: ignore[no-untyped-call]
+                train_metrics: dict[str, float] = {}
                 for batch in self._train_dataloader(train_dataset):
                     for callback in self._callbacks:
                         callback.on_batch_start(self, state, epoch)
@@ -298,13 +367,12 @@ class FlaxTrainer(
                         self._logging_first_step and state.step == 1
                     ):
                         assert output.loss is not None
-                        loss = float(output.loss.item())
                         train_metrics = {
-                            f"train/{key}": float(value.item()) for key, value in (output.metrics or {}).items()
+                            "loss": float(output.loss.item()),
+                            **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
                         }
                         for callback in self._callbacks:
-                            if loss is not None:
-                                callback.on_log(self, state, loss, train_metrics)
+                            callback.on_log(self, state, train_metrics, prefix="train/")
 
                     for callback in self._callbacks:
                         callback.on_batch_end(self, state, epoch, output)
@@ -316,10 +384,8 @@ class FlaxTrainer(
                     do_evaluation()
 
                 if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
-                    assert output.loss is not None
-                    loss = float(output.loss.item())
                     for callback in self._callbacks:
-                        callback.on_log(self, state, loss, train_metrics)
+                        callback.on_log(self, state, train_metrics, prefix="train/")
 
                 for callback in self._callbacks:
                     callback.on_epoch_end(self, state, epoch)

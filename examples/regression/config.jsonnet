@@ -1,6 +1,7 @@
 {
   steps: {
-    dataset: { type: 'load_dataset' },
+    train_dataset: { type: 'load_dataset', size: 200 },
+    val_dataset: { type: 'load_dataset', size: 100 },
     model: {
       type: 'flax::train',
       model: {
@@ -18,12 +19,14 @@
           type: 'optax:sgd',
           learning_rate: 0.01,
         },
-        max_epochs: 10,
+        max_epochs: 120,
         callbacks: [
           { type: 'mlflow' },
+          { type: 'early_stopping' },
         ],
       },
-      train_dataset: { type: 'ref', ref: 'dataset' },
+      train_dataset: { type: 'ref', ref: 'train_dataset' },
+      val_dataset: { type: 'ref', ref: 'val_dataset' },
     },
   },
 }
