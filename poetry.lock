@@ -4433,6 +4433,33 @@ doc = ["intersphinx_registry", "jupyterlite-pyodide-kernel", "jupyterlite-sphinx
 test = ["Cython", "array-api-strict (>=2.0,<2.1.1)", "asv", "gmpy2", "hypothesis (>=6.30)", "meson", "mpmath", "ninja", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
+name = "sentence-transformers"
+version = "3.4.1"
+description = "State-of-the-Art Text Embeddings"
+optional = true
+python-versions = ">=3.9"
+files = [
+    {file = "sentence_transformers-3.4.1-py3-none-any.whl", hash = "sha256:e026dc6d56801fd83f74ad29a30263f401b4b522165c19386d8bc10dcca805da"},
+    {file = "sentence_transformers-3.4.1.tar.gz", hash = "sha256:68daa57504ff548340e54ff117bd86c1d2f784b21e0fb2689cf3272b8937b24b"},
+]
+
+[package.dependencies]
+huggingface-hub = ">=0.20.0"
+Pillow = "*"
+scikit-learn = "*"
+scipy = "*"
+torch = ">=1.11.0"
+tqdm = "*"
+transformers = ">=4.41.0,<5.0.0"
+
+[package.extras]
+dev = ["accelerate (>=0.20.3)", "datasets", "peft", "pre-commit", "pytest", "pytest-cov"]
+onnx = ["optimum[onnxruntime] (>=1.23.1)"]
+onnx-gpu = ["optimum[onnxruntime-gpu] (>=1.23.1)"]
+openvino = ["optimum-intel[openvino] (>=1.20.0)"]
+train = ["accelerate (>=0.20.3)", "datasets"]
+
+[[package]]
 name = "setuptools"
 version = "75.8.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
@@ -5639,12 +5666,13 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
-all = ["cloudpickle", "datasets", "flax", "flax", "mlflow", "numpy", "protobuf", "pyarrow", "pyarrow", "scipy", "scipy", "transformers"]
+all = ["cloudpickle", "datasets", "flax", "flax", "mlflow", "numpy", "protobuf", "pyarrow", "pyarrow", "scipy", "scipy", "sentence-transformers", "transformers"]
 flax = ["cloudpickle", "flax", "flax"]
 mlflow = ["mlflow", "numpy", "pyarrow", "pyarrow", "scipy", "scipy"]
+sentence-transformers = ["datasets", "sentence-transformers", "transformers"]
 transformers = ["datasets", "protobuf", "transformers"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "e06a35345a47d5f6321f15946c2c820784a557fbf9a55e7f7f1efd7e7c096639"
+content-hash = "cb13a222b93921a632302bd02d696c52c603b92d05d1f7439089187476fc99d7"
