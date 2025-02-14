@@ -3,7 +3,10 @@
     dataset: { type: 'load_dataset' },
     model: {
       type: 'flax::train',
-      model: { type: 'tiny-regressor' },
+      model: {
+        type: 'tiny-regressor',
+        hidden_dim: 32,
+      },
       trainer: {
         train_dataloader: {
           collator: { type: 'regression:Collator' },

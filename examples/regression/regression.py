@@ -25,11 +25,11 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
 
     Params = type[None]
 
-    def __init__(self, rngs: Union[int, nnx.Rngs] = 0) -> None:
+    def __init__(self, rngs: Union[int, nnx.Rngs] = 0, hidden_dim: int = 32) -> None:
         if isinstance(rngs, int):
             rngs = nnx.Rngs(rngs)
-        self._linear1 = nnx.Linear(1, 32, rngs=rngs)
-        self._linear2 = nnx.Linear(32, 1, rngs=rngs)
+        self._linear1 = nnx.Linear(1, hidden_dim, rngs=rngs)
+        self._linear2 = nnx.Linear(hidden_dim, 1, rngs=rngs)
 
     def __call__(
         self,
