@@ -7,6 +7,7 @@ import optax
 from colt import Registrable
 from flax import nnx
 from flax.training import common_utils, train_state
+from rich.progress import Progress
 
 from formed.workflow import use_step_logger, use_step_workdir
 
@@ -322,7 +323,16 @@ class FlaxTrainer(
         for callback in self._callbacks:
             callback.on_training_start(self, state)
 
-        def do_evaluation() -> None:
+        def get_total_training_steps() -> int:
+            dataloader = self._train_dataloader(train_dataset)
+            return len(dataloader) * self._max_epochs
+
+        def get_total_eval_steps() -> int:
+            assert val_dataset is not None
+            dataloader = self._val_dataloader(val_dataset)
+            return len(dataloader)
+
+        def do_evaluation(progress: Progress) -> None:
             assert state is not None
 
             model.eval()  # type: ignore[no-untyped-call]
@@ -332,11 +342,15 @@ class FlaxTrainer(
                 return
             losses: list[jax.Array] = []
             eval_metrics: list[Mapping[str, jax.Array]] = []
+
+            task = progress.add_task("Evaluation", total=get_total_eval_steps())
             for batch in self._val_dataloader(val_dataset):
                 output = self._training_module.eval_step(batch, state, self)
                 assert output.loss is not None
                 losses.append(output.loss)
                 eval_metrics.append(output.metrics or {})
+                progress.advance(task)
+            progress.remove_task(task)
             eval_loss = float(jax.numpy.mean(jax.numpy.stack(losses)).item())
             eval_metrics_stacked = common_utils.stack_forest(eval_metrics)  # type: ignore[no-untyped-call]
             eval_metrics_mean = {
@@ -355,44 +369,48 @@ class FlaxTrainer(
                 callback.on_eval_end(self, state, eval_metrics_mean)
 
         try:
-            for epoch in range(1, self._max_epochs + 1):
-                for callback in self._callbacks:
-                    callback.on_epoch_start(self, state, epoch)
-
-                model.train()  # type: ignore[no-untyped-call]
-                train_metrics: dict[str, float] = {}
-                for batch in self._train_dataloader(train_dataset):
+            with Progress() as progress:
+                task = progress.add_task("Training", total=get_total_training_steps())
+                for epoch in range(1, self._max_epochs + 1):
                     for callback in self._callbacks:
-                        callback.on_batch_start(self, state, epoch)
+                        callback.on_epoch_start(self, state, epoch)
 
-                    state, output = self._training_module.train_step(batch, state, self)
+                    model.train()  # type: ignore[no-untyped-call]
+                    train_metrics: dict[str, float] = {}
+                    for batch in self._train_dataloader(train_dataset):
+                        for callback in self._callbacks:
+                            callback.on_batch_start(self, state, epoch)
 
-                    if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
-                        self._logging_first_step and state.step == 1
-                    ):
-                        assert output.loss is not None
-                        train_metrics = {
-                            "loss": float(output.loss.item()),
-                            **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
-                        }
+                        state, output = self._training_module.train_step(batch, state, self)
+
+                        if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
+                            self._logging_first_step and state.step == 1
+                        ):
+                            assert output.loss is not None
+                            train_metrics = {
+                                "loss": float(output.loss.item()),
+                                **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
+                            }
+                            for callback in self._callbacks:
+                                callback.on_log(self, state, train_metrics, prefix="train/")
+
+                        for callback in self._callbacks:
+                            callback.on_batch_end(self, state, epoch, output)
+
+                        progress.advance(task)
+
+                        if self._eval_strategy == "step" and state.step % self._eval_interval == 0:
+                            do_evaluation(progress)
+
+                    if self._eval_strategy == "epoch" and epoch % self._eval_interval == 0:
+                        do_evaluation(progress)
+
+                    if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
                         for callback in self._callbacks:
                             callback.on_log(self, state, train_metrics, prefix="train/")
 
                     for callback in self._callbacks:
-                        callback.on_batch_end(self, state, epoch, output)
-
-                    if self._eval_strategy == "step" and state.step % self._eval_interval == 0:
-                        do_evaluation()
-
-                if self._eval_strategy == "epoch" and epoch % self._eval_interval == 0:
-                    do_evaluation()
-
-                if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
-                    for callback in self._callbacks:
-                        callback.on_log(self, state, train_metrics, prefix="train/")
-
-                for callback in self._callbacks:
-                    callback.on_epoch_end(self, state, epoch)
+                        callback.on_epoch_end(self, state, epoch)
         except StopEarly:
             logger.info(f"Training stopped early at {state.step} steps.")
 
