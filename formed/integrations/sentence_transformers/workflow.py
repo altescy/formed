@@ -1,5 +1,6 @@
 from collections.abc import Callable, Mapping
 from contextlib import suppress
+from os import PathLike
 from pathlib import Path
 from typing import Any, Generic, Optional, Union, cast
 
@@ -29,7 +30,7 @@ class SentenceTransformerFormat(Generic[SentenceTransformerT], Format[SentenceTr
 
 @step("sentence_transformers::load_pretrained_model", cacheable=False)
 def load_pretrained_model(
-    model_name_or_path: str,
+    model_name_or_path: Union[str, PathLike],
     **kwargs: Any,
 ) -> SentenceTransformer:
     with suppress(Exception):
