@@ -1,8 +1,6 @@
-from typing import Any, Dict, Generic, Optional, Set, Tuple, TypeVar
+from typing import Generic, Optional
 
 import colt
-import flax
-import jax
 from flax import nnx
 
 from .types import ModelInputT, ModelOutputT, ModelParamsT

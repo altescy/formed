@@ -1,8 +1,7 @@
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial
-from typing import Generic, Literal, Optional, TypeVar, Union, cast
+from typing import Any, Generic, Literal, Optional, TypeVar, Union, cast
 
-import flax
 import jax
 import optax
 from colt import Registrable
@@ -81,7 +80,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
     ) -> tuple[TrainState, ModelOutputT]:
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
 
-            def loss_fn(params: Mapping) -> tuple[jax.Array, ModelOutputT]:
+            def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
                 model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, params)
                 output = model(inputs, train=True)
                 assert output.loss is not None
