@@ -1,0 +1,9 @@
+workflow:
+  organizer:
+    type: mlflow
+    experiment_name: toy-regression
+
+required_modules:
+  - regression
+  - formed.integrations.flax
+  - formed.integrations.mlflow

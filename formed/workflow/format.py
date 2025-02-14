@@ -148,6 +148,23 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
         return isinstance(obj, (int, float, str, bool, dict, list, tuple, IDataclass, INamedTuple, BaseModel))
 
 
+@Format.register("cloudpickle")
+class CloudPickleFormat(PickleFormat[_T]):
+    def write(self, artifact: _T, directory: Path) -> None:
+        import cloudpickle
+
+        artifact_path = self._get_artifact_path(directory)
+        with open(artifact_path, "wb") as f:
+            cloudpickle.dump(artifact, f)
+
+    def read(self, directory: Path) -> _T:
+        import cloudpickle
+
+        artifact_path = self._get_artifact_path(directory)
+        with open(artifact_path, "rb") as f:
+            return cast(_T, cloudpickle.load(f))
+
+
 @Format.register("auto")
 class AutoFormat(Format[_T]):
     _DEFAULT_FORMAT: ClassVar[str] = "pickle"
