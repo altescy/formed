@@ -5,7 +5,7 @@ from typing import Generic, TypeVar
 
 from formed.common.iterutils import SizedIterator
 
-from .types import ModelInputT
+from .types import IBatchIterator, ModelInputT
 
 DataT = TypeVar("DataT")
 
@@ -25,7 +25,7 @@ class DataLoader(Generic[DataT, ModelInputT]):
         self._shuffle = shuffle
         self._rng = random.Random(seed)
 
-    def __call__(self, dataset: Sequence[DataT]) -> Iterator[ModelInputT]:
+    def __call__(self, dataset: Sequence[DataT]) -> IBatchIterator[ModelInputT]:
         def iterator() -> Iterator[ModelInputT]:
             indices = list(range(len(dataset)))
             if self._shuffle:
@@ -41,5 +41,5 @@ class DataLoader(Generic[DataT, ModelInputT]):
 
         return SizedIterator(
             iterator(),
-            size=math.ceil(len(dataset) / self._batch_size) if self._drop_last else len(dataset) // self._batch_size,
+            size=len(dataset) // self._batch_size if self._drop_last else math.ceil(len(dataset) / self._batch_size),
         )
