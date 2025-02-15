@@ -40,6 +40,7 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         train: bool = False,
     ) -> Output:
         h = jax.nn.relu(self._linear1(inputs.x))
+        h = self._dropout(h, deterministic=not train)
         y = self._linear2(h)
 
         loss: Optional[jax.Array]
