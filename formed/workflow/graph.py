@@ -99,8 +99,20 @@ class WorkflowGraph(FromJsonnet):
         self,
         *,
         output: TextIO = sys.stdout,
+        additional_info: Mapping[str, str] = {},
     ) -> None:
-        dag = DAG({name: {dep.name for _, dep in info.dependencies} for name, info in self._step_info.items()})
+        def get_node(name: str) -> str:
+            if name in additional_info:
+                return f"{name}: {additional_info[name]}"
+            return name
+
+        dag = DAG(
+            {
+                get_node(name): {get_node(dep.name) for _, dep in info.dependencies}
+                for name, info in self._step_info.items()
+            }
+        )
+
         dag.visualize(output=output)
 
     def to_dict(self) -> dict[str, Any]:
