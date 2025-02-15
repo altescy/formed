@@ -2,4 +2,4 @@ import formed
 
 
 def test_version() -> None:
-    assert formed.__version__ == "0.0.2"
+    assert formed.__version__ == "0.0.3"
