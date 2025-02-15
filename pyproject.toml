@@ -17,7 +17,7 @@ priority = "primary"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-colt = ">=0.16.1"
+colt = ">=0.16.3"
 dill = "*"
 filelock = "*"
 minato = ">=0.12"
