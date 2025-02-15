@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "formed"
-version = "0.0.1"
+version = "0.0.2"
 description = "⚙️ Flexible framework for organizing data/experiments/workflows"
 authors = ["altescy <me@altescy.jp>"]
 license = "MIT License"
