@@ -39,6 +39,8 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
             rngs = nnx.Rngs(rngs)
         self._linear1 = nnx.Linear(1, hidden_dim, rngs=rngs)
         self._linear2 = nnx.Linear(hidden_dim, 1, rngs=rngs)
+        self._dropout = nnx.Dropout(rate=0.1, rngs=rngs)
+        self._layarnorm = nnx.LayerNorm(hidden_dim, rngs=rngs)
 
     def __call__(
         self,
@@ -48,6 +50,7 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         train: bool = False,
     ) -> Output:
         h = jax.nn.relu(self._linear1(inputs.x))
+        h = self._layarnorm(self._dropout(h))
         y = self._linear2(h)
 
         loss: Optional[jax.Array]
