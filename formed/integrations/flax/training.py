@@ -80,7 +80,6 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         trainer: "FlaxTrainer",
     ) -> tuple[TrainState, ModelOutputT]:
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
-
             def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
                 model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, params)
                 output = model(inputs, train=True)
@@ -187,11 +186,19 @@ class EarlyStoppingCallback(TrainerCallback):
         import cloudpickle
 
         self._patience = patience
-        self._metric = metric.lstrip("-")
-        self._direction = -1 if metric.startswith("-+") else 1
+        self._metric = metric.lstrip("-+")
+        self._direction = -1 if metric.startswith("-") else 1
         self._best_metric = -float("inf")
         self._counter = 0
         self._cloudpickle = cloudpickle
+
+    def on_training_start(
+        self,
+        trainer: "FlaxTrainer",
+        state: TrainState,
+    ) -> None:
+        self._best_metric = -float("inf")
+        self._counter = 0
 
     def on_eval_end(
         self,
@@ -199,6 +206,7 @@ class EarlyStoppingCallback(TrainerCallback):
         state: TrainState,
         metrics: Mapping[str, float],
     ) -> None:
+        logger = use_step_logger(__name__)
         workdir = use_step_workdir()
         metric = self._direction * metrics[self._metric]
         if metric > self._best_metric:
@@ -206,6 +214,7 @@ class EarlyStoppingCallback(TrainerCallback):
             self._counter = 0
             with open(workdir / "best_model.pkl", "wb") as file:
                 self._cloudpickle.dump(state, file)
+            logger.info(f"New best model saved with {self._metric}={self._best_metric:.4f}")
         else:
             self._counter += 1
             if self._counter >= self._patience:
@@ -216,8 +225,10 @@ class EarlyStoppingCallback(TrainerCallback):
         trainer: "FlaxTrainer",
         state: TrainState,
     ) -> TrainState:
+        logger = use_step_logger(__name__)
         workdir = use_step_workdir()
         if (workdir / "best_model.pkl").exists():
+            logger.info("Loading best model.")
             with open(workdir / "best_model.pkl", "rb") as file:
                 return cast(TrainState, self._cloudpickle.load(file))
         return state
@@ -383,14 +394,15 @@ class FlaxTrainer(
 
                         state, output = self._training_module.train_step(batch, state, self)
 
+                        assert output.loss is not None
+                        train_metrics = {
+                            "loss": float(output.loss.item()),
+                            **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
+                        }
+
                         if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
                             self._logging_first_step and state.step == 1
                         ):
-                            assert output.loss is not None
-                            train_metrics = {
-                                "loss": float(output.loss.item()),
-                                **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
-                            }
                             for callback in self._callbacks:
                                 callback.on_log(self, state, train_metrics, prefix="train/")
 
