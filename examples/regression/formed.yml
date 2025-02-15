@@ -3,6 +3,10 @@ workflow:
     type: mlflow
     experiment_name: toy-regression
 
+logging:
+  jax:
+    level: WARNING
+
 required_modules:
   - regression
   - formed.integrations.flax
