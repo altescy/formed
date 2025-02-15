@@ -25,6 +25,7 @@ class StopEarly(Exception):
 
 class TrainState(train_state.TrainState):  # type: ignore[no-untyped-call]
     graphdef: nnx.GraphDef
+    additional_states: tuple[nnx.State, ...] = ()
 
 
 class FlaxTrainingModule(Registrable, Generic[ModelInputT, ModelOutputT, ModelParamsT]):
@@ -61,12 +62,13 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         trainer: "FlaxTrainer",
         model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
     ) -> TrainState:
-        graphdef, params = nnx.split(model, nnx.Param)
+        graphdef, params, *states = nnx.split(model, nnx.Param, nnx.BatchStat, nnx.RngState)
         return cast(
             TrainState,
             TrainState.create(  # type: ignore[no-untyped-call]
                 apply_fn=None,
                 graphdef=graphdef,
+                additional_states=tuple(states),
                 params=params,
                 tx=trainer.optimizer,
             ),
@@ -81,7 +83,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
     ) -> tuple[TrainState, ModelOutputT]:
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
             def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
-                model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, params)
+                model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, params, *state.additional_states)  # type: ignore[arg-type]
                 output = model(inputs, train=True)
                 assert output.loss is not None
                 return output.loss, output
@@ -99,7 +101,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         state: TrainState,
         trainer: "FlaxTrainer",
     ) -> ModelOutputT:
-        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, state.params)  # type: ignore[arg-type]
+        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]
         return model(inputs, train=False)
 
 

@@ -27,4 +27,4 @@ def train_flax_model(
         val_dataset=val_dataset,
     )
 
-    return nnx.merge(state.graphdef, state.params)  # type: ignore[arg-type]
+    return nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]

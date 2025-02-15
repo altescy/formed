@@ -30,6 +30,7 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
             rngs = nnx.Rngs(rngs)
         self._linear1 = nnx.Linear(1, hidden_dim, rngs=rngs)
         self._linear2 = nnx.Linear(hidden_dim, 1, rngs=rngs)
+        self._dropout = nnx.Dropout(rate=0.1, rngs=rngs)
 
     def __call__(
         self,
