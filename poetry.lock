@@ -5701,4 +5701,4 @@ transformers = ["datasets", "protobuf", "transformers"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "a7d53a363fc22f17a22b820210b669e7935470a87a7b26ac55a1e53c394f4297"
+content-hash = "8f7ae44f8ea002ccfc28b570f2e8119ad75d1834b58060fe555af4cf916462f3"
