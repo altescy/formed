@@ -33,7 +33,7 @@ class FormedSettings:
         # load required modules
         required_modules = cls.__COLT_BUILDER__(settings.pop("required_modules", []), Sequence[str])
         import_modules(required_modules)
-        print("imported:", required_modules)
+        logger.info(f"Load required modules: {required_modules}")
         # load environment variables
         environment = cls.__COLT_BUILDER__(settings.pop("environment", {}), Mapping[str, str])
         os.environ.update(environment)

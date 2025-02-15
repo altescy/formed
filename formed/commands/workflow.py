@@ -90,3 +90,51 @@ class WorkflowRemoveCommand(Subcommand):
             sys.exit(1)
 
         organizer.remove(args.execution_id)
+
+
+@WorkflowCommand.register("visualize")
+class WorkflowVisualizeCommand(Subcommand):
+    def setup(self) -> None:
+        self.parser.add_argument(
+            "config",
+            type=str,
+            help="config file path",
+        )
+        self.parser.add_argument(
+            "--output",
+            type=argparse.FileType("w"),
+            default=sys.stdout,
+            help="output file path",
+        )
+        self.parser.add_argument(
+            "--settings",
+            type=str,
+            default=None,
+            help="workflow environment settings file path",
+        )
+
+    def run(self, args: argparse.Namespace) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+        from rich.panel import Panel
+
+        formed_settings = load_formed_settings(args.settings)
+        settings = formed_settings.workflow
+        organizer = settings.organizer
+
+        config_path = pathlib.Path(args.config)
+
+        logger.info(f"Load workflow from {config_path}")
+        graph = WorkflowGraph.from_jsonnet(config_path)
+
+        additional_info: dict[str, str] = {}
+        for step in graph:
+            if step in organizer.cache:
+                additional_info[step.name] = "[bold green]✔[/bold green]"
+
+        buffer = StringIO()
+        graph.visualize(output=buffer, additional_info=additional_info)
+
+        console = Console(file=args.output)
+        console.print(Panel(buffer.getvalue().strip(), title=f"Workflow @ {config_path}"))
