@@ -510,13 +510,13 @@ colorama = {version = "*", markers = "sys_platform == \"win32\""}
 
 [[package]]
 name = "colt"
-version = "0.16.5"
+version = "0.16.6"
 description = "A configuration utility for Python object."
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "colt-0.16.5-py3-none-any.whl", hash = "sha256:6d00a1d555e7ddcb5c64efc265c4dd0e716d3010eda4b271856c2ca72b15afc5"},
-    {file = "colt-0.16.5.tar.gz", hash = "sha256:2aea3fa483120c03c7ea01944d4576ec9e396a9485a9ebafa78807f81a882893"},
+    {file = "colt-0.16.6-py3-none-any.whl", hash = "sha256:5ba589554dd839483d639c4f0e1cc40876956f10c0974b57a1a43f7112373b84"},
+    {file = "colt-0.16.6.tar.gz", hash = "sha256:7d1d02800e4d37df524287f2b501224fd9245bddd51a1f2a1ab81c5cd7937e06"},
 ]
 
 [[package]]
@@ -5701,4 +5701,4 @@ transformers = ["datasets", "protobuf", "transformers"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "845cbd430f424bbcced3c1cede6f7adccb98bf200e5d43b7ae8fbffedc8c95f3"
+content-hash = "0df4de9d27d4559cedf25f67e92595845dd82b7b793d6039c0a841474585cc3c"
