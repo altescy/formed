@@ -181,7 +181,7 @@ class WorkflowStepInfo(Generic[T_WorkflowStep]):
         ignore_args = self.step_class.get_ignore_args()
         if isinstance(config, Mapping):
             config = {k: v for k, v in config.items() if k not in ignore_args}
-        dependencies = frozenset(info.fingerprint for (key, *_), info in self.dependencies if key not in ignore_args)
+        dependencies = sorted(info.fingerprint for (key, *_), info in self.dependencies if key not in ignore_args)
         return object_fingerprint((metadata, config, dependencies))
 
     def __eq__(self, other: Any) -> bool:
