@@ -8,7 +8,7 @@ from colt import Registrable
 
 from .fields import Field, LabelField, ListField, ScalarField, TensorField, TextField
 from .indexers import LabelIndexer, TokenIndexer
-from .types import DataArray, IntTensor, ScalarT, TensorT
+from .types import DataArray, IntTensor, ScalarT, Tensor, TensorT  # noqa: F401
 from .utils import RegexTokenizer
 
 T = TypeVar("T")
