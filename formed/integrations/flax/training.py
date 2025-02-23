@@ -9,13 +9,13 @@ from flax import nnx
 from flax.training import common_utils, train_state
 from rich.progress import Progress
 
+from formed.integrations.ml import BasicBatchSampler, DataLoader
 from formed.workflow import use_step_logger, use_step_workdir
 
-from .data import DataLoader
 from .model import FlaxModel
-from .types import IModelOutput, IOptimizer, ModelInputT, ModelOutputT, ModelParamsT
+from .types import DataT, IModelOutput, IOptimizer, ModelInputT, ModelOutputT, ModelParamsT
+from .utils import numpy_to_jax
 
-DataT = TypeVar("DataT")
 OptimizerT = TypeVar("OptimizerT", bound=optax.GradientTransformation)
 
 
@@ -83,7 +83,9 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
     ) -> tuple[TrainState, ModelOutputT]:
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
             def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
-                model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, params, *state.additional_states)  # type: ignore[arg-type]
+                model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(
+                    state.graphdef, params, *state.additional_states
+                )  # type: ignore[arg-type]
                 output = model(inputs, train=True)
                 assert output.loss is not None
                 return output.loss, output
@@ -101,7 +103,9 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         state: TrainState,
         trainer: "FlaxTrainer",
     ) -> ModelOutputT:
-        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]
+        model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(
+            state.graphdef, state.params, *state.additional_states
+        )  # type: ignore[arg-type]
         return model(inputs, train=False)
 
 
@@ -109,6 +113,7 @@ class TrainerCallback(Registrable):
     def on_training_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> None:
         pass
@@ -116,6 +121,7 @@ class TrainerCallback(Registrable):
     def on_training_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> TrainState:
         return state
@@ -123,6 +129,7 @@ class TrainerCallback(Registrable):
     def on_epoch_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         epoch: int,
     ) -> None:
@@ -131,6 +138,7 @@ class TrainerCallback(Registrable):
     def on_epoch_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         epoch: int,
     ) -> None:
@@ -139,6 +147,7 @@ class TrainerCallback(Registrable):
     def on_batch_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         epoch: int,
     ) -> None:
@@ -147,6 +156,7 @@ class TrainerCallback(Registrable):
     def on_batch_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         epoch: int,
         output: IModelOutput,
@@ -156,6 +166,7 @@ class TrainerCallback(Registrable):
     def on_eval_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> None:
         pass
@@ -163,6 +174,7 @@ class TrainerCallback(Registrable):
     def on_eval_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         metrics: Mapping[str, float],
     ) -> None:
@@ -171,6 +183,7 @@ class TrainerCallback(Registrable):
     def on_log(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         metrics: Mapping[str, float],
         prefix: str = "",
@@ -197,6 +210,7 @@ class EarlyStoppingCallback(TrainerCallback):
     def on_training_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> None:
         self._best_metric = -float("inf")
@@ -205,6 +219,7 @@ class EarlyStoppingCallback(TrainerCallback):
     def on_eval_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         metrics: Mapping[str, float],
     ) -> None:
@@ -225,6 +240,7 @@ class EarlyStoppingCallback(TrainerCallback):
     def on_training_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> TrainState:
         logger = use_step_logger(__name__)
@@ -246,6 +262,7 @@ class MlflowCallback(TrainerCallback):
     def on_training_start(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
     ) -> None:
         from formed.integrations.mlflow.workflow import use_mlflow_logger
@@ -260,6 +277,7 @@ class MlflowCallback(TrainerCallback):
     def on_log(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         metrics: Mapping[str, float],
         prefix: str = "",
@@ -272,6 +290,7 @@ class MlflowCallback(TrainerCallback):
     def on_epoch_end(
         self,
         trainer: "FlaxTrainer",
+        model: FlaxModel,
         state: TrainState,
         epoch: int,
     ) -> None:
@@ -289,7 +308,7 @@ class FlaxTrainer(
 ):
     def __init__(
         self,
-        train_dataloader: DataLoader[DataT, ModelInputT],
+        train_dataloader: Optional[DataLoader] = None,
         val_dataloader: Optional[DataLoader] = None,
         training_module: Optional[FlaxTrainingModule[ModelInputT, ModelOutputT, ModelParamsT]] = None,
         optimizer: Union[IOptimizer, optax.GradientTransformation] = optax.adamw(1e-3),
@@ -305,9 +324,13 @@ class FlaxTrainer(
             optimizer = optax.GradientTransformation(optimizer.init, optimizer.update)
 
         self._optimizer = optimizer
-        self._train_dataloader = train_dataloader
-        self._val_dataloader = val_dataloader or train_dataloader
-        self._training_module = training_module or DefaultFlaxTrainingModule()
+        self._train_dataloader = train_dataloader or DataLoader(
+            BasicBatchSampler(batch_size=32, shuffle=True, drop_last=True)
+        )
+        self._val_dataloader = val_dataloader or DataLoader(
+            BasicBatchSampler(batch_size=32, shuffle=False, drop_last=False)
+        )
+        self._training_module = training_module
         self._max_epochs = max_epochs
         self._eval_strategy = eval_strategy
         self._eval_interval = eval_interval
@@ -330,11 +353,14 @@ class FlaxTrainer(
     ) -> TrainState:
         logger = use_step_logger(__name__)
 
+        if self._training_module is None:
+            self._training_module = model.default_training_module() or DefaultFlaxTrainingModule()
+
         if state is None:
             state = self._training_module.create_state(rngs, self, model)
 
         for callback in self._callbacks:
-            callback.on_training_start(self, state)
+            callback.on_training_start(self, model, state)
 
         def get_total_training_steps() -> int:
             dataloader = self._train_dataloader(train_dataset)
@@ -347,10 +373,11 @@ class FlaxTrainer(
 
         def do_evaluation(progress: Progress) -> None:
             assert state is not None
+            assert self._training_module is not None
 
             model.eval()  # type: ignore[no-untyped-call]
             for callback in self._callbacks:
-                callback.on_eval_start(self, state)
+                callback.on_eval_start(self, model, state)
             if not val_dataset:
                 return
             losses: list[jax.Array] = []
@@ -358,7 +385,8 @@ class FlaxTrainer(
 
             task = progress.add_task("Evaluation", total=get_total_eval_steps())
             for batch in self._val_dataloader(val_dataset):
-                output = self._training_module.eval_step(batch, state, self)
+                inputs = model.Input(**numpy_to_jax(batch))
+                output = self._training_module.eval_step(inputs, state, self)
                 assert output.loss is not None
                 losses.append(output.loss)
                 eval_metrics.append(output.metrics or {})
@@ -377,24 +405,25 @@ class FlaxTrainer(
                 },
             }
             for callback in self._callbacks:
-                callback.on_log(self, state, eval_metrics_mean, prefix="val/")
+                callback.on_log(self, model, state, eval_metrics_mean, prefix="val/")
             for callback in self._callbacks:
-                callback.on_eval_end(self, state, eval_metrics_mean)
+                callback.on_eval_end(self, model, state, eval_metrics_mean)
 
         try:
             with Progress() as progress:
                 task = progress.add_task("Training", total=get_total_training_steps())
                 for epoch in range(1, self._max_epochs + 1):
                     for callback in self._callbacks:
-                        callback.on_epoch_start(self, state, epoch)
+                        callback.on_epoch_start(self, model, state, epoch)
 
                     model.train()  # type: ignore[no-untyped-call]
                     train_metrics: dict[str, float] = {}
                     for batch in self._train_dataloader(train_dataset):
                         for callback in self._callbacks:
-                            callback.on_batch_start(self, state, epoch)
+                            callback.on_batch_start(self, model, state, epoch)
 
-                        state, output = self._training_module.train_step(batch, state, self)
+                        inputs = model.Input(**numpy_to_jax(batch))
+                        state, output = self._training_module.train_step(inputs, state, self)
 
                         assert output.loss is not None
                         train_metrics = {
@@ -406,10 +435,10 @@ class FlaxTrainer(
                             self._logging_first_step and state.step == 1
                         ):
                             for callback in self._callbacks:
-                                callback.on_log(self, state, train_metrics, prefix="train/")
+                                callback.on_log(self, model, state, train_metrics, prefix="train/")
 
                         for callback in self._callbacks:
-                            callback.on_batch_end(self, state, epoch, output)
+                            callback.on_batch_end(self, model, state, epoch, output)
 
                         progress.advance(task)
 
@@ -421,14 +450,14 @@ class FlaxTrainer(
 
                     if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
                         for callback in self._callbacks:
-                            callback.on_log(self, state, train_metrics, prefix="train/")
+                            callback.on_log(self, model, state, train_metrics, prefix="train/")
 
                     for callback in self._callbacks:
-                        callback.on_epoch_end(self, state, epoch)
+                        callback.on_epoch_end(self, model, state, epoch)
         except StopEarly:
             logger.info(f"Training stopped early at {state.step} steps.")
 
         for callback in self._callbacks:
-            state = callback.on_training_end(self, state)
+            state = callback.on_training_end(self, model, state)
 
         return state

@@ -1,9 +1,14 @@
-from typing import Generic, Optional
+from typing import TYPE_CHECKING, Generic, Optional
 
 import colt
 from flax import nnx
 
+from formed.integrations.ml import DataModule, extract_fields
+
 from .types import ModelInputT, ModelOutputT, ModelParamsT
+
+if TYPE_CHECKING:
+    from .training import FlaxTrainingModule
 
 
 class FlaxModel(
@@ -23,3 +28,14 @@ class FlaxModel(
         train: bool = False,
     ) -> ModelOutputT:
         raise NotImplementedError
+
+    @classmethod
+    def default_data_module(cls) -> Optional[DataModule]:
+        fields = extract_fields(cls.Input)
+        if fields is not None:
+            return DataModule(fields)
+        return None
+
+    @classmethod
+    def default_training_module(cls) -> Optional["FlaxTrainingModule"]:
+        return None

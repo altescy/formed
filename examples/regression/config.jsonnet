@@ -2,6 +2,10 @@
   steps: {
     train_dataset: { type: 'load_dataset', size: 200 },
     val_dataset: { type: 'load_dataset', size: 100 },
+    datamodule: {
+      type: 'formedml::build_datamodule',
+      dataset: { type: 'ref', ref: 'train_dataset' },
+    },
     model: {
       type: 'flax::train',
       model: {
@@ -10,10 +14,12 @@
       },
       trainer: {
         train_dataloader: {
-          collator: { type: 'regression:Collator' },
-          batch_size: 64,
-          shuffle: true,
-          drop_last: true,
+          batch_sampler: {
+            type: 'basic',
+            batch_size: 64,
+            shuffle: true,
+            drop_last: true,
+          },
         },
         optimizer: {
           type: 'optax:sgd',

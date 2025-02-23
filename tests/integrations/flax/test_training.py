@@ -7,7 +7,8 @@ import numpy
 import pytest
 from flax import nnx
 
-from formed.integrations.flax import DataLoader, FlaxModel, FlaxTrainer
+from formed.integrations.flax import FlaxModel, FlaxTrainer
+from formed.integrations.ml import ScalarField
 
 
 class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Params"]):
@@ -49,9 +50,9 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         *,
         train: bool = False,
     ) -> Output:
-        h = jax.nn.relu(self._linear1(inputs.x))
+        h = jax.nn.relu(self._linear1(inputs.x[:, None]))
         h = self._layarnorm(self._dropout(h))
-        y = self._linear2(h)
+        y = self._linear2(h)[:, 0]
 
         loss: Optional[jax.Array]
         if inputs.y is not None:
@@ -68,14 +69,14 @@ def collate(data: Sequence[tuple[float, float]]) -> Regressor.Input:
 
 
 @pytest.fixture
-def regression_dataset() -> Sequence[tuple[float, float]]:
+def regression_dataset() -> Sequence[Mapping[str, ScalarField]]:
     X = numpy.linspace(0, 1, 200)
     Y = 0.8 * X**2 + 0.1 + numpy.random.normal(0, 0.1, size=X.shape)  # type: ignore
-    return [(float(x), float(y)) for x, y in zip(X, Y)]  # type: ignore
+    return [{"x": ScalarField(x), "y": ScalarField(y)} for x, y in zip(X, Y)]  # type: ignore
 
 
 def test_training(
-    regression_dataset: Sequence[tuple[float, float]],
+    regression_dataset: Sequence[Mapping[str, ScalarField]],
 ) -> None:
     rngs = nnx.Rngs(0)
 
@@ -85,11 +86,9 @@ def test_training(
     model = Regressor()
 
     trainer = FlaxTrainer[
-        tuple[float, float],
+        Mapping[str, ScalarField],
         Regressor.Input,
         Regressor.Output,
         Regressor.Params,
-    ](
-        train_dataloader=DataLoader(collate, batch_size=32, shuffle=True),
-    )
+    ]()
     trainer.train(rngs, model, train_dataset, val_dataset)
