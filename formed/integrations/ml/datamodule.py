@@ -2,11 +2,7 @@ import copy
 import dataclasses
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextvars import ContextVar
-from functools import cache
-from os import PathLike
 from typing import Any, Generic, Optional, TypeVar, Union, cast
-
-from collatable import Collator
 
 from .fields import Field
 from .transforms import FieldTransform

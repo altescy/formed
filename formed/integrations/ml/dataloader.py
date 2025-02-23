@@ -1,6 +1,6 @@
 import math
 import random
-from collections.abc import Iterable, Iterator, Mapping, Sequence, Sized
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Optional
 
 from collatable import Collator
