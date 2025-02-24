@@ -96,9 +96,7 @@ class TextFieldTransform(
         if self._indexer.is_frozen:
             return
         for text in dataset:
-            tokens: Sequence[HashableT] = (
-                self._tokenizer(text) if isinstance(text, str) else text
-            )  # type: ignore[assignment]
+            tokens = self._tokenizer(text) if isinstance(text, str) else text
             for token in tokens:
                 self._indexer.add(token)
 
