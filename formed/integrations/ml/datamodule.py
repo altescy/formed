@@ -4,6 +4,8 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextvars import ContextVar
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
+from formed.common.xutils import xgetattr
+
 from .fields import Field
 from .transforms import FieldTransform
 from .types import DataArray
@@ -20,22 +22,7 @@ class FieldAccessor:
         self._field = field
 
     def __call__(self, obj: Any) -> Any:
-        def _get_field(obj: Any, field: str) -> Any:
-            child: Optional[str] = None
-            if "." in field:
-                field, child = field.split(".", 1)
-            if field == "*":
-                assert isinstance(obj, Sequence) and child, "Wildcard field must be used with a child field"
-                return [_get_field(item, child) for item in obj]
-            if isinstance(obj, dict):
-                obj = obj[field]
-            else:
-                obj = getattr(obj, field)
-            if child:
-                obj = _get_field(obj, child)
-            return obj
-
-        return _get_field(obj, self._field)
+        return xgetattr(obj, self._field)
 
 
 @dataclasses.dataclass(frozen=True)

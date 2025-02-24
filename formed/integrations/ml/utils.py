@@ -1,6 +1,8 @@
 import re
 from typing import ClassVar, Optional, Pattern
 
+from collatable.utils import debatched  # noqa: F401
+
 
 class RegexTokenizer:
     _DEFAULT_TOKENIZER_PATTERN: ClassVar[Pattern] = re.compile(r"[^\s.,!?:;/]+(?:[-']\[^\s.,!?:;/]+)*|[.,!?:;/]")

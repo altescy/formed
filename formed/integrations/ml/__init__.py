@@ -10,4 +10,5 @@ from .transforms import (  # noqa: F401
     ScalarFieldTransform,
     TextFieldTransform,
 )
+from .utils import debatched  # noqa: F401
 from .workflow import build_datamodule  # noqa: F401
