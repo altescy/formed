@@ -359,7 +359,9 @@ class FlaxTrainer(
         if state is None:
             state = self._training_module.create_state(rngs, self, model)
 
-        for callback in self._callbacks:
+        callbacks = list[TrainerCallback]((*self._callbacks, *model.trainer_callbacks()))
+
+        for callback in callbacks:
             callback.on_training_start(self, model, state)
 
         def get_total_training_steps() -> int:
@@ -376,7 +378,7 @@ class FlaxTrainer(
             assert self._training_module is not None
 
             model.eval()  # type: ignore[no-untyped-call]
-            for callback in self._callbacks:
+            for callback in callbacks:
                 callback.on_eval_start(self, model, state)
             if not val_dataset:
                 return
@@ -404,22 +406,22 @@ class FlaxTrainer(
                     ).items()
                 },
             }
-            for callback in self._callbacks:
+            for callback in callbacks:
                 callback.on_log(self, model, state, eval_metrics_mean, prefix="val/")
-            for callback in self._callbacks:
+            for callback in callbacks:
                 callback.on_eval_end(self, model, state, eval_metrics_mean)
 
         try:
             with Progress() as progress:
                 task = progress.add_task("Training", total=get_total_training_steps())
                 for epoch in range(1, self._max_epochs + 1):
-                    for callback in self._callbacks:
+                    for callback in callbacks:
                         callback.on_epoch_start(self, model, state, epoch)
 
                     model.train()  # type: ignore[no-untyped-call]
                     train_metrics: dict[str, float] = {}
                     for batch in self._train_dataloader(train_dataset):
-                        for callback in self._callbacks:
+                        for callback in callbacks:
                             callback.on_batch_start(self, model, state, epoch)
 
                         inputs = model.Input(**numpy_to_jax(batch))
@@ -434,10 +436,10 @@ class FlaxTrainer(
                         if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
                             self._logging_first_step and state.step == 1
                         ):
-                            for callback in self._callbacks:
+                            for callback in callbacks:
                                 callback.on_log(self, model, state, train_metrics, prefix="train/")
 
-                        for callback in self._callbacks:
+                        for callback in callbacks:
                             callback.on_batch_end(self, model, state, epoch, output)
 
                         progress.advance(task)
@@ -449,15 +451,15 @@ class FlaxTrainer(
                         do_evaluation(progress)
 
                     if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
-                        for callback in self._callbacks:
+                        for callback in callbacks:
                             callback.on_log(self, model, state, train_metrics, prefix="train/")
 
-                    for callback in self._callbacks:
+                    for callback in callbacks:
                         callback.on_epoch_end(self, model, state, epoch)
         except StopEarly:
             logger.info(f"Training stopped early at {state.step} steps.")
 
-        for callback in self._callbacks:
+        for callback in callbacks:
             state = callback.on_training_end(self, model, state)
 
         return state

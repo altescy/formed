@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Generic, Optional
+from typing import TYPE_CHECKING, Generic, Optional, Sequence
 
 import colt
 from flax import nnx
@@ -8,7 +8,7 @@ from formed.integrations.ml import DataModule, extract_fields
 from .types import ModelInputT, ModelOutputT, ModelParamsT
 
 if TYPE_CHECKING:
-    from .training import FlaxTrainingModule
+    from .training import FlaxTrainingModule, TrainerCallback
 
 
 class FlaxModel(
@@ -39,3 +39,6 @@ class FlaxModel(
     @classmethod
     def default_training_module(cls) -> Optional["FlaxTrainingModule"]:
         return None
+
+    def trainer_callbacks(self) -> Sequence["TrainerCallback"]:
+        return []
