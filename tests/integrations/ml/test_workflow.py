@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 from formed.integrations.ml import DataModule, TextFieldTransform
 from formed.integrations.ml.workflow import build_datamodule, split_dataset
