@@ -35,8 +35,10 @@ class WorkflowJSONEncoder(json.JSONEncoder):
             return obj.isoformat()
         if is_namedtuple(obj):
             return obj._asdict()
-        if isinstance(obj, (set, frozenset, tuple)):
+        if isinstance(obj, tuple):
             return list(obj)
+        if isinstance(obj, (set, frozenset)):
+            return sorted(obj)
         if isinstance(obj, WorkflowRef):
             return obj.config
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
