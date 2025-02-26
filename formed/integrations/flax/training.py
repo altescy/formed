@@ -311,7 +311,7 @@ class FlaxTrainer(
         train_dataloader: Optional[DataLoader] = None,
         val_dataloader: Optional[DataLoader] = None,
         training_module: Optional[FlaxTrainingModule[ModelInputT, ModelOutputT, ModelParamsT]] = None,
-        optimizer: Union[IOptimizer, optax.GradientTransformation] = optax.adamw(1e-3),
+        optimizer: Union[IOptimizer, optax.MultiSteps, optax.GradientTransformation] = optax.adamw(1e-3),
         max_epochs: int = 10,
         eval_strategy: Literal["epoch", "step"] = "epoch",
         eval_interval: int = 1,
