@@ -1,3 +1,4 @@
+import json
 from collections.abc import Mapping, Sequence
 from functools import partial
 from typing import Any, Generic, Literal, Optional, TypeVar, Union, cast
@@ -7,7 +8,7 @@ import optax
 from colt import Registrable
 from flax import nnx
 from flax.training import common_utils, train_state
-from rich.progress import Progress
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
 from formed.integrations.ml import BasicBatchSampler, DataLoader
 from formed.workflow import use_step_logger, use_step_workdir
@@ -252,6 +253,26 @@ class EarlyStoppingCallback(TrainerCallback):
         return state
 
 
+@TrainerCallback.register("logging")
+class LoggingCallback(TrainerCallback):
+    def __init__(self) -> None:
+        from formed.integrations.mlflow.workflow import MlflowLogger
+
+        self._mlflow_logger: Optional[MlflowLogger] = None
+
+    def on_log(
+        self,
+        trainer: "FlaxTrainer",
+        model: FlaxModel,
+        state: TrainState,
+        metrics: Mapping[str, float],
+        prefix: str = "",
+    ) -> None:
+        logger = use_step_logger(__name__)
+        metrics = {prefix + key: value for key, value in metrics.items()}
+        logger.info(json.dumps(metrics, ensure_ascii=False))
+
+
 @TrainerCallback.register("mlflow")
 class MlflowCallback(TrainerCallback):
     def __init__(self) -> None:
@@ -360,6 +381,8 @@ class FlaxTrainer(
             state = self._training_module.create_state(rngs, self, model)
 
         callbacks = list[TrainerCallback]((*self._callbacks, *model.trainer_callbacks()))
+        if not any(isinstance(callback, LoggingCallback) for callback in callbacks):
+            callbacks.append(LoggingCallback())
 
         for callback in callbacks:
             callback.on_training_start(self, model, state)
@@ -412,7 +435,13 @@ class FlaxTrainer(
                 callback.on_eval_end(self, model, state, eval_metrics_mean)
 
         try:
-            with Progress() as progress:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("{task.description}"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TimeRemainingColumn(),
+            ) as progress:
                 task = progress.add_task("Training", total=get_total_training_steps())
                 for epoch in range(1, self._max_epochs + 1):
                     for callback in callbacks:
