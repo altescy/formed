@@ -1,0 +1,14 @@
+workflow:
+  organizer:
+    type: mlflow
+    experiment_name: text-classification
+
+logging:
+  jax:
+    level: WARNING
+
+required_modules:
+  - text_classification
+  - formed.integrations.datasets
+  - formed.integrations.flax
+  - formed.integrations.mlflow
