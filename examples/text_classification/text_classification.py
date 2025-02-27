@@ -1,11 +1,8 @@
-import dataclasses
 import logging
-import sys
 from collections.abc import Mapping
 from typing import Annotated, Optional, Union
 
 import datasets
-import flax
 import jax
 import optax
 from flax import nnx, struct
@@ -13,7 +10,6 @@ from rich.logging import RichHandler
 
 from formed.integrations.flax import FlaxModel, FlaxTrainer
 from formed.integrations.ml import (
-    DataModule,
     Dataset,
     FieldConfig,
     LabelFieldTransform,
