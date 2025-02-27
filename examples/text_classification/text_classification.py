@@ -9,13 +9,7 @@ from flax import nnx, struct
 from rich.logging import RichHandler
 
 from formed.integrations.flax import FlaxModel, FlaxTrainer
-from formed.integrations.ml import (
-    Dataset,
-    FieldConfig,
-    LabelFieldTransform,
-    TextFieldTransform,
-    use_datamodule,
-)
+from formed.integrations.ml import Dataset, FieldConfig, LabelFieldTransform, TextFieldTransform, use_datamodule
 
 logging.basicConfig(
     level="INFO",
