@@ -35,7 +35,7 @@ def split_dataset(
     dataset: Sequence[T],
     splits: Mapping[str, float],
     seed: int = 0,
-) -> dict[str, Dataset]:
+) -> dict[str, Dataset[T]]:
     assert abs(sum(splits.values()) - 1.0) < 1e-5, "splits must sum to 1.0"
     rng = random.Random(seed)
 
