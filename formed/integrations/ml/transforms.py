@@ -63,6 +63,11 @@ class TextFieldTransform(
                 "pad_token and unk_token are ignored when indexer is provided",
                 UserWarning,
             )
+        if not reserved_tokens:
+            if pad_token is not None:
+                reserved_tokens = (pad_token,)
+            if unk_token is not None:
+                reserved_tokens = tuple((*reserved_tokens, unk_token))
 
         self._tokenizer: Callable[[str], Sequence[HashableT]] = (
             tokenizer or RegexTokenizer()  # type: ignore[assignment]
