@@ -12,6 +12,7 @@
       model: {
         type: 'text_classifier',
         hidden_dim: 32,
+        dropout: 0.1,
       },
       trainer: {
         max_epochs: 10,

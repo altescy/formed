@@ -62,6 +62,7 @@ class TextClassifier(
         self,
         rngs: Union[int, nnx.Rngs] = 0,
         hidden_dim: int = 32,
+        dropout: float = 0.1,
     ) -> None:
         super().__init__()
         if isinstance(rngs, int):
@@ -73,6 +74,7 @@ class TextClassifier(
 
         self.embedder = nnx.Embed(vocab_size, hidden_dim, rngs=rngs)
         self.classifier = nnx.Linear(hidden_dim, num_labels, rngs=rngs)
+        self.dropout = nnx.Dropout(dropout, rngs=rngs)
 
     def __call__(
         self,
@@ -86,6 +88,8 @@ class TextClassifier(
 
         token_embeddings = token_embeddings * mask[:, :, None]
         text_embedding = token_embeddings.sum(axis=1) / mask.sum(axis=1)[:, None]
+        if train:
+            text_embedding = self.dropout(text_embedding, deterministic=False)
 
         logits = self.classifier(text_embedding)
         probs = jax.nn.softmax(logits)
