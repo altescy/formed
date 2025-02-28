@@ -10,7 +10,7 @@ from flax import nnx
 from flax.training import common_utils, train_state
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
-from formed.integrations.ml import BasicBatchSampler, DataLoader
+from formed.integrations.ml import BasicBatchSampler, DataLoader, MetricAverage
 from formed.workflow import use_step_logger, use_step_workdir
 
 from .model import FlaxModel
@@ -405,34 +405,25 @@ class FlaxTrainer(
                 callback.on_eval_start(self, model, state)
             if not val_dataset:
                 return
-            losses: list[jax.Array] = []
-            eval_metrics: list[Mapping[str, jax.Array]] = []
+            eval_metrics = MetricAverage()
 
             task = progress.add_task("Evaluation", total=get_total_eval_steps())
             for batch in self._val_dataloader(val_dataset):
                 inputs = model.Input(**numpy_to_jax(batch))
                 output = self._training_module.eval_step(inputs, state, self)
                 assert output.loss is not None
-                losses.append(output.loss)
-                eval_metrics.append(output.metrics or {})
+                eval_metrics.add(
+                    {
+                        "loss": float(output.loss.item()),
+                        **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
+                    }
+                )
                 progress.advance(task)
             progress.remove_task(task)
-            eval_loss = float(jax.numpy.mean(jax.numpy.stack(losses)).item())
-            eval_metrics_stacked = common_utils.stack_forest(eval_metrics)  # type: ignore[no-untyped-call]
-            eval_metrics_mean = {
-                "loss": eval_loss,
-                **{
-                    key: float(value.item())
-                    for key, value in jax.tree.map(
-                        lambda x: x / len(eval_metrics),
-                        jax.tree.map(jax.numpy.sum, eval_metrics_stacked),
-                    ).items()
-                },
-            }
             for callback in callbacks:
-                callback.on_log(self, model, state, eval_metrics_mean, prefix="val/")
+                callback.on_log(self, model, state, eval_metrics, prefix="val/")
             for callback in callbacks:
-                callback.on_eval_end(self, model, state, eval_metrics_mean)
+                callback.on_eval_end(self, model, state, eval_metrics)
 
         try:
             with Progress(
@@ -442,13 +433,13 @@ class FlaxTrainer(
                 MofNCompleteColumn(),
                 TimeRemainingColumn(),
             ) as progress:
+                train_metrics = MetricAverage()
                 task = progress.add_task("Training", total=get_total_training_steps())
                 for epoch in range(1, self._max_epochs + 1):
                     for callback in callbacks:
                         callback.on_epoch_start(self, model, state, epoch)
 
                     model.train()  # type: ignore[no-untyped-call]
-                    train_metrics: dict[str, float] = {}
                     for batch in self._train_dataloader(train_dataset):
                         for callback in callbacks:
                             callback.on_batch_start(self, model, state, epoch)
@@ -457,16 +448,19 @@ class FlaxTrainer(
                         state, output = self._training_module.train_step(inputs, state, self)
 
                         assert output.loss is not None
-                        train_metrics = {
-                            "loss": float(output.loss.item()),
-                            **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
-                        }
+                        train_metrics.add(
+                            {
+                                "loss": float(output.loss.item()),
+                                **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
+                            }
+                        )
 
                         if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
                             self._logging_first_step and state.step == 1
                         ):
                             for callback in callbacks:
                                 callback.on_log(self, model, state, train_metrics, prefix="train/")
+                            train_metrics.reset()
 
                         for callback in callbacks:
                             callback.on_batch_end(self, model, state, epoch, output)
@@ -482,6 +476,7 @@ class FlaxTrainer(
                     if self._logging_strategy == "epoch" and epoch % self._logging_interval == 0:
                         for callback in callbacks:
                             callback.on_log(self, model, state, train_metrics, prefix="train/")
+                        train_metrics.reset()
 
                     for callback in callbacks:
                         callback.on_epoch_end(self, model, state, epoch)
