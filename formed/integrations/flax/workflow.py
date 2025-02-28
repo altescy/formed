@@ -94,6 +94,8 @@ def evaluate_flax_model(
     if dataloader is None:
         dataloader = DataLoader(BasicBatchSampler(batch_size=32, drop_last=False, shuffle=False))
 
+    model.eval()  # type: ignore[no-untyped-call]
+
     metrics = MetricAverage()
 
     instances = Dataset.from_iterable(datamodule(cast(Sequence, dataset)))
