@@ -100,11 +100,12 @@ def evaluate_flax_model(
 
     instances = Dataset.from_iterable(datamodule(cast(Sequence, dataset)))
     with Progress() as progress:
-        task = progress.add_task("Evaluating...", total=len(instances))
-        for batch in dataloader(instances):
+        iterator = dataloader(instances)
+        task = progress.add_task("Evaluating...", total=len(iterator))
+        for batch in iterator:
             inputs = model.Input(**numpy_to_jax(batch))
             output = model(inputs, params)
             metrics.add({key: float(value.item()) for key, value in (output.metrics or {}).items()})
-            progress.update(task, advance=len(batch))
+            progress.update(task, advance=1)
 
     return dict(metrics)

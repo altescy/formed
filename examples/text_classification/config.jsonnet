@@ -8,7 +8,7 @@
     test_dataset: {
       type: 'datasets::load_dataset',
       path: 'stanfordnlp/imdb',
-      split: 'test',
+      split: 'test[:1000]',
     },
     datamodule: {
       type: 'formedml::build_datamodule',
