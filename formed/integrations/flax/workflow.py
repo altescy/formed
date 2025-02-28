@@ -1,17 +1,18 @@
 import contextvars
 from collections.abc import Sequence
-from typing import Optional, TypeVar, Union, cast
+from typing import Annotated, Optional, TypeVar, Union, cast
 
 from colt import Lazy
 from flax import nnx
 
-from formed.integrations.ml import DataModule, Dataset
+from formed.integrations.ml import BasicBatchSampler, DataLoader, DataModule, Dataset, MetricAverage
 from formed.integrations.ml.workflow import split_dataset
-from formed.workflow import step, use_step_logger
+from formed.workflow import WorkflowStepResultFlag, step, use_step_logger
 
 from .model import FlaxModel
 from .training import FlaxTrainer, TrainState
 from .types import DataT, ModelInputT, ModelOutputT, ModelParamsT
+from .utils import numpy_to_jax
 
 try:
     from formed.integrations.datasets.types import Dataset as HfDataset
@@ -70,11 +71,38 @@ def train_flax_model(
         return trainer.train(
             rngs=rngs,
             model=model.construct(),
-            train_dataset=train_dataset,
-            val_dataset=val_dataset,
+            train_dataset=cast(Sequence[DataT], train_dataset),
+            val_dataset=cast(Optional[Sequence[DataT]], val_dataset),
         )
 
     ctx = contextvars.copy_context()
     state = ctx.run(train)
 
     return nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]
+
+
+@step("flax::evaluate")
+def evaluate_flax_model(
+    model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
+    datamodule: DataModule[T],
+    dataset: Union[Sequence[T], Sequence[DataT], HfDataset],
+    params: Optional[ModelParamsT] = None,
+    dataloader: Optional[DataLoader] = None,
+) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
+    from rich.progress import Progress
+
+    if dataloader is None:
+        dataloader = DataLoader(BasicBatchSampler(batch_size=32, drop_last=False, shuffle=False))
+
+    metrics = MetricAverage()
+
+    instances = Dataset.from_iterable(datamodule(cast(Sequence, dataset)))
+    with Progress() as progress:
+        task = progress.add_task("Evaluating...", total=len(instances))
+        for batch in dataloader(instances):
+            inputs = model.Input(**numpy_to_jax(batch))
+            output = model(inputs, params)
+            metrics.add({key: float(value.item()) for key, value in (output.metrics or {}).items()})
+            progress.update(task, advance=len(batch))
+
+    return dict(metrics)

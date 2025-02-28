@@ -1,3 +1,5 @@
+from collatable import Collator  # noqa: F401
+
 from .dataloader import BasicBatchSampler, BatchSampler, DataLoader  # noqa: F401
 from .datamodule import DataModule, FieldConfig, extract_fields, set_datamodule, use_datamodule  # noqa: F401
 from .dataset import Dataset  # noqa: F401
