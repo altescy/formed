@@ -146,7 +146,7 @@ if __name__ == "__main__":
         trainer = FlaxTrainer(max_epochs=10, logging_strategy="step", logging_interval=100)  # type: ignore
         state = trainer.train(nnx.Rngs(0), model, train_instances)
 
-    model = nnx.merge(state.graphdef, state.params, *state.additional_states)
+    model = nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]
 
     test_dataset = datasets.load_dataset("stanfordnlp/imdb", split="test[:10]")
     predictor = Predictor(model, datamodule)
