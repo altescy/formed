@@ -7,7 +7,7 @@ import jax
 import optax
 from colt import Registrable
 from flax import nnx
-from flax.training import common_utils, train_state
+from flax.training import train_state
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
 from formed.integrations.ml import BasicBatchSampler, DataLoader, MetricAverage

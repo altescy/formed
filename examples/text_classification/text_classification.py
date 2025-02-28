@@ -1,10 +1,7 @@
 import dataclasses
 import logging
-import sys
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Annotated, Optional, Union
-
-sys.path.append("../..")
 
 import datasets
 import jax
@@ -132,8 +129,6 @@ class Predictor:
 
 
 if __name__ == "__main__":
-    import itertools
-
     from flax import nnx
 
     train_dataset = datasets.load_dataset("stanfordnlp/imdb", split="train")
