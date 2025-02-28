@@ -91,6 +91,8 @@ def evaluate_flax_model(
 ) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
     from rich.progress import Progress
 
+    logger = use_step_logger(__name__)
+
     if dataloader is None:
         dataloader = DataLoader(BasicBatchSampler(batch_size=32, drop_last=False, shuffle=False))
 
@@ -108,4 +110,7 @@ def evaluate_flax_model(
             metrics.add({key: float(value.item()) for key, value in (output.metrics or {}).items()})
             progress.update(task, advance=1)
 
-    return dict(metrics)
+    results = dict(metrics)
+    logger.info("Evaluation results: %s", results)
+
+    return results
