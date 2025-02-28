@@ -28,11 +28,11 @@ class DatasetFormat(Format[Dataset]):
 
 
 @overload
-def build_datamodule(dataset: HfDataset, datamodule: Optional[DataModule[T]] = None) -> DataModule: ...
+def build_datamodule(dataset: HfDataset, datamodule: Optional[DataModule[T]] = ...) -> DataModule: ...
 
 
 @overload
-def build_datamodule(dataset: Sequence[T], datamodule: Optional[DataModule[T]] = None) -> DataModule[T]: ...
+def build_datamodule(dataset: Sequence[T], datamodule: Optional[DataModule[T]] = ...) -> DataModule[T]: ...
 
 
 @step("formedml::build_datamodule", format="pickle")
@@ -46,11 +46,11 @@ def build_datamodule(
 
 
 @overload
-def split_dataset(dataset: HfDataset, splits: Mapping[str, float], seed: int = 0) -> dict[str, Dataset]: ...
+def split_dataset(dataset: HfDataset, splits: Mapping[str, float], seed: int = ...) -> dict[str, Dataset]: ...
 
 
 @overload
-def split_dataset(dataset: Sequence[T], splits: Mapping[str, float], seed: int = 0) -> dict[str, Dataset[T]]: ...
+def split_dataset(dataset: Sequence[T], splits: Mapping[str, float], seed: int = ...) -> dict[str, Dataset[T]]: ...
 
 
 @step("formedml::split_dataset", format=MappingFormat(DatasetFormat()))
