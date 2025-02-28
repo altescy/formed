@@ -2,6 +2,7 @@ import copy
 import dataclasses
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextvars import ContextVar
+from types import TracebackType
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
 from formed.common.xutils import xgetattr
@@ -48,6 +49,10 @@ class FieldConfig(Generic[S, T, FieldT]):
         return self.transform.stats()
 
 
+class DataModuleNotActivatedError(RuntimeError):
+    pass
+
+
 class DataModule(Generic[T]):
     def __init__(
         self,
@@ -89,10 +94,34 @@ class DataModule(Generic[T]):
     def activate(self) -> None:
         set_datamodule(self)
 
+    def deactivate(self) -> None:
+        if not self.is_active():
+            raise DataModuleNotActivatedError("This DataModule is not currently active")
+        unset_datamodule()
+
+    def is_active(self) -> bool:
+        try:
+            return use_datamodule() is self
+        except DataModuleNotActivatedError:
+            return False
+
     def field(self, key: str) -> FieldConfig:
         if self._fields is None:
             raise RuntimeError("Fields are not defined")
         return self._fields[key]
+
+    def __enter__(self) -> "DataModule":
+        if not self.is_active():
+            self.activate()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        self.deactivate()
 
     def __call__(self, dataset: Iterable[T]) -> Iterator[dict[str, Field]]:
         if self._fields is None:
@@ -108,12 +137,16 @@ class DataModule(Generic[T]):
 def use_datamodule() -> "DataModule":
     datamodule = _FORMEDML_DATAMODULE.get()
     if datamodule is None:
-        raise RuntimeError("No DataModule is currently active")
+        raise DataModuleNotActivatedError("No DataModule is currently active")
     return datamodule
 
 
 def set_datamodule(datamodule: "DataModule") -> None:
     _FORMEDML_DATAMODULE.set(datamodule)
+
+
+def unset_datamodule() -> None:
+    _FORMEDML_DATAMODULE.set(None)
 
 
 def extract_fields(cls: type) -> Optional[Mapping[str, FieldConfig]]:
