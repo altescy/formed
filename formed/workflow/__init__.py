@@ -12,7 +12,7 @@ from .executor import (  # noqa: F401
     WorkflowExecutor,
     use_execution_context,
 )
-from .format import Format, JsonFormat, PickleFormat  # noqa: F401
+from .format import CloudPickleFormat, Format, JsonFormat, MappingFormat, PickleFormat  # noqa: F401
 from .graph import WorkflowGraph  # noqa: F401
 from .organizer import FilesystemWorkflowOrganizer, MemoryWorkflowOrganizer, WorkflowOrganizer  # noqa: F401
 from .settings import WorkflowSettings  # noqa: F401

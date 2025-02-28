@@ -1,6 +1,6 @@
 import importlib
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import IO, Any, ClassVar, Generic, Optional, TypeVar, Union, cast
 
@@ -191,3 +191,21 @@ class AutoFormat(Format[_T]):
         format_name = format_metadata["name"]
         format = cast(type[Format[_T]], Format.by_name(format_name))()
         return format.read(directory)
+
+
+@Format.register("mapping")
+class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
+    def __init__(self, format: Format[_T]) -> None:
+        self._format = format
+
+    def write(self, artifact: Mapping[str, _T], directory: Path) -> None:
+        for key, value in artifact.items():
+            subdir = directory / key
+            subdir.mkdir(parents=True)
+            self._format.write(value, subdir)
+
+    def read(self, directory: Path) -> Mapping[str, _T]:
+        artifact: dict[str, _T] = {}
+        for subdir in directory.glob("*"):
+            artifact[subdir.name] = self._format.read(subdir)
+        return artifact

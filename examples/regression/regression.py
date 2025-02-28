@@ -1,4 +1,5 @@
-from collections.abc import Mapping, Sequence
+import dataclasses
+from collections.abc import Mapping
 from typing import Optional, Union
 
 import flax
@@ -8,6 +9,12 @@ from flax import nnx
 
 from formed.integrations.flax import FlaxModel
 from formed.workflow import step
+
+
+@dataclasses.dataclass
+class RegressionExample:
+    x: numpy.ndarray
+    y: float
 
 
 @FlaxModel.register("tiny-regressor")
@@ -53,14 +60,8 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         return Regressor.Output(y=y, loss=loss)
 
 
-class Collator:
-    def __call__(self, data: Sequence[tuple[float, float]]) -> Regressor.Input:
-        x, y = zip(*data)
-        return Regressor.Input(x=jax.numpy.array(x)[:, None], y=jax.numpy.array(y))
-
-
-@step
-def load_dataset(size: int = 200) -> list[tuple[float, float]]:
+@step("load_dataset", format="pickle")
+def load_dataset(size: int = 200) -> list[RegressionExample]:
     X = numpy.linspace(0, 1, size)
     Y = 0.8 * X**2 + 0.1 + numpy.random.normal(0, 0.1, size=X.shape)  # type: ignore
-    return [(float(x), float(y)) for x, y in zip(X, Y)]  # type: ignore
+    return [RegressionExample(x, float(y)) for x, y in zip(X[:, None], Y)]  # type: ignore
