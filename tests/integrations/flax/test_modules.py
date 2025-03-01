@@ -55,3 +55,12 @@ class TestSeq2SeqEncoder:
         inputs = jax.random.normal(rng, (2, 3, 4))
         output = encoder(inputs)
         assert output.shape == (2, 3, 4)
+
+    @staticmethod
+    def test_transformer_seq2seq_encoder_with_seq_lengths() -> None:
+        encoder = TransformerSeq2SeqEncoder(4, 2)
+        inputs = jax.numpy.ones((2, 3, 4))
+        seq_lengths = jax.numpy.array([2, 3])
+        output = jax.numpy.abs(encoder(inputs, seq_lengths=seq_lengths))
+        assert output.shape == (2, 3, 4)
+        assert (output.sum(2) != 0).sum(1).tolist() == [2, 3]

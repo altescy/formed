@@ -251,9 +251,17 @@ class TransformerSeq2SeqEncoder(Seq2SeqEncoder):
             block: TransformerSeq2SeqEncoder._TransformerBlock,
             rngs: Optional[nnx.Rngs],
         ) -> jax.Array:
+            if mask is not None:
+                x = x * mask
             return block(x, seq_lengths=seq_lengths, deterministic=deterministic, rngs=rngs)
 
+        mask: Optional[jax.Array] = None
+        if seq_lengths is not None:
+            mask = (jax.numpy.arange(inputs.shape[-2])[None, :] < seq_lengths[:, None])[..., None]
         if self.position_encoder is not None:
             inputs = self.position_encoder(inputs)
 
-        return forward(inputs, self.blocks, rngs)
+        output = forward(inputs, self.blocks, rngs)
+        if mask is not None:
+            output = output * mask
+        return output
