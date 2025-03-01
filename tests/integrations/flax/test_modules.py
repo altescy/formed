@@ -1,6 +1,18 @@
-import jax
+from collections.abc import Callable
+from functools import partial
 
-from formed.integrations.flax.modules import FeedForward
+import jax
+import pytest
+
+from formed.integrations.flax.modules import (
+    FeedForward,
+    GRUSeq2SeqEncoder,
+    LSTMSeq2SeqEncoder,
+    OptimizedLSTMSeq2SeqEncoder,
+    RNNSeq2SeqEncoder,
+    SinusoidalPositionEncoder,
+    TransformerSeq2SeqEncoder,
+)
 
 
 class TestFeedForward:
@@ -9,3 +21,37 @@ class TestFeedForward:
         x = jax.numpy.ones((8, 4))
         y = model(x)
         assert y.shape == (8, 4)
+
+
+class TestSeq2SeqEncoder:
+    @staticmethod
+    @pytest.mark.parametrize(
+        "encoder_type",
+        [
+            LSTMSeq2SeqEncoder,
+            OptimizedLSTMSeq2SeqEncoder,
+            GRUSeq2SeqEncoder,
+        ],
+    )
+    def test_rnn_seq2seq_encoder(encoder_type: Callable[..., RNNSeq2SeqEncoder]) -> None:
+        encoder = encoder_type(4)
+        rng = jax.random.PRNGKey(0)
+        inputs = jax.random.normal(rng, (2, 3, 4))
+        output = encoder(inputs)
+        assert output.shape == (2, 3, 4)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "encoder_type",
+        [
+            TransformerSeq2SeqEncoder,
+            partial(TransformerSeq2SeqEncoder, num_layers=3),
+            partial(TransformerSeq2SeqEncoder, position_encoder=SinusoidalPositionEncoder()),
+        ],
+    )
+    def test_transformer_seq2seq_encoder(encoder_type: Callable[..., TransformerSeq2SeqEncoder]) -> None:
+        encoder = encoder_type(4, 2)
+        rng = jax.random.PRNGKey(0)
+        inputs = jax.random.normal(rng, (2, 3, 4))
+        output = encoder(inputs)
+        assert output.shape == (2, 3, 4)

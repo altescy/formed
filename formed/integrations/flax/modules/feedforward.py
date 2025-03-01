@@ -22,10 +22,16 @@ class Block(nnx.Module):
             nnx.LayerNorm(output_dim, epsilon=layer_norm_eps, rngs=rngs) if layer_norm_eps is not None else None
         )
 
-    def __call__(self, x: jax.Array, *, deterministic: Optional[bool] = None) -> jax.Array:
+    def __call__(
+        self,
+        x: jax.Array,
+        *,
+        deterministic: Optional[bool] = None,
+        rngs: Optional[nnx.Rngs] = None,
+    ) -> jax.Array:
         x = self.activation(self.linear(x))
         if self.dropout is not None:
-            x = self.dropout(x, deterministic=deterministic)
+            x = self.dropout(x, deterministic=deterministic, rngs=rngs)
         if self.layer_norm is not None:
             x = self.layer_norm(x)
         return x
@@ -61,10 +67,16 @@ class FeedForward(nnx.Module):
     def output_dim(self) -> int:
         return self.features
 
-    def __call__(self, x: jax.Array, *, deterministic: Optional[bool] = None) -> jax.Array:
+    def __call__(
+        self,
+        x: jax.Array,
+        *,
+        deterministic: Optional[bool] = None,
+        rngs: Optional[nnx.Rngs] = None,
+    ) -> jax.Array:
         @nnx.split_rngs(splits=self.num_layers)
-        @nnx.scan(in_axes=(nnx.Carry, 0), out_axes=nnx.Carry)
-        def forward(x: jax.Array, block: Block) -> jax.Array:
-            return block(x, deterministic=deterministic)
+        @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
+        def forward(x: jax.Array, block: Block, rngs: Optional[nnx.Rngs]) -> jax.Array:
+            return block(x, deterministic=deterministic, rngs=rngs)
 
-        return forward(x, self.blocks)
+        return forward(x, self.blocks, rngs)
