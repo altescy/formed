@@ -270,7 +270,7 @@ class LoggingCallback(TrainerCallback):
     ) -> None:
         logger = use_step_logger(__name__)
         metrics = {prefix + key: value for key, value in metrics.items()}
-        logger.info(json.dumps(metrics, ensure_ascii=False))
+        logger.info(json.dumps(metrics, ensure_ascii=False, sort_keys=True))
 
 
 @TrainerCallback.register("mlflow")
