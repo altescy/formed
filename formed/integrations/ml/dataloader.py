@@ -12,6 +12,28 @@ from .fields import Field
 from .types import DataArray
 
 
+class Batch(Mapping[str, DataArray]):
+    def __init__(self, data: Mapping[str, DataArray], size: int) -> None:
+        self._data = data
+        self._size = size
+
+    def __getitem__(self, key: str) -> DataArray:
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({dict(self)})"
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+
 class BatchSampler(Registrable):
     def __call__(self, data: Sequence) -> SizedIterator[Sequence[int]]:
         raise NotImplementedError
@@ -56,9 +78,9 @@ class DataLoader:
         self._batch_sampler = batch_sampler
         self._collator = collator or Collator()
 
-    def __call__(self, data: Sequence[Mapping[str, Field]]) -> SizedIterator[Mapping[str, DataArray]]:
+    def __call__(self, data: Sequence[Mapping[str, Field]]) -> SizedIterator[Batch]:
         indices = self._batch_sampler(data)
         return SizedIterator(
-            (self._collator([data[i] for i in batch]) for batch in indices),
+            (Batch(self._collator([data[i] for i in batch]), len(indices)) for batch in indices),
             len(indices),
         )

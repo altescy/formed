@@ -23,10 +23,10 @@ class MetricAverage(Mapping[str, float]):
         self._total: dict[str, float] = defaultdict(float)
         self._count = 0
 
-    def add(self, metrics: dict[str, float]) -> None:
+    def add(self, metrics: dict[str, float], size: int = 1) -> None:
         for key, value in metrics.items():
-            self._total[key] += value
-        self._count += 1
+            self._total[key] += value * size
+        self._count += size
 
     def reset(self) -> None:
         self._total.clear()

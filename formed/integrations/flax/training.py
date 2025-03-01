@@ -416,7 +416,8 @@ class FlaxTrainer(
                     {
                         "loss": float(output.loss.item()),
                         **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
-                    }
+                    },
+                    batch.size,
                 )
                 progress.advance(task)
             progress.remove_task(task)
@@ -452,7 +453,8 @@ class FlaxTrainer(
                             {
                                 "loss": float(output.loss.item()),
                                 **{key: float(value.item()) for key, value in (output.metrics or {}).items()},
-                            }
+                            },
+                            batch.size,
                         )
 
                         if (self._logging_strategy == "step" and state.step % self._logging_interval == 0) or (
