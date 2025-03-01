@@ -36,10 +36,10 @@ class FeedForward(nnx.Module):
         self,
         features: int,
         num_layers: int = 1,
-        rngs: Union[int, nnx.Rngs] = 0,
         dropout: float = 0.0,
         layer_norm_eps: Optional[float] = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
+        rngs: Union[int, nnx.Rngs] = 0,
     ) -> None:
         if isinstance(rngs, int):
             rngs = nnx.Rngs(rngs)
@@ -52,6 +52,14 @@ class FeedForward(nnx.Module):
         self.features = features
         self.num_layers = num_layers
         self.blocks = create_block(rngs)
+
+    @property
+    def input_dim(self) -> int:
+        return self.features
+
+    @property
+    def output_dim(self) -> int:
+        return self.features
 
     def __call__(self, x: jax.Array) -> jax.Array:
         @nnx.split_rngs(splits=self.num_layers)
