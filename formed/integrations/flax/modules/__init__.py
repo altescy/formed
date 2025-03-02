@@ -8,3 +8,5 @@ from .seq2seq_encoders import (  # noqa: F401
     Seq2SeqEncoder,
     TransformerSeq2SeqEncoder,
 )
+from .seq2vec_encoders import BagOfEmbeddingsSeq2VecEncoder, Seq2VecEncoder  # noqa: F401
+from .sequence_distributed import SequenceDistributed  # noqa: F401
