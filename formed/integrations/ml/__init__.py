@@ -9,6 +9,7 @@ from .transforms import (  # noqa: F401
     FieldTransform,
     LabelFieldTransform,
     ListFieldTransform,
+    MappingFieldTransform,
     ScalarFieldTransform,
     TextFieldTransform,
 )

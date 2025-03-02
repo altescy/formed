@@ -1,15 +1,18 @@
 import warnings
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from os import PathLike
-from typing import Any, Generic, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union, cast
 
 import dill
 from colt import Registrable
 
-from .fields import Field, LabelField, ListField, ScalarField, TensorField, TextField
+from .fields import Field, LabelField, ListField, MappingField, ScalarField, TensorField, TextField
 from .indexers import LabelIndexer, TokenIndexer
 from .types import DataArray, IntTensor, ScalarT, Tensor, TensorT  # noqa: F401
 from .utils import RegexTokenizer
+
+if TYPE_CHECKING:
+    from .datamodule import FieldConfig
 
 T = TypeVar("T")
 FieldT = TypeVar("FieldT", bound=Field)
@@ -207,3 +210,35 @@ class TensorFieldTransform(
 
     def freeze(self) -> None:
         pass
+
+
+@FieldTransform.register("mapping")
+class MappingFieldTransform(FieldTransform[Any, MappingField]):
+    def __init__(
+        self,
+        transform: Mapping[str, Union[FieldTransform, "FieldConfig"]],
+    ) -> None:
+        from .datamodule import FieldConfig
+
+        self._transform: Mapping[str, "FieldConfig"] = {
+            key: FieldConfig(key, value) if isinstance(value, FieldTransform) else value
+            for key, value in transform.items()
+        }
+
+    def __call__(self, obj: Mapping[str, Any], /) -> MappingField:
+        return MappingField({key: field.transform(field.access(obj)) for key, field in self._transform.items()})
+
+    def build(self, dataset: Iterable[Any], /) -> None:
+        for key, field in self._transform.items():
+            field.transform.build(field.access(obj) for obj in dataset)
+
+    def freeze(self) -> None:
+        for field in self._transform.values():
+            field.transform.freeze()
+
+    def reconstruct(self, array: DataArray, /) -> Mapping[str, Any]:
+        assert isinstance(array, Mapping)
+        return {key: field.reconstruct(array[key]) for key, field in self._transform.items()}
+
+    def stats(self) -> Mapping[str, Any]:
+        return {key: field.stats for key, field in self._transform.items()}
