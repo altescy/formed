@@ -1,13 +1,10 @@
-from collections.abc import Callable
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 import jax
 from colt import Registrable
 from flax import nnx
 
 from formed.integrations.flax.utils import masked_pool
-
-from .position_encoders import PositionEncoder
 
 
 class Seq2VecEncoder(nnx.Module, Registrable):
