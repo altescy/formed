@@ -65,14 +65,15 @@ def masked_pool(
         return embeddings.sum(axis=1) / (mask.sum(axis=1, keepdims=True) + 1e-13)
 
     if pooling == "max":
-        embeddings[~mask] = float("-inf")
+        embeddings = jax.numpy.where(mask[..., None], embeddings, -jax.numpy.inf)
         return embeddings.max(axis=1)
 
     if pooling == "min":
-        embeddings[~mask] = float("inf")
+        embeddings = jax.numpy.where(mask[..., None], embeddings, jax.numpy.inf)
         return embeddings.min(axis=1)
 
     if pooling == "sum":
+        embeddings = jax.numpy.where(mask[..., None], embeddings, 0)
         return embeddings.sum(axis=1)
 
     if pooling == "first":

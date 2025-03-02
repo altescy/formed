@@ -5,11 +5,13 @@ import jax
 import pytest
 
 from formed.integrations.flax.modules import (
+    BagOfEmbeddingsSeq2VecEncoder,
     FeedForward,
     GRUSeq2SeqEncoder,
     LSTMSeq2SeqEncoder,
     OptimizedLSTMSeq2SeqEncoder,
     RNNSeq2SeqEncoder,
+    Seq2VecEncoder,
     SinusoidalPositionEncoder,
     TransformerSeq2SeqEncoder,
 )
@@ -70,3 +72,23 @@ class TestSeq2SeqEncoder:
         output = jax.numpy.abs(encoder(inputs, seq_lengths=seq_lengths))
         assert output.shape == (2, 3, 4)
         assert (output.sum(2) != 0).sum(1).tolist() == [2, 3]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "encoder_type",
+        [
+            BagOfEmbeddingsSeq2VecEncoder,
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="mean"),
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="max"),
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="sum"),
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="first"),
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="last"),
+            partial(BagOfEmbeddingsSeq2VecEncoder, pooling="hier", window_size=2),
+        ],
+    )
+    def test_seq2vec_encoder(encoder_type: Callable[..., Seq2VecEncoder]) -> None:
+        encoder = encoder_type()
+        rng = jax.random.PRNGKey(0)
+        inputs = jax.random.normal(rng, (2, 3, 4))
+        output = encoder(inputs)
+        assert output.shape == (2, 4)
