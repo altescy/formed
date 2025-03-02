@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import jax
 from flax import nnx
@@ -25,11 +25,14 @@ class Block(nnx.Module):
     def __call__(
         self,
         x: jax.Array,
+        r: Optional[jax.Array] = None,
         *,
         deterministic: Optional[bool] = None,
         rngs: Optional[nnx.Rngs] = None,
     ) -> jax.Array:
         x = self.activation(self.linear(x))
+        if r is not None:
+            x = x + r
         if self.dropout is not None:
             x = self.dropout(x, deterministic=deterministic, rngs=rngs)
         if self.layer_norm is not None:
@@ -45,6 +48,7 @@ class FeedForward(nnx.Module):
         dropout: float = 0.0,
         layer_norm_eps: Optional[float] = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
+        residual_connection: Literal["none", "dense"] = "none",
         rngs: Union[int, nnx.Rngs] = 0,
     ) -> None:
         if isinstance(rngs, int):
@@ -58,6 +62,7 @@ class FeedForward(nnx.Module):
         self.features = features
         self.num_layers = num_layers
         self.blocks = create_block(rngs)
+        self.residual_connection = residual_connection
 
     @property
     def input_dim(self) -> int:
@@ -76,7 +81,20 @@ class FeedForward(nnx.Module):
     ) -> jax.Array:
         @nnx.split_rngs(splits=self.num_layers)
         @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
-        def forward(x: jax.Array, block: Block, rngs: Optional[nnx.Rngs]) -> jax.Array:
-            return block(x, deterministic=deterministic, rngs=rngs)
+        def forward(
+            inputs: tuple[jax.Array, Optional[jax.Array]], block: Block, rngs: Optional[nnx.Rngs]
+        ) -> tuple[jax.Array, Optional[jax.Array]]:
+            x, r = inputs
+            output = block(x, r, deterministic=deterministic, rngs=rngs)
+            if self.residual_connection == "dense":
+                r = r + x
+            return output, r
 
-        return forward(x, self.blocks, rngs)
+        return forward(
+            (
+                x,
+                jax.numpy.zeros_like(x) if self.residual_connection == "dense" else None,
+            ),
+            self.blocks,
+            rngs,
+        )[0]
