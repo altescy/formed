@@ -1,7 +1,7 @@
 PWD      := $(shell pwd)
-PYTHON   := poetry run python
-PYTEST   := poetry run pytest
-PYSEN    := poetry run pysen
+PYTHON   := uv run python
+PYTEST   := uv run pytest
+PYSEN    := uv run pysen
 MODULE   := formed
 
 .PHONY: all

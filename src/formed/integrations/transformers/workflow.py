@@ -29,7 +29,10 @@ class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[Pretra
         artifact.save_pretrained(str(directory / "model"))
 
     def read(self, directory: Path) -> PretrainedModelT:
-        return cast(PretrainedModelT, transformers.AutoModel.from_pretrained(str(directory / "model")))
+        return cast(
+            PretrainedModelT,
+            transformers.AutoModel.from_pretrained(str(directory / "model")),
+        )
 
 
 @step(
@@ -76,7 +79,7 @@ def load_pretrained_model(
     model = auto_class.from_pretrained(model_name_or_path, **kwargs)
     if submodule:
         model = getattr(model, submodule)
-    return model
+    return cast(transformers.PreTrainedModel, model)
 
 
 @step("transformers::load_pretrained_tokenizer", cacheable=False)
@@ -87,7 +90,12 @@ def load_pretrained_tokenizer(
 ) -> PreTrainedTokenizerBase:
     with suppress(FileNotFoundError):
         pretrained_model_name_or_path = minato.cached_path(pretrained_model_name_or_path)
-    return transformers.AutoTokenizer.from_pretrained(str(pretrained_model_name_or_path), **kwargs)
+    return cast(
+        PreTrainedTokenizerBase,
+        transformers.AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call]
+            str(pretrained_model_name_or_path), **kwargs
+        ),
+    )
 
 
 @step(
