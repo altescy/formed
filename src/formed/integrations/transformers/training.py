@@ -27,7 +27,7 @@ class MlflowTrainerCallback(TrainerCallback):  # type: ignore[misc]
         if self._mlflow_logger is None:
             logger.warning("MLflow logger is not available. Skipping logging.")
 
-    def on_log(
+    def on_log(  # type: ignore[override]
         self,
         args: TrainingArguments,
         state: TrainerState,
