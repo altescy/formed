@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, Union, cast
 
 from colt import Registrable
-from filelock import FileLock
+from filelock import BaseFileLock, FileLock
 
 if TYPE_CHECKING:
     from .step import WorkflowStep, WorkflowStepInfo
@@ -74,7 +74,7 @@ class FilesystemWorkflowCache(WorkflowCache):
     def _get_step_cache_dir(self, step_info: "WorkflowStepInfo") -> Path:
         return self._directory / step_info.fingerprint
 
-    def _get_step_cache_lock(self, step_info: "WorkflowStepInfo") -> FileLock:
+    def _get_step_cache_lock(self, step_info: "WorkflowStepInfo") -> BaseFileLock:
         return FileLock(str(self._get_step_cache_dir(step_info) / self._LOCK_FILENAME))
 
     def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:

@@ -19,9 +19,9 @@ from .types import StrictParamPath
 from .utils import object_fingerprint
 
 T = TypeVar("T")
-T_Output = TypeVar("T_Output")
-T_StepFunction = TypeVar("T_StepFunction", bound=Callable[..., Any])
-T_WorkflowStep = TypeVar("T_WorkflowStep", bound="WorkflowStep")
+OutputT = TypeVar("OutputT")
+StepFunctionT = TypeVar("StepFunctionT", bound=Callable[..., Any])
+WorkflowStepT = TypeVar("WorkflowStepT", bound="WorkflowStep")
 
 _STEP_CONTEXT = contextvars.ContextVar[Optional["WorkflowStepContext"]]("_STEP_CONTEXT", default=None)
 
@@ -67,22 +67,22 @@ class WorkflowStepContext:
     state: WorkflowStepState
 
 
-class WorkflowStep(Generic[T_Output], Registrable):
+class WorkflowStep(Generic[OutputT], Registrable):
     VERSION: ClassVar[Optional[str]] = None
     DETERMINISTIC: ClassVar[bool] = True
     CACHEABLE: ClassVar[Optional[bool]] = None
-    FORMAT: Format[T_Output]
-    FUNCTION: Callable[..., T_Output]
+    FORMAT: Format[OutputT]
+    FUNCTION: Callable[..., OutputT]
 
     def __init__(self, *args: Any, **kwargs: Any):
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self, context: Optional["WorkflowStepContext"]) -> T_Output:
-        cls = cast(WorkflowStep[T_Output], self.__class__)
+    def __call__(self, context: Optional["WorkflowStepContext"]) -> OutputT:
+        cls = cast(WorkflowStep[OutputT], self.__class__)
         ctx = contextvars.copy_context()
 
-        def run() -> T_Output:
+        def run() -> OutputT:
             if context is not None:
                 _STEP_CONTEXT.set(context)
             return cls.FUNCTION(*self._args, **self._kwargs)
@@ -90,33 +90,33 @@ class WorkflowStep(Generic[T_Output], Registrable):
         return ctx.run(run)
 
     @classmethod
-    def get_output_type(cls) -> type[T_Output]:
+    def get_output_type(cls) -> type[OutputT]:
         return_annotation = cls.FUNCTION.__annotations__["return"]
         if getattr(return_annotation, "__parameters__", None):
             # This is a workaround for generic steps to skip the type checking.
             # We need to infer the output type from the configuration.
-            return cast(type[T_Output], TypeVar("T"))
-        return cast(type[T_Output], return_annotation)
+            return cast(type[OutputT], TypeVar("T"))
+        return cast(type[OutputT], return_annotation)
 
     @classmethod
     def from_callable(
-        self,
-        func: Callable[..., T_Output],
+        cls,
+        func: Callable[..., OutputT],
         *,
         version: Optional[str] = None,
         deterministic: bool = True,
         cacheable: Optional[bool] = None,
-        format: Optional[Union[str, Format[T_Output]]] = None,
-    ) -> type["WorkflowStep[T_Output]"]:
+        format: Optional[Union[str, Format[OutputT]]] = None,
+    ) -> type["WorkflowStep[OutputT]"]:
         if isinstance(format, str):
-            format = cast(type[Format[T_Output]], Format.by_name(format))()
+            format = cast(type[Format[OutputT]], Format.by_name(format))()
 
-        class WrapperStep(WorkflowStep[T_Output]):
+        class WrapperStep(WorkflowStep):
             VERSION = version
             DETERMINISTIC = deterministic
             CACHEABLE = cacheable
             FUNCTION = func
-            FORMAT = cast(Format[T_Output], format or AutoFormat())
+            FORMAT = format or AutoFormat()
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__(*args, **kwargs)
@@ -142,17 +142,17 @@ class WorkflowStep(Generic[T_Output], Registrable):
 
 
 @dataclasses.dataclass(frozen=True)
-class WorkflowStepInfo(Generic[T_WorkflowStep]):
+class WorkflowStepInfo(Generic[WorkflowStepT]):
     name: str
-    step: Lazy[T_WorkflowStep]
+    step: Lazy[WorkflowStepT]
     dependencies: frozenset[tuple[StrictParamPath, "WorkflowStepInfo"]]
 
     @property
-    def step_class(self) -> type[T_WorkflowStep]:
+    def step_class(self) -> type[WorkflowStepT]:
         step_class = self.step.constructor
         if not isinstance(step_class, type) or not issubclass(step_class, WorkflowStep):
             raise ValueError(f"Step {self.name} is not a subclass of WorkflowStep")
-        return cast(type[T_WorkflowStep], step_class)
+        return cast(type[WorkflowStepT], step_class)
 
     @property
     def format(self) -> Format:
@@ -176,7 +176,13 @@ class WorkflowStepInfo(Generic[T_WorkflowStep]):
 
     @property
     def fingerprint(self) -> str:
-        metadata = (self.name, self.version, self.deterministic, self.cacheable, self.format.identifier)
+        metadata = (
+            self.name,
+            self.version,
+            self.deterministic,
+            self.cacheable,
+            self.format.identifier,
+        )
         config = self.step.config
         ignore_args = self.step_class.get_ignore_args()
         if isinstance(config, Mapping):
@@ -216,31 +222,31 @@ def step(
     cacheable: Optional[bool] = ...,
     exist_ok: bool = ...,
     format: Optional[Union[str, Format]] = ...,
-) -> Callable[[T_StepFunction], T_StepFunction]: ...
+) -> Callable[[StepFunctionT], StepFunctionT]: ...
 
 
 @overload
 def step(
-    name: T_StepFunction,
+    name: StepFunctionT,
     *,
     version: Optional[str] = ...,
     deterministic: bool = ...,
     cacheable: Optional[bool] = ...,
     exist_ok: bool = ...,
     format: Optional[Union[str, Format]] = ...,
-) -> T_StepFunction: ...
+) -> StepFunctionT: ...
 
 
 def step(
-    name: Union[str, T_StepFunction],
+    name: Union[str, StepFunctionT],
     *,
     version: Optional[str] = None,
     deterministic: bool = True,
     cacheable: Optional[bool] = None,
     exist_ok: bool = False,
     format: Optional[Union[str, Format]] = None,
-) -> Union[T_StepFunction, Callable[[T_StepFunction], T_StepFunction]]:
-    def register(name: str, func: T_StepFunction) -> None:
+) -> Union[StepFunctionT, Callable[[StepFunctionT], StepFunctionT]]:
+    def register(name: str, func: StepFunctionT) -> None:
         step_class = WorkflowStep[Any].from_callable(
             func,
             version=version,
@@ -250,7 +256,7 @@ def step(
         )
         WorkflowStep.register(name, exist_ok=exist_ok)(step_class)
 
-    def decorator(func: T_StepFunction) -> T_StepFunction:
+    def decorator(func: StepFunctionT) -> StepFunctionT:
         assert isinstance(name, str)
         register(name, func)
         return func

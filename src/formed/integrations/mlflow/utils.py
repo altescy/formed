@@ -10,12 +10,17 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 
 import mlflow
+import mlflow.artifacts
 from mlflow.entities import Experiment as MlflowExperiment
 from mlflow.entities import Run as MlflowRun
 from mlflow.tracking import artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME, MLFLOW_RUN_NOTE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_RUN_NAME,
+    MLFLOW_RUN_NOTE,
+)
 
 from formed.types import JsonValue
 from formed.workflow import (
@@ -304,7 +309,13 @@ def download_mlflow_artifacts(
     )
     step_info = step_or_execution_info if isinstance(step_or_execution_info, WorkflowStepInfo) else None
     execution_info = step_or_execution_info if isinstance(step_or_execution_info, WorkflowExecutionInfo) else None
-    run = fetch_mlflow_run(client, experiment, run_type=run_type, step_info=step_info, execution_info=execution_info)
+    run = fetch_mlflow_run(
+        client,
+        experiment,
+        run_type=run_type,
+        step_info=step_info,
+        execution_info=execution_info,
+    )
     if run is None:
         raise FileNotFoundError("Run not found")
     directory = Path(directory)
@@ -458,6 +469,8 @@ def get_execution_state_from_run(run: MlflowRun) -> WorkflowExecutionState:
         raise ValueError("Run type not found")
     if tags[MlflowTag.MLFACTORY_RUN_TYPE] != WorkflowRunType.EXECUTION.value:
         raise ValueError(f"Invalid run type: {tags[MlflowTag.MLFACTORY_RUN_TYPE]}")
+    if run.info.run_name is None:
+        raise ValueError("Run name not found")
     execution_id = WorkflowExecutionID(run.info.run_name)
     status = MlflowRunStatus(run.info.status).to_execution_status()
     started_at = datetime.datetime.fromtimestamp(run.info.start_time / 1000)

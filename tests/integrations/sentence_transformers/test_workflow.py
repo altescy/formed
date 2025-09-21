@@ -6,8 +6,14 @@ import pytest
 from sentence_transformers import SentenceTransformer
 
 from formed.integrations.datasets import workflow as datasets_workflow  # noqa: F401
-from formed.integrations.sentence_transformers import workflow as transformers_workflow  # noqa: F401
-from formed.workflow import DefaultWorkflowExecutor, MemoryWorkflowOrganizer, WorkflowGraph
+from formed.integrations.sentence_transformers import (
+    workflow as transformers_workflow,  # noqa: F401
+)
+from formed.workflow import (
+    DefaultWorkflowExecutor,
+    MemoryWorkflowOrganizer,
+    WorkflowGraph,
+)
 
 
 @pytest.fixture

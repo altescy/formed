@@ -42,16 +42,18 @@ def split_dataset(
     indices = list(range(len(dataset)))
     rng.shuffle(indices)
 
-    splitted_datasets: dict[str, Dataset] = {}
+    split_datasets: dict[str, Dataset] = {}
 
     offset = 0
     for split, ratio in splits.items():
         start_index = offset
         end_index = offset + int(len(dataset) * ratio)
         subset = Dataset.from_iterable(dataset[indices[i]] for i in range(start_index, end_index))
-        splitted_datasets[split] = subset
+        split_datasets[split] = subset
         offset = end_index
-    for index in range(offset, len(dataset)):
-        splitted_datasets[split].append(dataset[indices[index]])
+    if split_datasets:
+        last_split = list(splits)[-1]
+        for index in range(offset, len(dataset)):
+            split_datasets[last_split].append(dataset[indices[index]])
 
-    return splitted_datasets
+    return split_datasets

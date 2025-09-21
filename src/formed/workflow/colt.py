@@ -3,8 +3,14 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from typing import Any, Final, Generic, Optional, TypeVar, Union, cast
 
-from colt import ColtBuilder, ColtCallback, ColtContext, ConfigurationError, Placeholder, SkipCallback
-from colt.callback import MultiCallback
+from colt import (
+    ColtContext,
+    ConfigurationError,
+    Placeholder,
+    SkipCallback,
+)
+from colt.builder import ColtBuilder
+from colt.callback import ColtCallback, MultiCallback
 from colt.types import ParamPath
 from colt.utils import get_path_name, remove_optional
 

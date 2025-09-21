@@ -105,15 +105,12 @@ def load_pretrained_tokenizer(
 def finetune_model(
     model: PreTrainedModel,
     args: Lazy[TrainingArguments],
-    data_collator: Optional[DataCollator] = None,
+    data_collator: Optional[DataCollator] = None,  # pyright: ignore[reportInvalidTypeForm]
     dataset: Optional[
         Union[
             datasets.Dataset,
             datasets.DatasetDict,
-            Mapping[
-                str,
-                Union[datasets.Dataset, datasets.DatasetDict],
-            ],
+            Mapping[str, Union[datasets.Dataset, datasets.DatasetDict]],
         ]
     ] = None,
     processing_class: Optional[
@@ -158,14 +155,14 @@ def finetune_model(
         model=model,
         args=args_,
         data_collator=data_collator,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=train_dataset,  # pyright: ignore[reportArgumentType]
+        eval_dataset=eval_dataset,  # pyright: ignore[reportArgumentType]
         processing_class=processing_class,
         model_init=model_init,
         compute_loss_func=compute_loss_func,
         compute_metrics=compute_metrics,
         callbacks=callbacks,
-        optimizers=optimizer_cls_and_kwargs or (optimizer, lr_scheduler),
+        optimizers=optimizer_cls_and_kwargs or (optimizer, lr_scheduler),  # type: ignore[reportArgumentType]
         preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
 

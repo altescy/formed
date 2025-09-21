@@ -14,7 +14,11 @@ from .executor import (
 )
 from .format import CloudPickleFormat, Format, JsonFormat, MappingFormat, PickleFormat
 from .graph import WorkflowGraph
-from .organizer import FilesystemWorkflowOrganizer, MemoryWorkflowOrganizer, WorkflowOrganizer
+from .organizer import (
+    FilesystemWorkflowOrganizer,
+    MemoryWorkflowOrganizer,
+    WorkflowOrganizer,
+)
 from .settings import WorkflowSettings
 from .step import (
     WorkflowStep,

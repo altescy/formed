@@ -24,11 +24,10 @@ class DatasetFormat(Generic[DatasetOrMappingT], Format[DatasetOrMappingT]):
     def read(self, directory: Path) -> DatasetOrMappingT:
         if (directory / "data").exists():
             return cast(DatasetOrMappingT, datasets.load_from_disk(str(directory / "data")))
-        else:
-            return cast(
-                DatasetOrMappingT,
-                {datadir.name[5:]: datasets.load_from_disk(str(datadir)) for datadir in directory.glob("data.*")},
-            )
+        return cast(
+            DatasetOrMappingT,
+            {datadir.name[5:]: datasets.load_from_disk(str(datadir)) for datadir in directory.glob("data.*")},
+        )
 
 
 @step("datasets::load_dataset", cacheable=False, format=DatasetFormat())
@@ -58,7 +57,7 @@ def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
             "Following keys are ignored since they are not Dataset instances: %s",
             set(kwargs) - set(datasets_),
         )
-    return datasets.DatasetDict(datasets_)
+    return datasets.DatasetDict(**datasets_)
 
 
 @step("datasets::concatenate_datasets", format=DatasetFormat())
@@ -74,16 +73,16 @@ def train_test_split(
     **kwargs: Any,
 ) -> dict[str, Dataset]:
     if isinstance(dataset, datasets.Dataset):
-        splitted = dataset.train_test_split(**kwargs)
-        return {train_key: splitted["train"], test_key: splitted["test"]}
+        split = dataset.train_test_split(**kwargs)
+        return {train_key: split["train"], test_key: split["test"]}
     else:
         train_datasets: dict[str, datasets.Dataset] = {}
         test_datasets: dict[str, datasets.Dataset] = {}
         for key, dset in dataset.items():
-            splitted = dset.train_test_split(**kwargs)
-            train_datasets[key] = splitted["train"]
-            test_datasets[key] = splitted["test"]
+            split = dset.train_test_split(**kwargs)
+            train_datasets[str(key)] = split["train"]
+            test_datasets[str(key)] = split["test"]
         return {
-            train_key: datasets.DatasetDict(train_datasets),
-            test_key: datasets.DatasetDict(test_datasets),
+            train_key: datasets.DatasetDict(**train_datasets),
+            test_key: datasets.DatasetDict(**test_datasets),
         }

@@ -8,7 +8,11 @@ import datasets
 import minato
 import torch
 from colt import Lazy
-from sentence_transformers import SentenceTransformer, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
+from sentence_transformers import (
+    SentenceTransformer,
+    SentenceTransformerTrainer,
+    SentenceTransformerTrainingArguments,
+)
 from sentence_transformers.evaluation import SentenceEvaluator
 from transformers import PreTrainedTokenizerBase, TrainerCallback
 from transformers.data.data_collator import DataCollator
@@ -60,7 +64,7 @@ def train_sentence_transformer(
             Lazy[torch.nn.Module],
         ]
     ] = None,
-    data_collator: Optional[DataCollator] = None,
+    data_collator: Optional[DataCollator] = None,  # pyright: ignore[reportInvalidTypeForm]
     tokenizer: Optional[PreTrainedTokenizerBase] = None,
     evaluator: Optional[Union[SentenceEvaluator, list[SentenceEvaluator]]] = None,
     callbacks: Optional[list[TrainerCallback]] = None,
@@ -87,7 +91,7 @@ def train_sentence_transformer(
 
     loss_: Union[torch.nn.Module, dict[str, torch.nn.Module]]
     if isinstance(loss, Mapping):
-        loss_ = {k: l.construct(model=model) for k, l in loss.items()}
+        loss_ = {k: ll.construct(model=model) for k, ll in loss.items()}
     else:
         loss_ = loss.construct(model=model)
     if loss_modifier:
@@ -102,9 +106,9 @@ def train_sentence_transformer(
             if not isinstance(loss_modifier, list):
                 loss_modifier = [loss_modifier]
             if isinstance(loss_, dict):
-                for k, l in loss_.items():
+                for k, ll in loss_.items():
                     for m in loss_modifier:
-                        loss_[k] = m.construct(model=model, loss=l)
+                        loss_[k] = m.construct(model=model, loss=ll)
             else:
                 for m in loss_modifier:
                     loss_ = m.construct(model=model, loss=loss_)

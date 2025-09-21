@@ -6,7 +6,7 @@ from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
 from types import TracebackType
-from typing import Any, NewType, Optional, TypeVar, Union
+from typing import Any, NewType, Optional, TypeVar, Union, cast
 
 from colt import Registrable
 
@@ -73,7 +73,7 @@ class WorkflowExecutionContext:
 class WorkflowExecutor(Registrable):
     def __call__(
         self,
-        graph_or_exection: Union[WorkflowGraph, WorkflowExecutionInfo],
+        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
         *,
         cache: Optional[WorkflowCache] = None,
         callback: Optional[WorkflowCallback] = None,
@@ -96,7 +96,7 @@ class WorkflowExecutor(Registrable):
 class DefaultWorkflowExecutor(WorkflowExecutor):
     def __call__(
         self,
-        graph_or_exection: Union[WorkflowGraph, WorkflowExecutionInfo],
+        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
         *,
         cache: Optional[WorkflowCache] = None,
         callback: Optional[WorkflowCallback] = None,
@@ -104,9 +104,9 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
         cache = cache if cache is not None else EmptyWorkflowCache()
         callback = callback if callback is not None else EmptyWorkflowCallback()
         execution_info = (
-            graph_or_exection
-            if isinstance(graph_or_exection, WorkflowExecutionInfo)
-            else WorkflowExecutionInfo(graph_or_exection)
+            graph_or_execution
+            if isinstance(graph_or_execution, WorkflowExecutionInfo)
+            else WorkflowExecutionInfo(graph_or_execution)
         )
 
         execution_state = WorkflowExecutionState(
@@ -178,7 +178,7 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                     step_context = dataclasses.replace(step_context, state=step_state)
                     callback.on_step_end(step_context, execution_context)
 
-            return result
+            return cast(T, result)
 
         try:
             ctx = contextvars.copy_context()

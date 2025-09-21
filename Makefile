@@ -1,7 +1,8 @@
 PWD      := $(shell pwd)
 PYTHON   := uv run python
 PYTEST   := uv run pytest
-PYSEN    := uv run pysen
+RUFF     := uv run ruff
+PYRIGHT  := uv run pyright
 MODULE   := formed
 
 .PHONY: all
@@ -13,11 +14,13 @@ test:
 
 .PHONY: lint
 lint:
-	PYTHONPATH=$(PWD) $(PYSEN) run lint
+	PYTHONPATH=$(PWD) $(RUFF) check
+	PYTHONPATH=$(PWD) $(PYRIGHT)
 
 .PHONY: format
 format:
-	PYTHONPATH=$(PWD) $(PYSEN) run format
+	PYTHONPATH=$(PWD) $(RUFF) check --select I --fix
+	PYTHONPATH=$(PWD) $(RUFF) format
 
 .PHONY: clean
 clean: clean-pyc clean-build
@@ -25,7 +28,6 @@ clean: clean-pyc clean-build
 .PHONY: clean-pyc
 clean-pyc:
 	rm -rf .pytest_cache
-	rm -rf .mypy_cache
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
 	find . -name '*~' -exec rm -f {} +

@@ -23,8 +23,16 @@ class TestDagutils:
     @pytest.mark.parametrize(
         "dag, nodes, expected",
         [
-            (DAG({"a": {"b"}, "b": {"c"}, "c": set()}), {"a", "b"}, DAG({"a": {"b"}, "b": set()})),
-            (DAG({"a": {"b"}, "b": {"c"}, "c": set()}), {"b", "c"}, DAG({"b": {"c"}, "c": set()})),
+            (
+                DAG({"a": {"b"}, "b": {"c"}, "c": set()}),
+                {"a", "b"},
+                DAG({"a": {"b"}, "b": set()}),
+            ),
+            (
+                DAG({"a": {"b"}, "b": {"c"}, "c": set()}),
+                {"b", "c"},
+                DAG({"b": {"c"}, "c": set()}),
+            ),
         ],
     )
     def test_subgraph(dag: DAG, nodes: set[str], expected: DAG) -> None:
@@ -46,8 +54,14 @@ class TestDagutils:
     @pytest.mark.parametrize(
         "dag, expected",
         [
-            (DAG[str]({"a": set(), "b": set()}), {DAG[str]({"a": set()}), DAG[str]({"b": set()})}),
-            (DAG({"a": set(), "b": {"a"}, "c": {"a"}}), {DAG({"a": set(), "b": {"a"}, "c": {"a"}})}),
+            (
+                DAG[str]({"a": set(), "b": set()}),
+                {DAG[str]({"a": set()}), DAG[str]({"b": set()})},
+            ),
+            (
+                DAG({"a": set(), "b": {"a"}, "c": {"a"}}),
+                {DAG({"a": set(), "b": {"a"}, "c": {"a"}})},
+            ),
         ],
     )
     def test_weekly_connected_components(dag: DAG, expected: set[DAG]) -> None:

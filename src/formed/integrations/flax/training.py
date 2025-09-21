@@ -8,13 +8,27 @@ import optax
 from colt import Registrable
 from flax import nnx
 from flax.training import train_state
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 from formed.integrations.ml import BasicBatchSampler, DataLoader, MetricAverage
 from formed.workflow import use_step_logger, use_step_workdir
 
 from .model import FlaxModel
-from .types import DataT, IModelOutput, IOptimizer, ModelInputT, ModelOutputT, ModelParamsT
+from .types import (
+    DataT,
+    IModelOutput,
+    IOptimizer,
+    ModelInputT,
+    ModelOutputT,
+    ModelParamsT,
+)
 from .utils import numpy_to_jax
 
 OptimizerT = TypeVar("OptimizerT", bound=optax.GradientTransformation)
@@ -32,7 +46,7 @@ class TrainState(train_state.TrainState):  # type: ignore[no-untyped-call]
 class FlaxTrainingModule(Registrable, Generic[ModelInputT, ModelOutputT, ModelParamsT]):
     def create_state(
         self,
-        rng: jax.random.PRNGKey,
+        rngs: nnx.Rngs,
         trainer: "FlaxTrainer",
         model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
     ) -> TrainState:
@@ -63,6 +77,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         trainer: "FlaxTrainer",
         model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
     ) -> TrainState:
+        del rngs
         graphdef, params, *states = nnx.split(model, nnx.Param, nnx.BatchStat, nnx.RngState)
         return cast(
             TrainState,
@@ -76,7 +91,7 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         )
 
     @partial(jax.jit, static_argnames=("self", "trainer"))
-    def train_step(
+    def train_step(  # type: ignore[override]
         self,
         inputs: ModelInputT,
         state: TrainState,
@@ -98,14 +113,16 @@ class DefaultFlaxTrainingModule(FlaxTrainingModule[ModelInputT, ModelOutputT, Mo
         return step(state, inputs)
 
     @partial(jax.jit, static_argnames=("self", "trainer"))
-    def eval_step(
+    def eval_step(  # type: ignore[override]
         self,
         inputs: ModelInputT,
         state: TrainState,
         trainer: "FlaxTrainer",
     ) -> ModelOutputT:
         model: FlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(
-            state.graphdef, state.params, *state.additional_states  # type: ignore[arg-type]
+            state.graphdef,
+            state.params,  # pyright: ignore[reportArgumentType]
+            *state.additional_states,  # type: ignore[arg-type]
         )
         return model(inputs, train=False)
 
@@ -342,7 +359,7 @@ class FlaxTrainer(
         callbacks: Sequence[TrainerCallback] = (),
     ) -> None:
         if not isinstance(optimizer, optax.GradientTransformation):
-            optimizer = optax.GradientTransformation(optimizer.init, optimizer.update)
+            optimizer = optax.GradientTransformation(optimizer.init, optimizer.update)  # pyright: ignore[reportArgumentType]
 
         self._optimizer = optimizer
         self._train_dataloader = train_dataloader or DataLoader(

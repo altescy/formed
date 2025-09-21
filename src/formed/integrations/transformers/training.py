@@ -2,7 +2,12 @@ from collections.abc import Mapping
 from typing import Any, Optional, Union
 
 import torch
-from transformers import TrainerCallback, TrainerControl, TrainerState, TrainingArguments
+from transformers import (
+    TrainerCallback,
+    TrainerControl,
+    TrainerState,
+    TrainingArguments,
+)
 
 from formed.workflow import use_step_logger
 

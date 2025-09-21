@@ -24,25 +24,25 @@ def as_jsonvalue(value: Any) -> JsonValue:
 
 
 class WorkflowJSONEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
+    def default(self, o: Any) -> Any:
         from .colt import WorkflowRef
         from .graph import WorkflowGraph
         from .step import WorkflowStepInfo
 
-        if isinstance(obj, (WorkflowGraph, WorkflowStepInfo)):
-            return obj.to_dict()
-        if isinstance(obj, datetime.datetime):
-            return obj.isoformat()
-        if is_namedtuple(obj):
-            return obj._asdict()
-        if isinstance(obj, tuple):
-            return list(obj)
-        if isinstance(obj, (set, frozenset)):
-            return sorted(obj)
-        if isinstance(obj, WorkflowRef):
-            return obj.config
-        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-            return dataclasses.asdict(obj)
-        if isinstance(obj, BaseModel):
-            return json.loads(obj.model_dump_json())
-        return super().default(obj)
+        if isinstance(o, (WorkflowGraph, WorkflowStepInfo)):
+            return o.to_dict()
+        if isinstance(o, datetime.datetime):
+            return o.isoformat()
+        if is_namedtuple(o):
+            return o._asdict()
+        if isinstance(o, tuple):
+            return list(o)
+        if isinstance(o, (set, frozenset)):
+            return sorted(o)
+        if isinstance(o, WorkflowRef):
+            return o.config
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
+            return dataclasses.asdict(o)
+        if isinstance(o, BaseModel):
+            return json.loads(o.model_dump_json())
+        return super().default(o)

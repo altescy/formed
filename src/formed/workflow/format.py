@@ -62,7 +62,7 @@ class PickleFormat(Format[_T], Generic[_T]):
 
     def write(self, artifact: _T, directory: Path) -> None:
         artifact_path = self._get_artifact_path(directory)
-        with open(artifact_path, "wb") as f:
+        with artifact_path.open("wb") as f:
             pickler = dill.Pickler(f)
             if isinstance(artifact, Iterator):
                 pickler.dump(True)
@@ -74,7 +74,7 @@ class PickleFormat(Format[_T], Generic[_T]):
 
     def read(self, directory: Path) -> _T:
         artifact_path = self._get_artifact_path(directory)
-        with open(artifact_path, "rb") as f:
+        with artifact_path.open("rb") as f:
             unpickler = dill.Unpickler(f)
             is_iterator = unpickler.load()
             if is_iterator:
@@ -106,27 +106,30 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
         artifact_class: Optional[type[_T_JsonFormattable]] = None
         if isinstance(artifact, Iterator):
             artifact_path = directory / "artifact.jsonl"
-            with open(artifact_path, "w") as f:
+            with artifact_path.open("w") as f:
                 for item in artifact:
-                    artifact_class = artifact_class or type(item)
+                    artifact_class = cast(type[_T_JsonFormattable], artifact_class or type(item))
                     json.dump(item, f, cls=WorkflowJSONEncoder, ensure_ascii=False)
                     f.write("\n")
         else:
             artifact_class = type(artifact)
             artifact_path = directory / "artifact.json"
-            with open(artifact_path, "w") as f:
+            with artifact_path.open("w") as f:
                 json.dump(artifact, f, cls=WorkflowJSONEncoder, ensure_ascii=False)
         if artifact_class is not None:
-            metadata = {"module": artifact_class.__module__, "class": artifact_class.__name__}
+            metadata = {
+                "module": artifact_class.__module__,
+                "class": artifact_class.__name__,
+            }
             metadata_path = directory / "metadata.json"
-            with open(metadata_path, "w") as f:
+            with metadata_path.open("w") as f:
                 json.dump(metadata, f, ensure_ascii=False)
 
     def read(self, directory: Path) -> _T_JsonFormattable:
         metadata_path = directory / "metadata.json"
         artifact_class: Optional[type[_T_JsonFormattable]] = None
         if metadata_path.exists():
-            with open(metadata_path, "r") as f:
+            with metadata_path.open("r") as f:
                 metadata = json.load(f)
             module = importlib.import_module(metadata["module"])
             artifact_class = getattr(module, metadata["class"])
@@ -137,7 +140,7 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
             return cast(_T_JsonFormattable, self._IteratorWrapper(artifact_path, artifact_class))
 
         artifact_path = directory / "artifact.json"
-        with open(artifact_path, "r") as f:
+        with artifact_path.open("r") as f:
             data = json.load(f)
             if artifact_class is not None:
                 return colt.build(data, artifact_class)
@@ -145,7 +148,21 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
 
     @classmethod
     def is_default_of(cls, obj: Any) -> bool:
-        return isinstance(obj, (int, float, str, bool, dict, list, tuple, IDataclass, INamedTuple, BaseModel))
+        return isinstance(
+            obj,
+            (
+                int,
+                float,
+                str,
+                bool,
+                dict,
+                list,
+                tuple,
+                IDataclass,
+                INamedTuple,
+                BaseModel,
+            ),
+        )
 
 
 @Format.register("cloudpickle")
@@ -154,14 +171,14 @@ class CloudPickleFormat(PickleFormat[_T]):
         import cloudpickle
 
         artifact_path = self._get_artifact_path(directory)
-        with open(artifact_path, "wb") as f:
+        with artifact_path.open("wb") as f:
             cloudpickle.dump(artifact, f)
 
     def read(self, directory: Path) -> _T:
         import cloudpickle
 
         artifact_path = self._get_artifact_path(directory)
-        with open(artifact_path, "rb") as f:
+        with artifact_path.open("rb") as f:
             return cast(_T, cloudpickle.load(f))
 
 
@@ -189,8 +206,7 @@ class AutoFormat(Format[_T]):
     def read(self, directory: Path) -> _T:
         format_metadata = json.loads((directory / self._FORMAT_FILENAME).read_text())
         format_name = format_metadata["name"]
-        format = cast(type[Format[_T]], Format.by_name(format_name))()
-        return format.read(directory)
+        return cast(type[Format[_T]], Format.by_name(format_name))().read(directory)
 
 
 @Format.register("mapping")
