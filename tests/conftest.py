@@ -6,6 +6,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def patch_sentencde_transformers() -> None:
+    # This patch is related to: https://github.com/UKPLab/sentence-transformers/pull/3521
     with suppress(ImportError):
         from sentence_transformers import SentenceTransformer
 
