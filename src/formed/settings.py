@@ -5,7 +5,8 @@ from os import PathLike
 from typing import ClassVar, Literal, Mapping, Optional, Sequence, TypeVar, Union
 
 import yaml
-from colt import ColtBuilder, import_modules
+from colt import import_modules
+from colt.builder import ColtBuilder
 
 from formed.constants import DEFAULT_FORMED_SETTINGS_PATH
 from formed.workflow import WorkflowSettings

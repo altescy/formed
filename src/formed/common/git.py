@@ -16,7 +16,12 @@ class GitClient:
     @staticmethod
     def is_available() -> bool:
         return (
-            subprocess.run(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+            subprocess.run(
+                ["git", "--version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
         )
 
     def __init__(self, directory: Union[str, PathLike]) -> None:
@@ -31,7 +36,10 @@ class GitClient:
     def is_initialized(self) -> bool:
         return (
             subprocess.run(
-                ["git", "status"], cwd=self._directory, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                ["git", "status"],
+                cwd=self._directory,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             ).returncode
             == 0
         )

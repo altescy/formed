@@ -2,6 +2,7 @@ import contextvars
 import os
 import shutil
 from collections.abc import Sequence
+from contextlib import suppress
 from io import StringIO
 from logging import getLogger
 from os import PathLike
@@ -9,7 +10,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional, TypeVar, Union, cast, overload
 
 import mlflow
-from filelock import FileLock
+import mlflow.artifacts
+from filelock import BaseFileLock, FileLock
 from mlflow.entities import Experiment as MlflowExperiment
 from mlflow.tracking.client import MlflowClient
 
@@ -37,38 +39,28 @@ from formed.workflow.utils import as_jsonvalue
 
 from . import utils as mlflow_utils
 from .constants import DEFAULT_MLFLOW_DIRECTORY, DEFAULT_MLFLOW_EXPERIMENT_NAME
-from .utils import MlflowRun, MlflowRunStatus, MlflowTag, WorkflowCacheStatus, fetch_mlflow_run, get_mlflow_experiment
+from .utils import (
+    MlflowRun,
+    MlflowRunStatus,
+    MlflowTag,
+    WorkflowCacheStatus,
+    fetch_mlflow_run,
+    get_mlflow_experiment,
+)
 
 if TYPE_CHECKING:
-    try:
-        from numpy.ndarray import ndarray as NumpyArray
-    except ImportError:
-        NumpyArray = None  # type: ignore[assignment,misc]
-
-    try:
+    with suppress(ImportError):
+        from numpy import ndarray as NumpyArray
+    with suppress(ImportError):
         from pandas import DataFrame as PandasDataFrame
-    except ImportError:
-        PandasDataFrame = None  # type: ignore[assignment,misc]
-
-    try:
+    with suppress(ImportError):
         from PIL.Image import Image as PILImage
-    except ImportError:
-        PILImage = None  # type: ignore[assignment,misc]
-
-    try:
+    with suppress(ImportError):
         from matplotlib.figure import Figure as MatplotlibFigure
-    except ImportError:
-        MatplotlibFigure = None  # type: ignore[assignment,misc]
-
-    try:
+    with suppress(ImportError):
         from plotly.graph_objs import Figure as PlotlyFigure
-    except ImportError:
-        PlotlyFigure = None  # type: ignore[assignment,misc]
-
-    try:
+    with suppress(ImportError):
         from mlflow import Image as MlflowImage
-    except ImportError:
-        MlflowImage = None  # type: ignore[assignment,misc]
 
 logger = getLogger(__name__)
 
@@ -104,7 +96,7 @@ class MlflowWorkflowCache(WorkflowCache):
             return mlflow_artifact_dir / self._CACHE_DIRNAME
         return self._directory / step_info.fingerprint
 
-    def _get_step_cache_lock(self, step_info: WorkflowStepInfo) -> FileLock:
+    def _get_step_cache_lock(self, step_info: WorkflowStepInfo) -> BaseFileLock:
         return FileLock(str(self._get_step_cache_dir(step_info).with_suffix(".lock")))
 
     def __getitem__(self, step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
@@ -382,6 +374,8 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
         if run is None:
             return None
         artifact_uri = run.info.artifact_uri
+        if not artifact_uri:
+            return None
         execution_dict = mlflow.artifacts.load_dict(
             artifact_uri + "/" + MlflowWorkflowCallback._EXECUTION_METADATA_ARTIFACT_FILENAME
         )

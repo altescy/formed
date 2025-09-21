@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from os import PathLike
 from typing import Any, ClassVar, Optional, TypeVar, Union, cast
 
-import colt
+from colt.builder import ColtBuilder
 from rjsonnet import evaluate_file, evaluate_snippet
 
 T = TypeVar("T", dict, list)
@@ -26,8 +26,7 @@ def _parse_overrides(serialized_overrides: str, ext_vars: Optional[dict[str, Any
         output = json.loads(evaluate_snippet("", serialized_overrides, ext_vars=ext_vars))
         assert isinstance(output, dict), "Overrides must be a JSON object."
         return output
-    else:
-        return {}
+    return {}
 
 
 def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "") -> T:
@@ -37,15 +36,18 @@ def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "
         merged = [None] * len(original)
         keys = cast(Iterable[int], range(len(original)))
     elif isinstance(original, dict):
-        merged = {}
+        merged = cast(T, {})
         keys = cast(
             Iterable[str],
-            itertools.chain(original.keys(), (k for k in overrides_dict if "." not in k and k not in original)),
+            itertools.chain(
+                original.keys(),
+                (k for k in overrides_dict if "." not in k and k not in original),
+            ),
         )
     else:
         if prefix:
             raise ValueError(
-                f"overrides for '{prefix[:-1]}.*' expected list or dict in original, " f"found {type(original)} instead"
+                f"overrides for '{prefix[:-1]}.*' expected list or dict in original, found {type(original)} instead"
             )
         else:
             raise ValueError(f"expected list or dict, found {type(original)} instead")
@@ -53,7 +55,7 @@ def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "
     used_override_keys: set[str] = set()
     for key in keys:
         if str(key) in overrides_dict:
-            merged[key] = copy.deepcopy(overrides_dict[str(key)])
+            merged[key] = copy.deepcopy(overrides_dict[str(key)])  # pyright: ignore[reportArgumentType, reportCallIssue]
             used_override_keys.add(str(key))
         else:
             overrides_subdict = {}
@@ -62,9 +64,9 @@ def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "
                     overrides_subdict[o_key[len(f"{key}.") :]] = overrides_dict[o_key]
                     used_override_keys.add(o_key)
             if overrides_subdict:
-                merged[key] = _with_overrides(original[key], overrides_subdict, prefix=prefix + f"{key}.")
+                merged[key] = _with_overrides(original[key], overrides_subdict, prefix=prefix + f"{key}.")  # pyright: ignore[reportArgumentType, reportCallIssue]
             else:
-                merged[key] = copy.deepcopy(original[key])
+                merged[key] = copy.deepcopy(original[key])  # pyright: ignore[reportArgumentType, reportCallIssue]
 
     unused_override_keys = [prefix + key for key in set(overrides_dict.keys()) - used_override_keys]
     if unused_override_keys:
@@ -89,7 +91,7 @@ _T_FromJsonnet = TypeVar("_T_FromJsonnet", bound="FromJsonnet")
 
 
 class FromJsonnet:
-    __COLT_BUILDER__: ClassVar = colt.ColtBuilder(typekey="type")
+    __COLT_BUILDER__: ClassVar = ColtBuilder(typekey="type")
 
     @classmethod
     def from_jsonnet(
@@ -105,7 +107,7 @@ class FromJsonnet:
         return obj
 
     @classmethod
-    def __pre_init__(self, config: Any) -> Any:
+    def __pre_init__(cls, config: Any) -> Any:
         return config
 
     def to_dict(self) -> Any:

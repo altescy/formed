@@ -4,7 +4,11 @@ import datasets
 import pytest
 
 from formed.integrations.datasets import workflow  # noqa: F401
-from formed.workflow import DefaultWorkflowExecutor, MemoryWorkflowOrganizer, WorkflowGraph
+from formed.workflow import (
+    DefaultWorkflowExecutor,
+    MemoryWorkflowOrganizer,
+    WorkflowGraph,
+)
 
 
 @pytest.fixture

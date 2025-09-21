@@ -2,10 +2,9 @@ import dataclasses
 from collections.abc import Mapping
 from typing import Optional, Union
 
-import flax
 import jax
 import numpy
-from flax import nnx
+from flax import nnx, struct
 
 from formed.integrations.flax import FlaxModel
 from formed.workflow import step
@@ -17,20 +16,23 @@ class RegressionExample:
     y: float
 
 
+@struct.dataclass
+class RegressorInput:
+    x: jax.Array
+    y: Optional[jax.Array] = None
+
+
+@struct.dataclass
+class RegressorOutput:
+    y: jax.Array
+    loss: Optional[jax.Array] = None
+    metrics: Optional[Mapping[str, jax.Array]] = None
+
+
 @FlaxModel.register("tiny-regressor")
-class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Params"]):
-    @flax.struct.dataclass
-    class Input:
-        x: jax.Array
-        y: Optional[jax.Array] = None
-
-    @flax.struct.dataclass
-    class Output:
-        y: jax.Array
-        loss: Optional[jax.Array] = None
-        metrics: Optional[Mapping[str, jax.Array]] = None
-
-    Params = type[None]
+class Regressor(FlaxModel[RegressorInput, RegressorOutput, None]):
+    Input = RegressorInput
+    Output = RegressorOutput
 
     def __init__(self, rngs: Union[int, nnx.Rngs] = 0, hidden_dim: int = 32) -> None:
         if isinstance(rngs, int):
@@ -41,11 +43,13 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
 
     def __call__(
         self,
-        inputs: Input,
-        params: Optional[Params] = None,
+        inputs: RegressorInput,
+        params: None = None,
         *,
         train: bool = False,
-    ) -> Output:
+    ) -> RegressorOutput:
+        del params
+
         h = jax.nn.relu(self._linear1(inputs.x))
         h = self._dropout(h, deterministic=not train)
         y = self._linear2(h)

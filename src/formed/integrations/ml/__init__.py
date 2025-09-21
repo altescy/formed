@@ -1,5 +1,11 @@
 from .dataloader import BasicBatchSampler, BatchSampler, DataLoader  # noqa: F401
-from .datamodule import DataModule, FieldConfig, extract_fields, set_datamodule, use_datamodule  # noqa: F401
+from .datamodule import (  # noqa: F401
+    DataModule,
+    FieldConfig,
+    extract_fields,
+    set_datamodule,
+    use_datamodule,
+)
 from .dataset import Dataset  # noqa: F401
 from .fields import *  # noqa: F401, F403
 from .indexers import Indexer, LabelIndexer, TokenIndexer  # noqa: F401

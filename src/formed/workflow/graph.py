@@ -119,5 +119,5 @@ class WorkflowGraph(FromJsonnet):
         return {"steps": {step_info.name: step_info.step.config for step_info in self}}
 
     @classmethod
-    def from_config(self, config: WorkflowGraphConfig) -> "WorkflowGraph":
-        return self.__COLT_BUILDER__(config, WorkflowGraph)
+    def from_config(cls, config: WorkflowGraphConfig) -> "WorkflowGraph":
+        return cls.__COLT_BUILDER__(config, WorkflowGraph)

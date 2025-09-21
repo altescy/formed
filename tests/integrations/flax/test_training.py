@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from typing import Optional, Union
 
 import flax
+import flax.struct
 import jax
 import numpy
 import pytest
@@ -11,25 +12,28 @@ from formed.integrations.flax import FlaxModel, FlaxTrainer
 from formed.integrations.ml import ScalarField
 
 
-class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Params"]):
-    @flax.struct.dataclass
-    class Input:
-        x: jax.Array
-        y: Optional[jax.Array] = None
+@flax.struct.dataclass
+class RegressorInput:
+    x: jax.Array
+    y: Optional[jax.Array] = None
 
-        def __len__(self) -> int:
-            return len(self.x)
+    def __len__(self) -> int:
+        return len(self.x)
 
-    @flax.struct.dataclass
-    class Output:
-        y: jax.Array
-        loss: Optional[jax.Array] = None
-        metrics: Optional[Mapping[str, jax.Array]] = None
 
-        def __len__(self) -> int:
-            return len(self.y)
+@flax.struct.dataclass
+class RegressorOutput:
+    y: jax.Array
+    loss: Optional[jax.Array] = None
+    metrics: Optional[Mapping[str, jax.Array]] = None
 
-    Params = type[None]
+    def __len__(self) -> int:
+        return len(self.y)
+
+
+class Regressor(FlaxModel[RegressorInput, RegressorOutput, None]):
+    Input = RegressorInput
+    Output = RegressorOutput
 
     def __init__(
         self,
@@ -45,11 +49,13 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
 
     def __call__(
         self,
-        inputs: Input,
-        params: Optional[Params] = None,
+        inputs: RegressorInput,
+        params: None = None,
         *,
         train: bool = False,
-    ) -> Output:
+    ) -> RegressorOutput:
+        del params, train
+
         h = jax.nn.relu(self._linear1(inputs.x[:, None]))
         h = self._layarnorm(self._dropout(h))
         y = self._linear2(h)[:, 0]
@@ -63,7 +69,7 @@ class Regressor(FlaxModel["Regressor.Input", "Regressor.Output", "Regressor.Para
         return Regressor.Output(y=y, loss=loss)
 
 
-def collate(data: Sequence[tuple[float, float]]) -> Regressor.Input:
+def collate(data: Sequence[tuple[float, float]]) -> RegressorInput:
     x, y = zip(*data)
     return Regressor.Input(x=jax.numpy.array(x)[:, None], y=jax.numpy.array(y))
 
@@ -87,8 +93,8 @@ def test_training(
 
     trainer = FlaxTrainer[
         Mapping[str, ScalarField],
-        Regressor.Input,
-        Regressor.Output,
-        Regressor.Params,
+        RegressorInput,
+        RegressorOutput,
+        None,
     ]()
     trainer.train(rngs, model, train_dataset, val_dataset)

@@ -28,33 +28,27 @@ logging.basicConfig(
 )
 
 
-@FlaxModel.register("text_classifier")
-class TextClassifier(
-    FlaxModel[
-        "TextClassifier.Input",
-        "TextClassifier.Output",
-        "TextClassifier.Params",
+@struct.dataclass
+class Input:
+    text: Annotated[
+        Mapping[str, jax.Array],
+        FieldConfig("text", TextFieldTransform(pad_token="<pad>", unk_token="<unk>")),
     ]
-):
-    @struct.dataclass
-    class Input:
-        text: Annotated[
-            Mapping[str, jax.Array],
-            FieldConfig("text", TextFieldTransform(pad_token="<pad>", unk_token="<unk>")),
-        ]
-        label: Annotated[
-            Optional[jax.Array],
-            FieldConfig("label", LabelFieldTransform()),
-        ] = None
+    label: Annotated[
+        Optional[jax.Array],
+        FieldConfig("label", LabelFieldTransform()),
+    ] = None
 
-    @struct.dataclass
-    class Output:
-        probs: jax.Array
-        loss: Optional[jax.Array] = None
-        metrics: Optional[Mapping[str, jax.Array]] = None
 
-    Params = type[None]
+@struct.dataclass
+class Output:
+    probs: jax.Array
+    loss: Optional[jax.Array] = None
+    metrics: Optional[Mapping[str, jax.Array]] = None
 
+
+@FlaxModel.register("text_classifier")
+class TextClassifier(FlaxModel[Input, Output, None]):
     def __init__(
         self,
         rngs: Union[int, nnx.Rngs] = 0,
@@ -76,10 +70,12 @@ class TextClassifier(
     def __call__(
         self,
         inputs: Input,
-        params: Optional[Params] = None,
+        params: None = None,
         *,
         train: bool = False,
     ) -> Output:
+        del params
+
         mask = inputs.text["mask"]
         token_embeddings = self.embedder(inputs.text["token_ids"])
 
@@ -136,7 +132,7 @@ if __name__ == "__main__":
     datamodule = TextClassifier.default_data_module()
     assert datamodule is not None
 
-    datamodule.build(train_dataset)
+    datamodule.build(train_dataset)  # pyright: ignore[reportArgumentType]
 
     train_instances = Dataset.from_iterable(datamodule(train_dataset))
 

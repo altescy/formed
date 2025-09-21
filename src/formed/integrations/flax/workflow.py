@@ -1,5 +1,6 @@
 import contextvars
 from collections.abc import Sequence
+from contextlib import suppress
 from typing import Optional, TypeVar, Union, cast
 
 from colt import Lazy
@@ -13,10 +14,8 @@ from .model import FlaxModel
 from .training import FlaxTrainer, TrainState
 from .types import DataT, ModelInputT, ModelOutputT, ModelParamsT
 
-try:
+with suppress(ImportError):
     from formed.integrations.datasets.types import Dataset as HfDataset
-except ImportError:
-    HfDataset = None  # type: ignore[misc]
 
 T = TypeVar("T")
 
@@ -25,8 +24,8 @@ T = TypeVar("T")
 def train_flax_model(
     model: Lazy[FlaxModel[ModelInputT, ModelOutputT, ModelParamsT]],
     trainer: FlaxTrainer[DataT, ModelInputT, ModelOutputT, ModelParamsT],
-    train_dataset: Union[Sequence[T], Sequence[DataT], HfDataset],
-    val_dataset: Optional[Union[float, Sequence[T], Sequence[DataT], HfDataset]] = None,
+    train_dataset: Union[Sequence[T], Sequence[DataT], "HfDataset"],
+    val_dataset: Optional[Union[float, Sequence[T], Sequence[DataT], "HfDataset"]] = None,
     datamodule: Optional[DataModule[T]] = None,
     seed: int = 0,
 ) -> FlaxModel:
@@ -51,14 +50,17 @@ def train_flax_model(
                 if val_dataset < 0.0 or val_dataset > 1.0:
                     raise ValueError("val_dataset must be in the range [0.0, 1.0]")
                 logger.info("Splitting dataset...")
-                splitted_datasets = split_dataset(
-                    train_dataset, {"train": 1.0 - val_dataset, "val": val_dataset}, seed=seed
+                split_datasets = split_dataset(
+                    train_dataset,
+                    {"train": 1.0 - val_dataset, "val": val_dataset},
+                    seed=seed,
                 )
                 logger.info(
-                    "Splitted dataset sizes: %s", {key: len(dataset) for key, dataset in splitted_datasets.items()}
+                    "Split dataset sizes: %s",
+                    {key: len(dataset) for key, dataset in split_datasets.items()},
                 )
-                train_dataset = splitted_datasets["train"]
-                val_dataset = splitted_datasets["val"]
+                train_dataset = split_datasets["train"]
+                val_dataset = split_datasets["val"]
             else:
                 val_dataset = cast(Sequence[T], val_dataset)
                 val_dataset = cast(Sequence[DataT], Dataset.from_iterable(datamodule(val_dataset)))
@@ -74,7 +76,6 @@ def train_flax_model(
             val_dataset=val_dataset,
         )
 
-    ctx = contextvars.copy_context()
-    state = ctx.run(train)
+    state = contextvars.copy_context().run(train)
 
     return nnx.merge(state.graphdef, state.params, *state.additional_states)  # type: ignore[arg-type]
