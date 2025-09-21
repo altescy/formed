@@ -19,7 +19,7 @@ classifiers = [
 ]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-    "colt>=0.16.6",
+    "colt>=0.17.2",
     "dill",
     "filelock",
     "minato>=0.12",
