@@ -1,12 +1,11 @@
 import importlib
-from unittest.mock import patch
 from contextlib import suppress
 
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def patch_sentencde_transformers():
+def patch_sentencde_transformers() -> None:
     with suppress(ImportError):
         from sentence_transformers import SentenceTransformer
 
