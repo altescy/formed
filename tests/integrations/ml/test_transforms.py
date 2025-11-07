@@ -1,5 +1,6 @@
 import dataclasses
 import string
+import sys
 from collections.abc import Sequence
 from typing import Any, Generic, Optional, Union
 
@@ -38,6 +39,7 @@ TextTransformT = TypeVar(
 )
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+ for dataclass_transform support")
 class TestTextClassificationDataModule:
     @dataclasses.dataclass
     class ClassificationExample:
