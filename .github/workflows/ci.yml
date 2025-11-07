@@ -13,26 +13,27 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - '3.9'
-          - '3.10'
-          - '3.11'
-          - '3.12'
-          - '3.13'
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v6
-      with:
-        enable-cache: true
-        python-version: ${{ matrix.python-version }}
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: uv sync --dev --all-extras
+      - name: Install dependencies
+        run: uv sync --dev --all-extras
 
-    - name: Lint with pysen
-      run: make lint
+      - name: Lint with pysen
+        run: make lint
 
-    - name: Test with pytest
-      run:  make test
+      - name: Test with pytest
+        run: make test
