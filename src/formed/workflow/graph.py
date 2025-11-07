@@ -1,6 +1,6 @@
 import sys
 from collections.abc import Iterator, Mapping
-from typing import Any, TextIO, TypedDict
+from typing import Any, Optional, TextIO, TypedDict
 
 from colt import ConfigurationError, Lazy
 
@@ -10,7 +10,7 @@ from formed.types import JsonValue
 
 from .colt import COLT_BUILDER, WorkflowRef
 from .constants import WORKFLOW_REFKEY
-from .step import WorkflowStep, WorkflowStepInfo
+from .step import WorkflowStep, WorkflowStepInfo, WorkflowStepRef
 from .types import StrictParamPath
 
 
@@ -31,11 +31,13 @@ class WorkflowGraph(FromJsonnet):
 
         builder = next(iter(steps.values()))._builder
 
-        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str]]:
-            refs: set[tuple[StrictParamPath, str]] = set()
+        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str, Optional[str]]]:
+            refs: set[tuple[StrictParamPath, str, Optional[str]]] = set()
             if WorkflowRef.is_ref(builder, obj):
-                step_name = str(obj[WORKFLOW_REFKEY])
-                refs |= {(path, step_name)}
+                step_name, field_name = WorkflowRef._parse_ref(str(obj[WORKFLOW_REFKEY]))
+                refs |= {(path, step_name, field_name)}
+            if isinstance(obj, WorkflowRef):
+                refs |= {(path, obj.step_name, obj.field_name)}
             if isinstance(obj, Mapping):
                 for key, value in obj.items():
                     refs |= find_dependencies(value, path + (key,))
@@ -57,10 +59,27 @@ class WorkflowGraph(FromJsonnet):
                 return
             stack.add(name)
             visited.add(name)
-            for _, dep_name in dependencies[name]:
+            for _, dep_name, _ in dependencies[name]:
                 topological_sort(dep_name)
             stack.remove(name)
             sorted_step_names.append(name)
+
+        def make_dependency_step(
+            path: StrictParamPath,
+            step_info: WorkflowStepInfo,
+            field_name: Optional[str],
+        ) -> tuple[StrictParamPath, WorkflowStepInfo]:
+            if field_name:
+                return (
+                    path,
+                    WorkflowStepRef(
+                        name=step_info.name,
+                        step=step_info.step,
+                        dependencies=step_info.dependencies,
+                        fieldref=field_name,
+                    ),
+                )
+            return (path, step_info)
 
         for name in steps.keys():
             topological_sort(name)
@@ -68,7 +87,10 @@ class WorkflowGraph(FromJsonnet):
         step_name_to_info: dict[str, WorkflowStepInfo] = {}
         for name in sorted_step_names:
             step = steps[name]
-            step_dependencies = frozenset((path, step_name_to_info[dep_name]) for path, dep_name in dependencies[name])
+            step_dependencies = frozenset(
+                make_dependency_step(path, step_name_to_info[dep_name], field_name)
+                for path, dep_name, field_name in dependencies[name]
+            )
             step_name_to_info[name] = WorkflowStepInfo(name, step, step_dependencies)
 
         return step_name_to_info

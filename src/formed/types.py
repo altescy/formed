@@ -1,7 +1,17 @@
 import dataclasses
 from typing import Any, ClassVar, Protocol, TypeVar, Union, runtime_checkable
 
-from pydantic import BaseModel, JsonValue  # noqa: F401
+from pydantic import BaseModel, JsonValue
+
+__all__ = [
+    "DataContainer",
+    "IDataclass",
+    "INamedTuple",
+    "JsonValue",
+    "S_DataContainer",
+    "T_DataContainer",
+    "T_NamedTuple",
+]
 
 
 @runtime_checkable
@@ -16,6 +26,11 @@ class INamedTuple(Protocol):
     def _asdict(self) -> dict[str, Any]: ...
 
     def _replace(self: "T_NamedTuple", **kwargs: Any) -> "T_NamedTuple": ...
+
+
+@runtime_checkable
+class IJsonSerializable(Protocol):
+    def json(self) -> JsonValue: ...
 
 
 DataContainer = Union[IDataclass, INamedTuple, BaseModel, dict[str, Any]]

@@ -6,17 +6,25 @@ from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
 from types import TracebackType
-from typing import Any, NewType, Optional, TypeVar, Union, cast
+from typing import Any, NewType, Optional, TypeVar, Union
 
 from colt import Registrable
 
+from formed.common.attributeutils import xgetattr
 from formed.common.git import GitInfo, get_git_info
 from formed.common.pkgutils import PackageInfo, get_installed_packages
 
 from .cache import EmptyWorkflowCache, WorkflowCache
 from .callback import EmptyWorkflowCallback, WorkflowCallback
-from .graph import WorkflowGraph, WorkflowStepInfo
-from .step import WorkflowStep, WorkflowStepContext, WorkflowStepState, WorkflowStepStatus
+from .graph import WorkflowGraph
+from .step import (
+    WorkflowStep,
+    WorkflowStepContext,
+    WorkflowStepInfo,
+    WorkflowStepRef,
+    WorkflowStepState,
+    WorkflowStepStatus,
+)
 
 logger = getLogger(__name__)
 
@@ -136,6 +144,8 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
             step_context = WorkflowStepContext(step_info, step_state)
 
+            result: T
+
             if step_info in cache:
                 logger.info(f"Cached value found for step {step_info.name}")
                 result = cache[step_info]
@@ -178,7 +188,10 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                     step_context = dataclasses.replace(step_context, state=step_state)
                     callback.on_step_end(step_context, execution_context)
 
-            return cast(T, result)
+            if isinstance(step_info, WorkflowStepRef) and step_info.fieldref is not None:
+                result = xgetattr(result, step_info.fieldref)
+
+            return result
 
         try:
             ctx = contextvars.copy_context()

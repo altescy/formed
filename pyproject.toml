@@ -16,9 +16,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.9,<4.0"
 dependencies = [
+    "cloudpickle>=3.1.1",
     "colt>=0.17.2",
     "dill",
     "filelock",
@@ -27,6 +29,7 @@ dependencies = [
     "pyyaml",
     "rich>=12.3",
     "rjsonnet",
+    "typing-extensions>=4.15.0",
 ]
 
 [project.urls]
@@ -84,14 +87,10 @@ all = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3",
-    "black>=24.8.0",
-    "isort>=5.13.2,<6.0",
-    "flake8>=7.1.1",
-    "mypy>=1.11.2",
-    "types-pyyaml>=6.0.12.20240917",
     "pyright>=1.1.405",
+    "pytest>=8.3.3",
     "ruff>=0.13.1",
+    "types-pyyaml>=6.0.12.20240917",
 ]
 docs = [
     "mkdocs>=1.6.1",
@@ -111,6 +110,9 @@ filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:mlflow.*",
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:pydantic._internal.*",
 ]
+
+[tool.pyright]
+pythonVersion = "3.9"
 
 [tool.ruff]
 line-length = 120
