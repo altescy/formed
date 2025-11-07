@@ -1465,15 +1465,6 @@ all = [
     { name = "sentence-transformers", version = "5.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "transformers", extra = ["torch"] },
 ]
-flax = [
-    { name = "cloudpickle" },
-    { name = "flax", version = "0.8.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "flax", version = "0.10.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "flax", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-]
-ml = [
-    { name = "collatable" },
-]
 mlflow = [
     { name = "mlflow", version = "3.1.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mlflow", version = "3.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.14'" },
@@ -1525,9 +1516,7 @@ docs = [
 requires-dist = [
     { name = "cloudpickle", specifier = ">=3.1.1" },
     { name = "cloudpickle", marker = "extra == 'all'" },
-    { name = "cloudpickle", marker = "extra == 'flax'" },
     { name = "collatable", marker = "extra == 'all'", specifier = ">=0.4" },
-    { name = "collatable", marker = "extra == 'ml'", specifier = ">=0.4" },
     { name = "colt", specifier = ">=0.17.2" },
     { name = "datasets", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "datasets", marker = "extra == 'sentence-transformers'", specifier = ">=2.0" },
@@ -1535,9 +1524,7 @@ requires-dist = [
     { name = "dill" },
     { name = "filelock" },
     { name = "flax", marker = "python_full_version >= '3.10' and extra == 'all'", specifier = ">=0.9" },
-    { name = "flax", marker = "python_full_version >= '3.10' and extra == 'flax'", specifier = ">=0.9" },
     { name = "flax", marker = "python_full_version < '3.10' and extra == 'all'", specifier = "<0.9" },
-    { name = "flax", marker = "python_full_version < '3.10' and extra == 'flax'", specifier = "<0.9" },
     { name = "minato", specifier = ">=0.12" },
     { name = "mlflow", marker = "python_full_version >= '3.14' and extra == 'mlflow'", specifier = ">=3.6.0rc0" },
     { name = "mlflow", marker = "extra == 'all'", specifier = ">=2.0" },
@@ -1571,7 +1558,7 @@ requires-dist = [
     { name = "transformers", extras = ["torch"], marker = "extra == 'sentence-transformers'", specifier = ">=4.0" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
-provides-extras = ["ml", "flax", "mlflow", "transformers", "sentence-transformers", "all"]
+provides-extras = ["mlflow", "transformers", "sentence-transformers", "all"]
 
 [package.metadata.requires-dev]
 dev = [
