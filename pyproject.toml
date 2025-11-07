@@ -49,9 +49,13 @@ flax = [
 ]
 mlflow = [
     "mlflow>=2.0",
+    "mlflow>=3.6.0rc0; python_version >= '3.14'",
+    "mlflow-skinny>=3.6.0rc0; python_version >= '3.14'",
+    "mlflow-tracing>=3.6.0rc0; python_version >= '3.14'",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
     "scipy>=1.13; python_version < '3.12'",
+    "pyarrow>=22.0; python_version >= '3.14'",
     "pyarrow>=18.0; python_version >= '3.12'",
     "pyarrow; python_version < '3.12'",
     "plotly>=6.3.0",
