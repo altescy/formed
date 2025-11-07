@@ -18,6 +18,11 @@ class INamedTuple(Protocol):
     def _replace(self: "T_NamedTuple", **kwargs: Any) -> "T_NamedTuple": ...
 
 
+@runtime_checkable
+class IJsonSerializable(Protocol):
+    def json(self) -> JsonValue: ...
+
+
 DataContainer = Union[IDataclass, INamedTuple, BaseModel, dict[str, Any]]
 
 T = TypeVar("T")

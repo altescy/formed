@@ -1,4 +1,5 @@
 import datetime
+import typing
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from typing import Any, Final, Generic, Optional, TypeVar, Union, cast
@@ -39,11 +40,13 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
         path: tuple[Union[int, str], ...],
         step_name: str,
         config: Any,
+        field_name: Optional[str] = None,
     ) -> None:
         super().__init__(annotation)
         self._path = path
         self._step_name = step_name
         self._config = config
+        self._field_name = field_name
 
     @property
     def path(self) -> tuple[Union[int, str], ...]:
@@ -56,6 +59,23 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
     @property
     def config(self) -> Any:
         return self._config
+
+    @property
+    def field_name(self) -> Optional[str]:
+        return self._field_name
+
+    def match_type_hint(self, annotation: Any) -> bool:
+        if self._annotation is Any:
+            return True  # Allow Any to match any type hint for flexibility
+        return super().match_type_hint(annotation)
+
+    @staticmethod
+    def _parse_ref(ref: str) -> tuple[str, Optional[str]]:
+        step_name: str = ref
+        field_name: Optional[str] = None
+        if "." in ref:
+            step_name, field_name = ref.split(".", 1)
+        return step_name, field_name
 
 
 class RefCallback(ColtCallback):
@@ -127,16 +147,28 @@ class RefCallback(ColtCallback):
         from .graph import WorkflowGraph
 
         annotation = remove_optional(annotation)
-        if config and isinstance(annotation, type) and issubclass(annotation, WorkflowGraph):
+        if isinstance(annotation, type) and issubclass(annotation, WorkflowGraph):
             if not isinstance(config, Mapping):
                 raise ConfigurationError(f"[{get_path_name(path)}] Expected a mapping, got {config}")
             self._register_step_types(builder, path, config, context)
             return config
 
         if WorkflowRef.is_ref(builder, config):
-            step_name = config[WORKFLOW_REFKEY]
+            step_name, field_name = WorkflowRef._parse_ref(config[WORKFLOW_REFKEY])
             step_type = self._find_step_type(path, step_name, context)
-            return WorkflowRef(step_type.get_output_type(), path, step_name, config)
+            step_output_annotation = step_type.get_output_type()
+            if field_name is not None:
+                try:
+                    step_output_annotation = typing.get_type_hints(step_output_annotation).get(field_name, Any)
+                except TypeError:
+                    step_output_annotation = Any
+            return WorkflowRef(
+                annotation=step_output_annotation,
+                path=path,
+                step_name=step_name,
+                config=config,
+                field_name=field_name,
+            )
 
         raise SkipCallback
 
@@ -150,6 +182,7 @@ class DatetimeCallback(ColtCallback):
         context: ColtContext,
         annotation: Optional[Union[type[_T], Callable[..., _T]]] = None,
     ) -> Any:
+        del path, builder, context
         if isinstance(config, str) and annotation is datetime.datetime:
             return datetime.datetime.fromisoformat(config)
         raise SkipCallback

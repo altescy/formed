@@ -508,6 +508,17 @@ class MlflowLogger:
             artifact_path=self._get_artifact_path(artifact_path),
         )
 
+    def log_artifacts(
+        self,
+        local_dir: Union[str, PathLike],
+        artifact_path: Optional[str] = None,
+    ) -> None:
+        self.mlflow_client.log_artifacts(
+            run_id=self.run.info.run_id,
+            local_dir=str(local_dir),
+            artifact_path=self._get_artifact_path(artifact_path),
+        )
+
 
 def use_mlflow_experiment() -> Optional[MlflowExperiment]:
     return _MLFLOW_EXPERIMENT.get()

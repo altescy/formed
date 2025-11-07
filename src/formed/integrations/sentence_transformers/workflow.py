@@ -1,11 +1,8 @@
 from collections.abc import Callable, Mapping
-from contextlib import suppress
-from os import PathLike
 from pathlib import Path
-from typing import Any, Generic, Optional, Union, cast
+from typing import Generic, Optional, Union, cast
 
 import datasets
-import minato
 import torch
 from colt import Lazy
 from sentence_transformers import (
@@ -30,16 +27,6 @@ class SentenceTransformerFormat(Generic[SentenceTransformerT], Format[SentenceTr
 
     def read(self, directory: Path) -> SentenceTransformerT:
         return cast(SentenceTransformerT, SentenceTransformer(str(directory / "model")))
-
-
-@step("sentence_transformers::load_pretrained_model", cacheable=False)
-def load_pretrained_model(
-    model_name_or_path: Union[str, PathLike],
-    **kwargs: Any,
-) -> SentenceTransformer:
-    with suppress(Exception):
-        model_name_or_path = minato.cached_path(model_name_or_path)
-    return SentenceTransformer(str(model_name_or_path), **kwargs)
 
 
 @step("sentence_transformers::train", format=SentenceTransformerFormat())
@@ -129,7 +116,7 @@ def train_sentence_transformer(
         callbacks=callbacks,
         model_init=model_init,
         compute_metrics=compute_metrics,
-        optimizers=(optimizer, lr_scheduler),  # type: ignore[arg-type]
+        optimizers=(optimizer, lr_scheduler),  # pyright: ignore[reportArgumentType]
         preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
     trainer.train()

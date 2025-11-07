@@ -27,6 +27,7 @@ dependencies = [
     "pyyaml",
     "rich>=12.3",
     "rjsonnet",
+    "typing-extensions>=4.15.0",
 ]
 
 [project.urls]

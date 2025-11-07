@@ -10,13 +10,21 @@ from typing import Any, NewType, Optional, TypeVar, Union, cast
 
 from colt import Registrable
 
+from formed.common.attributeutils import xgetattr
 from formed.common.git import GitInfo, get_git_info
 from formed.common.pkgutils import PackageInfo, get_installed_packages
 
 from .cache import EmptyWorkflowCache, WorkflowCache
 from .callback import EmptyWorkflowCallback, WorkflowCallback
-from .graph import WorkflowGraph, WorkflowStepInfo
-from .step import WorkflowStep, WorkflowStepContext, WorkflowStepState, WorkflowStepStatus
+from .graph import WorkflowGraph
+from .step import (
+    WorkflowStep,
+    WorkflowStepContext,
+    WorkflowStepInfo,
+    WorkflowStepRef,
+    WorkflowStepState,
+    WorkflowStepStatus,
+)
 
 logger = getLogger(__name__)
 
@@ -135,6 +143,8 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             )
 
             step_context = WorkflowStepContext(step_info, step_state)
+
+            result: T
 
             if step_info in cache:
                 logger.info(f"Cached value found for step {step_info.name}")

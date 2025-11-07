@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import os
+from logging import getLogger
 from os import PathLike
 from typing import ClassVar, Literal, Mapping, Optional, Sequence, TypeVar, Union
 
@@ -13,7 +14,7 @@ from formed.workflow import WorkflowSettings
 
 from .constants import COLT_ARGSKEY, COLT_TYPEKEY
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 T_FormedSettings = TypeVar("T_FormedSettings", bound="FormedSettings")
 
@@ -36,11 +37,10 @@ class FormedSettings:
 
     @classmethod
     def from_file(cls: type[T_FormedSettings], path: Union[str, PathLike]) -> T_FormedSettings:
-        logger = logging.getLogger(__name__)
+        logger = getLogger(__name__)
 
         with open(path, "r") as f:
             settings = yaml.safe_load(f)
-
         # load required modules
         required_modules = cls.__COLT_BUILDER__(settings.get("required_modules", []), Sequence[str])
         import_modules(required_modules)
@@ -62,7 +62,9 @@ class FormedSettings:
         return formed_settings
 
 
-def load_formed_settings(path: Optional[Union[str, PathLike]] = None) -> FormedSettings:
+def load_formed_settings(
+    path: Optional[Union[str, PathLike]] = None,
+) -> FormedSettings:
     if path is not None or DEFAULT_FORMED_SETTINGS_PATH.exists():
         path = path or DEFAULT_FORMED_SETTINGS_PATH
         logger.info(f"Load formed settings from {path}")

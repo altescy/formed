@@ -7,7 +7,17 @@ from collections.abc import Callable, Mapping
 from enum import Enum
 from logging import Logger, getLogger
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Generic, Optional, TypeVar, Union, cast, overload
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 from colt import Lazy, Registrable
 
@@ -92,6 +102,8 @@ class WorkflowStep(Generic[OutputT], Registrable):
     @classmethod
     def get_output_type(cls) -> type[OutputT]:
         return_annotation = cls.FUNCTION.__annotations__["return"]
+        if field is not None:
+            return_annotation = typing.get_type_hints(return_annotation).get(field, Any)
         if getattr(return_annotation, "__parameters__", None):
             # This is a workaround for generic steps to skip the type checking.
             # We need to infer the output type from the configuration.
@@ -213,6 +225,17 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
         }
 
 
+@dataclasses.dataclass(frozen=True)
+class WorkflowStepRef(Generic[WorkflowStepT], WorkflowStepInfo[WorkflowStepT]):
+    fieldref: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        data = super().to_dict()
+        if self.fieldref is not None:
+            data["fieldref"] = self.fieldref
+        return data
+
+
 @overload
 def step(
     name: str,
@@ -261,6 +284,9 @@ def step(
         register(name, func)
         return func
 
+    if name is None:
+        return decorator
+
     if not isinstance(name, str):
         func = name
         register(func.__name__, func)
@@ -292,14 +318,12 @@ def use_step_logger(default: Optional[Union[str, Logger]] = None) -> Optional[Lo
     return default
 
 
-def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
-    return getLogger(f"formed.workflow.step.{info.name}.{info.fingerprint[:8]}")
-
-
 def use_step_workdir() -> Path:
     context = use_step_context()
     if context is None:
         raise RuntimeError("No step context found")
-    workdir = WORKFLOW_WORKSPACE_DIRECTORY / context.info.fingerprint
-    workdir.mkdir(parents=True, exist_ok=True)
-    return workdir
+    return WORKFLOW_WORKSPACE_DIRECTORY / context.info.fingerprint
+
+
+def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
+    return getLogger(f"formed.workflow.step.{info.name}.{info.fingerprint[:8]}")

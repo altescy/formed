@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from contextlib import suppress
 from os import PathLike
 from pathlib import Path
-from typing import Any, Generic, Union, cast
+from typing import Any, Generic, Sequence, Union, cast
 
 import datasets
 import minato
@@ -30,17 +30,17 @@ class DatasetFormat(Generic[DatasetOrMappingT], Format[DatasetOrMappingT]):
         )
 
 
-@step("datasets::load_dataset", cacheable=False, format=DatasetFormat())
+@step("datasets::load_dataset", format=DatasetFormat())
 def load_dataset(
     path: Union[str, PathLike],
     **kwargs: Any,
-) -> Dataset:
+) -> Union[datasets.Dataset, datasets.DatasetDict]:
     with suppress(FileNotFoundError):
         path = minato.cached_path(path)
-    if Path(path).exists():
-        dataset = datasets.load_from_disk(str(path))
+    if isinstance(path, PathLike):
+        dataset = datasets.load_from_disk(str(path), **kwargs)
     else:
-        dataset = cast(Dataset, datasets.load_dataset(str(path), **kwargs))
+        dataset = datasets.load_dataset(str(path), **kwargs)
     if not isinstance(dataset, (datasets.Dataset, datasets.DatasetDict)):
         raise ValueError("Only Dataset or DatasetDict is supported")
     return dataset
@@ -48,21 +48,23 @@ def load_dataset(
 
 @step("datasets::compose_datasetdict", format=DatasetFormat())
 def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
-    datasets_: dict[str, datasets.Dataset] = {
+    datasets_: dict[Union[str, datasets.NamedSplit], datasets.Dataset] = {
         key: dataset for key, dataset in kwargs.items() if isinstance(dataset, datasets.Dataset)
     }
     if len(datasets_) != len(kwargs):
         logger = use_step_logger(__name__)
         logger.warning(
             "Following keys are ignored since they are not Dataset instances: %s",
-            set(kwargs) - set(datasets_),
+            set(kwargs) - set(map(str, datasets_)),
         )
     return datasets.DatasetDict(**datasets_)
 
 
 @step("datasets::concatenate_datasets", format=DatasetFormat())
-def concatenate_datasets(dsets: list[datasets.Dataset], **kwargs: Any) -> datasets.Dataset:
-    return cast(datasets.Dataset, datasets.concatenate_datasets(dsets, **kwargs))
+def concatenate_datasets(datasets: Sequence[Dataset]) -> Dataset:
+    from datasets import concatenate_datasets
+
+    return concatenate_datasets(datasets)  # type: ignore[arg-type]
 
 
 @step("datasets::train_test_split", format=DatasetFormat())

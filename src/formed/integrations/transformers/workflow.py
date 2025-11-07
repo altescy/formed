@@ -9,18 +9,26 @@ import minato
 import torch
 import transformers
 from colt import Lazy
-from transformers import DataCollator, PreTrainedModel, TrainerCallback, TrainingArguments
+from transformers import (
+    PreTrainedModel,
+    TrainerCallback,
+    TrainingArguments,
+)
 from transformers.feature_extraction_utils import FeatureExtractionMixin
 from transformers.image_processing_utils import BaseImageProcessor
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 from transformers.processing_utils import ProcessorMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
+from typing_extensions import TypeAlias
 
 from formed.integrations.datasets.workflow import DatasetFormat
 from formed.workflow import Format, step, use_step_workdir
 
 PretrainedModelT = TypeVar("PretrainedModelT", bound=PreTrainedModel)
+DataCollator: TypeAlias = (
+    Callable  # NOTE: This is a workaround for avoiding type mismatch with transformers.DataCollator
+)
 
 
 @Format.register("transformers::pretrained_model")
@@ -64,7 +72,10 @@ def tokenize_dataset(
     )
 
 
-@step("transformers::load_pretrained_model", cacheable=False)
+@step(
+    "transformers::load_pretrained_model",
+    format=TransformersPretrainedModelFormat(),
+)
 def load_pretrained_model(
     model_name_or_path: Union[str, PathLike],
     auto_class: Union[str, type[_BaseAutoModelClass]] = transformers.AutoModel,
@@ -79,13 +90,12 @@ def load_pretrained_model(
     model = auto_class.from_pretrained(model_name_or_path, **kwargs)
     if submodule:
         model = getattr(model, submodule)
-    return cast(transformers.PreTrainedModel, model)
+    return model
 
 
 @step("transformers::load_pretrained_tokenizer", cacheable=False)
 def load_pretrained_tokenizer(
     pretrained_model_name_or_path: Union[str, PathLike],
-    submodule: Optional[str] = None,
     **kwargs: Any,
 ) -> PreTrainedTokenizerBase:
     with suppress(FileNotFoundError):

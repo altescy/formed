@@ -56,7 +56,7 @@ def test_datasets_workflow(
                     "type": "datasets::load_dataset",
                     "path": str(dataset_path),
                 },
-                "splitted_dataset": {
+                "split_dataset": {
                     "type": "datasets::train_test_split",
                     "dataset": {"type": "ref", "ref": "dataset"},
                     "test_key": "validation",
@@ -68,7 +68,7 @@ def test_datasets_workflow(
     executor = DefaultWorkflowExecutor()
     organizer = MemoryWorkflowOrganizer()
     context = organizer.run(executor, graph)
-    splitted_dataset = context.cache[graph["splitted_dataset"]]
-    assert isinstance(splitted_dataset, dict)
-    assert set(splitted_dataset.keys()) == {"train", "validation"}
-    assert all(isinstance(dataset, datasets.Dataset) for dataset in splitted_dataset.values())
+    split_dataset = context.cache[graph["split_dataset"]]
+    assert isinstance(split_dataset, dict)
+    assert set(split_dataset.keys()) == {"train", "validation"}
+    assert all(isinstance(dataset, datasets.Dataset) for dataset in split_dataset.values())
