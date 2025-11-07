@@ -9,17 +9,19 @@ import minato
 import torch
 import transformers
 from colt import Lazy
-from transformers import DataCollator, PreTrainedModel, TrainerCallback, TrainingArguments
+from transformers import PreTrainedModel, TrainerCallback, TrainingArguments
 from transformers.feature_extraction_utils import FeatureExtractionMixin
 from transformers.image_processing_utils import BaseImageProcessor
 from transformers.models.auto.auto_factory import _BaseAutoModelClass
 from transformers.processing_utils import ProcessorMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
+from typing_extensions import TypeAlias
 
 from formed.integrations.datasets.workflow import DatasetFormat
 from formed.workflow import Format, step, use_step_workdir
 
+DataCollator: TypeAlias = Callable  # NOTE: workaround for type mismatch in transformers
 PretrainedModelT = TypeVar("PretrainedModelT", bound=PreTrainedModel)
 
 
@@ -154,7 +156,7 @@ def finetune_model(
     trainer = transformers.Trainer(
         model=model,
         args=args_,
-        data_collator=data_collator,
+        data_collator=data_collator,  # pyright: ignore[reportArgumentType]
         train_dataset=train_dataset,  # pyright: ignore[reportArgumentType]
         eval_dataset=eval_dataset,  # pyright: ignore[reportArgumentType]
         processing_class=processing_class,

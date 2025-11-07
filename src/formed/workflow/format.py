@@ -4,20 +4,20 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import IO, Any, ClassVar, Generic, Optional, TypeVar, Union, cast
 
+import cloudpickle
 import colt
-import dill
 from colt import Registrable
 from pydantic import BaseModel
 
 from formed.types import DataContainer, IDataclass, INamedTuple, JsonValue
 
-from .utils import WorkflowJSONEncoder
+from .utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
 _JsonFormattable = Union[DataContainer, JsonValue]
 
 _S = TypeVar("_S")
 _T = TypeVar("_T")
-_T_JsonFormattable = TypeVar("_T_JsonFormattable", bound=Union[_JsonFormattable, Iterator[_JsonFormattable]])
+_JsonFormattableT = TypeVar("_JsonFormattableT", bound=Union[_JsonFormattable, Iterator[_JsonFormattable]])
 
 
 class Format(Generic[_T], Registrable):
@@ -41,8 +41,7 @@ class PickleFormat(Format[_T], Generic[_T]):
     class _IteratorWrapper(Generic[_S]):
         def __init__(self, path: Path) -> None:
             self._file: Optional[IO[Any]] = path.open("rb")
-            self._unpickler = dill.Unpickler(self._file)
-            assert self._unpickler.load()  # Check if it is an iterator
+            assert cloudpickle.load(self._file)  # Check if it is an iterator
 
         def __iter__(self) -> Iterator[_S]:
             return self
@@ -51,7 +50,7 @@ class PickleFormat(Format[_T], Generic[_T]):
             if self._file is None:
                 raise StopIteration
             try:
-                return cast(_S, self._unpickler.load())
+                return cast(_S, cloudpickle.load(self._file))
             except EOFError:
                 self._file.close()
                 self._file = None
@@ -62,28 +61,26 @@ class PickleFormat(Format[_T], Generic[_T]):
 
     def write(self, artifact: _T, directory: Path) -> None:
         artifact_path = self._get_artifact_path(directory)
-        with artifact_path.open("wb") as f:
-            pickler = dill.Pickler(f)
+        with open(artifact_path, "wb") as f:
             if isinstance(artifact, Iterator):
-                pickler.dump(True)
+                cloudpickle.dump(True, f)
                 for item in artifact:
-                    pickler.dump(item)
+                    cloudpickle.dump(item, f)
             else:
-                pickler.dump(False)
-                pickler.dump(artifact)
+                cloudpickle.dump(False, f)
+                cloudpickle.dump(artifact, f)
 
     def read(self, directory: Path) -> _T:
         artifact_path = self._get_artifact_path(directory)
-        with artifact_path.open("rb") as f:
-            unpickler = dill.Unpickler(f)
-            is_iterator = unpickler.load()
+        with open(artifact_path, "rb") as f:
+            is_iterator = cloudpickle.load(f)
             if is_iterator:
                 return cast(_T, self._IteratorWrapper(artifact_path))
-            return cast(_T, unpickler.load())
+            return cast(_T, cloudpickle.load(f))
 
 
 @Format.register("json")
-class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
+class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     class _IteratorWrapper(Generic[_S]):
         def __init__(self, path: Path, artifact_class: Optional[type[_S]]) -> None:
             self._file = path.open("r")
@@ -97,24 +94,27 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
             if not line:
                 self._file.close()
                 raise StopIteration
-            data = json.loads(line)
+            data = json.loads(line, cls=WorkflowJSONDecoder)
             if self._artifact_class is not None:
                 return colt.build(data, self._artifact_class)
             return cast(_S, data)
 
-    def write(self, artifact: _T_JsonFormattable, directory: Path) -> None:
-        artifact_class: Optional[type[_T_JsonFormattable]] = None
+    def write(self, artifact: _JsonFormattableT, directory: Path) -> None:
+        artifact_class: Optional[type[_JsonFormattableT]] = None
         if isinstance(artifact, Iterator):
             artifact_path = directory / "artifact.jsonl"
-            with artifact_path.open("w") as f:
+            with open(artifact_path, "w") as f:
                 for item in artifact:
-                    artifact_class = cast(type[_T_JsonFormattable], artifact_class or type(item))
+                    artifact_class = cast(
+                        type[_JsonFormattableT],
+                        artifact_class or type(item),
+                    )
                     json.dump(item, f, cls=WorkflowJSONEncoder, ensure_ascii=False)
                     f.write("\n")
         else:
             artifact_class = type(artifact)
             artifact_path = directory / "artifact.json"
-            with artifact_path.open("w") as f:
+            with open(artifact_path, "w") as f:
                 json.dump(artifact, f, cls=WorkflowJSONEncoder, ensure_ascii=False)
         if artifact_class is not None:
             metadata = {
@@ -122,29 +122,29 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
                 "class": artifact_class.__name__,
             }
             metadata_path = directory / "metadata.json"
-            with metadata_path.open("w") as f:
+            with open(metadata_path, "w") as f:
                 json.dump(metadata, f, ensure_ascii=False)
 
-    def read(self, directory: Path) -> _T_JsonFormattable:
+    def read(self, directory: Path) -> _JsonFormattableT:
         metadata_path = directory / "metadata.json"
-        artifact_class: Optional[type[_T_JsonFormattable]] = None
+        artifact_class: Optional[type[_JsonFormattableT]] = None
         if metadata_path.exists():
-            with metadata_path.open("r") as f:
-                metadata = json.load(f)
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f, cls=WorkflowJSONDecoder)
             module = importlib.import_module(metadata["module"])
             artifact_class = getattr(module, metadata["class"])
 
         is_iterator = (directory / "artifact.jsonl").exists()
         if is_iterator:
             artifact_path = directory / "artifact.jsonl"
-            return cast(_T_JsonFormattable, self._IteratorWrapper(artifact_path, artifact_class))
+            return cast(_JsonFormattableT, self._IteratorWrapper(artifact_path, artifact_class))
 
         artifact_path = directory / "artifact.json"
-        with artifact_path.open("r") as f:
-            data = json.load(f)
+        with open(artifact_path, "r") as f:
+            data = json.load(f, cls=WorkflowJSONDecoder)
             if artifact_class is not None:
                 return colt.build(data, artifact_class)
-            return cast(_T_JsonFormattable, data)
+            return cast(_JsonFormattableT, data)
 
     @classmethod
     def is_default_of(cls, obj: Any) -> bool:
@@ -165,21 +165,22 @@ class JsonFormat(Format[_T_JsonFormattable], Generic[_T_JsonFormattable]):
         )
 
 
-@Format.register("cloudpickle")
-class CloudPickleFormat(PickleFormat[_T]):
-    def write(self, artifact: _T, directory: Path) -> None:
-        import cloudpickle
+@Format.register("mapping")
+class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
+    def __init__(self, format: Format[_T]) -> None:
+        self._format = format
 
-        artifact_path = self._get_artifact_path(directory)
-        with artifact_path.open("wb") as f:
-            cloudpickle.dump(artifact, f)
+    def write(self, artifact: Mapping[str, _T], directory: Path) -> None:
+        for key, value in artifact.items():
+            subdir = directory / key
+            subdir.mkdir(parents=True)
+            self._format.write(value, subdir)
 
-    def read(self, directory: Path) -> _T:
-        import cloudpickle
-
-        artifact_path = self._get_artifact_path(directory)
-        with artifact_path.open("rb") as f:
-            return cast(_T, cloudpickle.load(f))
+    def read(self, directory: Path) -> Mapping[str, _T]:
+        artifact: dict[str, _T] = {}
+        for subdir in directory.glob("*"):
+            artifact[subdir.name] = self._format.read(subdir)
+        return artifact
 
 
 @Format.register("auto")
@@ -206,22 +207,5 @@ class AutoFormat(Format[_T]):
     def read(self, directory: Path) -> _T:
         format_metadata = json.loads((directory / self._FORMAT_FILENAME).read_text())
         format_name = format_metadata["name"]
-        return cast(type[Format[_T]], Format.by_name(format_name))().read(directory)
-
-
-@Format.register("mapping")
-class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
-    def __init__(self, format: Format[_T]) -> None:
-        self._format = format
-
-    def write(self, artifact: Mapping[str, _T], directory: Path) -> None:
-        for key, value in artifact.items():
-            subdir = directory / key
-            subdir.mkdir(parents=True)
-            self._format.write(value, subdir)
-
-    def read(self, directory: Path) -> Mapping[str, _T]:
-        artifact: dict[str, _T] = {}
-        for subdir in directory.glob("*"):
-            artifact[subdir.name] = self._format.read(subdir)
-        return artifact
+        format = cast(type[Format[_T]], Format.by_name(format_name))()
+        return format.read(directory)

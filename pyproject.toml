@@ -16,9 +16,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.9,<4.0"
 dependencies = [
+    "cloudpickle>=3.1.1",
     "colt>=0.17.2",
     "dill",
     "filelock",
@@ -27,6 +29,7 @@ dependencies = [
     "pyyaml",
     "rich>=12.3",
     "rjsonnet",
+    "typing-extensions>=4.15.0",
 ]
 
 [project.urls]
@@ -36,19 +39,15 @@ Homepage = "https://altescy.jp/formed"
 formed = "formed.__main__:run"
 
 [project.optional-dependencies]
-ml = [
-    "collatable>=0.4",
-]
-flax = [
-    "cloudpickle",
-    "flax>=0.9; python_version >= '3.10'",
-    "flax<0.9; python_version < '3.10'",
-]
 mlflow = [
     "mlflow>=2.0",
+    "mlflow>=3.6.0rc0; python_version >= '3.14'",
+    "mlflow-skinny>=3.6.0rc0; python_version >= '3.14'",
+    "mlflow-tracing>=3.6.0rc0; python_version >= '3.14'",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
     "scipy>=1.13; python_version < '3.12'",
+    "pyarrow>=22.0; python_version >= '3.14'",
     "pyarrow>=18.0; python_version >= '3.12'",
     "pyarrow; python_version < '3.12'",
     "plotly>=6.3.0",
@@ -65,11 +64,7 @@ sentence-transformers = [
     "transformers[torch]>=4.0",
 ]
 all = [
-    "collatable>=0.4",
-    "cloudpickle",
     "datasets>=2.0",
-    "flax>=0.9; python_version >= '3.10'",
-    "flax<0.9; python_version < '3.10'",
     "mlflow>=2.0",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
@@ -84,14 +79,10 @@ all = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3",
-    "black>=24.8.0",
-    "isort>=5.13.2,<6.0",
-    "flake8>=7.1.1",
-    "mypy>=1.11.2",
-    "types-pyyaml>=6.0.12.20240917",
     "pyright>=1.1.405",
+    "pytest>=8.3.3",
     "ruff>=0.13.1",
+    "types-pyyaml>=6.0.12.20240917",
 ]
 docs = [
     "mkdocs>=1.6.1",
@@ -111,6 +102,9 @@ filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:mlflow.*",
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:pydantic._internal.*",
 ]
+
+[tool.pyright]
+pythonVersion = "3.9"
 
 [tool.ruff]
 line-length = 120
