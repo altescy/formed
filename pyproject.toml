@@ -19,7 +19,7 @@ classifiers = [
 ]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-    "colt>=0.17.2",
+    "colt>=0.17.1",
     "dill",
     "filelock",
     "minato>=0.12",
@@ -52,7 +52,6 @@ mlflow = [
     "scipy>=1.13; python_version < '3.12'",
     "pyarrow>=18.0; python_version >= '3.12'",
     "pyarrow; python_version < '3.12'",
-    "plotly>=6.3.0",
 ]
 transformers = [
     "datasets>=2.0",
@@ -85,14 +84,11 @@ all = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3",
-    "black>=24.8.0",
-    "isort>=5.13.2,<6.0",
-    "flake8>=7.1.1",
-    "mypy>=1.11.2",
-    "types-pyyaml>=6.0.12.20240917",
+    "plotly>=6.3.0",
     "pyright>=1.1.405",
-    "ruff>=0.13.1",
+    "pytest>=8.3.3",
+    "ruff>=0.12.12",
+    "types-pyyaml>=6.0.12.20240917",
 ]
 docs = [
     "mkdocs>=1.6.1",
@@ -113,5 +109,9 @@ filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:pydantic._internal.*",
 ]
 
+[tool.pyright]
+pythonVersion = "3.9"
+
 [tool.ruff]
 line-length = 120
+
