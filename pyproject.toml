@@ -41,9 +41,7 @@ formed = "formed.__main__:run"
 [project.optional-dependencies]
 mlflow = [
     "mlflow>=2.0",
-    "mlflow>=3.6.0rc0; python_version >= '3.14'",
-    "mlflow-skinny>=3.6.0rc0; python_version >= '3.14'",
-    "mlflow-tracing>=3.6.0rc0; python_version >= '3.14'",
+    "mlflow>=3.6.0; python_version >= '3.14'",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
     "scipy>=1.13; python_version < '3.12'",
