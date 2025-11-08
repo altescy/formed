@@ -5,11 +5,12 @@ import optax
 from flax import nnx
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
-from formed.integrations.ml import AverageMetric
+from formed.integrations.ml import AverageMetric, DataModule
 from formed.workflow import use_step_logger
 
 from ..model import BaseFlaxModel
 from ..types import IDataLoader, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from ..utils import register_datamodule
 from .callbacks import FlaxTrainingCallback
 from .engine import DefaultFlaxTrainingEngine, FlaxTrainingEngine
 from .exceptions import StopEarly
@@ -134,6 +135,9 @@ class FlaxTrainer(
 
                     model.train()
                     for batch in self._train_dataloader(train_dataset):
+                        if isinstance(batch, DataModule):
+                            register_datamodule(type(batch))
+
                         for callback in callbacks:
                             callback.on_batch_start(self, model, state, epoch)
 

@@ -1,5 +1,4 @@
 import dataclasses
-from collections.abc import Sequence
 from typing import Generic, Optional
 
 import jax
@@ -32,12 +31,6 @@ class RegressionDataModule(
 
 
 @struct.dataclass
-class RegressorInput:
-    features: jax.Array
-    target: Optional[jax.Array] = None
-
-
-@struct.dataclass
 class RegressorOutput:
     predictions: jax.Array
     loss: Optional[jax.Array] = None
@@ -59,13 +52,13 @@ def regression_dataset() -> list[RegressionExample]:
 
 
 class TestTrainingWithRegressor:
-    class FlaxRegressor(BaseFlaxModel[RegressorInput, RegressorOutput]):
+    class FlaxRegressor(BaseFlaxModel[RegressionDataModule[AsBatch], RegressorOutput]):
         def __init__(self, rngs: nnx.Rngs, feature_dim: int) -> None:
             self.dense = nnx.Linear(in_features=feature_dim, out_features=1, rngs=rngs)
 
-        def __call__(self, inputs: RegressorInput, params: None = None) -> RegressorOutput:
+        def __call__(self, inputs: RegressionDataModule[AsBatch], params: None = None) -> RegressorOutput:
             del params
-            preds = self.dense(inputs.features).squeeze(-1)
+            preds = self.dense(ensure_jax_array(inputs.features)).squeeze(-1)
             loss: Optional[jax.Array] = None
             if inputs.target is not None:
                 loss = jax.numpy.mean((preds - inputs.target) ** 2)
@@ -81,24 +74,17 @@ class TestTrainingWithRegressor:
             target=ScalarTransform(),
         )
 
-        def collator(batch: Sequence[RegressionDataModule[AsInstance]]) -> RegressorInput:
-            inputs = datamodule.batch(batch)
-            return RegressorInput(
-                features=ensure_jax_array(inputs.features),
-                target=ensure_jax_array(inputs.target) if inputs.target is not None else None,
-            )
-
         with datamodule.train():
             train_instances = [datamodule.instance(example) for example in train_data]
         val_instances = [datamodule.instance(example) for example in val_data]
 
         train_dataloader = DataLoader(
             sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
-            collator=collator,
+            collator=datamodule.batch,
         )
         val_dataloader = DataLoader(
             sampler=BasicBatchSampler(batch_size=16, shuffle=False),
-            collator=collator,
+            collator=datamodule.batch,
         )
 
         rngs = nnx.Rngs(42)
@@ -111,4 +97,4 @@ class TestTrainingWithRegressor:
             max_epochs=5,
         )
 
-        trainer.train(rngs, model, train_instances, val_instances)  # pyright: ignore[reportArgumentType]
+        trainer.train(rngs, model, train_instances, val_instances)

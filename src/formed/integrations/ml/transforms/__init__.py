@@ -1,11 +1,11 @@
-from .base import BaseTransform, Extra, Param
+from .base import BaseTransform, DataModule, Extra, Param
 from .basic import LabelIndexer, MetadataTransform, ScalarTransform, TensorTransform
-from .datamodule import DataModule
 from .nlp import TokenCharactersIndexer, Tokenizer, TokenSequenceIndexer
 
 __all__ = [
     # base
     "BaseTransform",
+    "DataModule",
     "Extra",
     "Param",
     # basic
@@ -13,8 +13,6 @@ __all__ = [
     "LabelIndexer",
     "ScalarTransform",
     "TensorTransform",
-    # datamodule
-    "DataModule",
     # nlp
     "Tokenizer",
     "TokenSequenceIndexer",

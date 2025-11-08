@@ -10,8 +10,7 @@ from typing_extensions import TypeVar
 from formed.common.nlputils import punkt_tokenize
 
 from ..types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleModeT, IDSequenceBatch  # noqa: F401
-from .base import BaseTransform, Extra, Param
-from .datamodule import DataModule
+from .base import BaseTransform, DataModule, Extra, Param
 
 logger = getLogger(__name__)
 
