@@ -1,4 +1,5 @@
 import dataclasses
+import operator
 from collections.abc import Sequence
 from contextlib import suppress
 from logging import getLogger
@@ -44,7 +45,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
 
     @property
     def labels(self) -> list[LabelT]:
-        return [label for label, _ in sorted(self.label2id, key=lambda x: x[1])]
+        return [label for label, _ in sorted(self.label2id, key=operator.itemgetter(1))]
 
     @property
     def occurrences(self) -> dict[LabelT, int]:
@@ -53,7 +54,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
     @property
     def distribution(self) -> numpy.ndarray:
         total = sum(count for _, count in self._label_counts) + self.num_labels
-        counts = [count for _, count in sorted(self._label_counts, key=lambda x: x[1])]
+        counts = [count for _, count in sorted(self._label_counts, key=operator.itemgetter(1))]
         return numpy.array([(count + 1) / total for count in counts], dtype=numpy.float32)
 
     def _on_start_training(self) -> None:
@@ -99,3 +100,27 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
 
     def reconstruct(self, batch: numpy.ndarray, /) -> list[LabelT]:
         return [self.get_value(index) for index in batch.tolist()]
+
+
+@BaseTransform.register("scalar")
+class ScalarTransform(
+    Generic[_S],
+    BaseTransform[_S, float, float, numpy.ndarray],
+):
+    def instance(self, value: float, /) -> float:
+        return value
+
+    def batch(self, batch: Sequence[float], /) -> numpy.ndarray:
+        return numpy.array(batch, dtype=numpy.float32)
+
+
+@BaseTransform.register("tensor")
+class TensorTransform(
+    Generic[_S],
+    BaseTransform[_S, numpy.ndarray, numpy.ndarray, numpy.ndarray],
+):
+    def instance(self, value: numpy.ndarray, /) -> numpy.ndarray:
+        return value
+
+    def batch(self, batch: Sequence[numpy.ndarray], /) -> numpy.ndarray:
+        return numpy.stack(batch, axis=0)
