@@ -208,13 +208,12 @@ class FlaxTrainer(
                         new_batch(epoch)
 
                         sharded_batch = self._distributor.shard(batch)
-                        state = self._distributor.replicate(state)
-                        assert state is not None
+                        replicated_state = self._distributor.replicate(state)
 
-                        state, output = train_step(sharded_batch, state, self)
+                        replicated_state, replicated_output = train_step(sharded_batch, replicated_state, self)
 
-                        state = self._distributor.unreplicate(state)
-                        output = self._distributor.unreplicate(output)
+                        state = self._distributor.unreplicate(replicated_state)
+                        output = self._distributor.unreplicate(replicated_output)
                         assert state is not None
 
                         update_metrics(evaluators, batch, output)
