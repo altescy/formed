@@ -8,12 +8,12 @@ T = TypeVar("T")
 
 
 class SizedIterator(Generic[T]):
-    """
-    A wrapper for an iterator that knows its size.
+    """A wrapper for an iterator that knows its size.
 
     Args:
         iterator: The iterator.
         size: The size of the iterator.
+
     """
 
     def __init__(self, iterator: Iterator[T], size: int):
@@ -31,8 +31,7 @@ class SizedIterator(Generic[T]):
 
 
 def batched(iterable: Iterable[T], batch_size: int, drop_last: bool = False) -> Iterator[list[T]]:
-    """
-    Batch an iterable into lists of the given size.
+    """Batch an iterable into lists of the given size.
 
     Args:
         iterable: The iterable.
@@ -41,6 +40,7 @@ def batched(iterable: Iterable[T], batch_size: int, drop_last: bool = False) -> 
 
     Returns:
         An iterator over batches.
+
     """
 
     def iterator() -> Iterator[list[T]]:
@@ -61,8 +61,7 @@ def batched(iterable: Iterable[T], batch_size: int, drop_last: bool = False) -> 
 
 
 def batched_iterator(iterable: Iterable[T], batch_size: int) -> Iterator[Iterator[T]]:
-    """
-    Batch an iterable into iterators of the given size.
+    """Batch an iterable into iterators of the given size.
 
     Args:
         iterable: The iterable.
@@ -70,6 +69,7 @@ def batched_iterator(iterable: Iterable[T], batch_size: int) -> Iterator[Iterato
 
     Returns:
         An iterator over batches.
+
     """
 
     def iterator() -> Iterator[Iterator[T]]:
@@ -113,8 +113,7 @@ def iter_with_callback(
     iterable: Iterable[T],
     callback: Callable[[T], Any],
 ) -> Iterator[T]:
-    """
-    Iterate over an iterable and call a callback for each item.
+    """Iterate over an iterable and call a callback for each item.
 
     Args:
         iterable: The iterable.
@@ -122,6 +121,7 @@ def iter_with_callback(
 
     Returns:
         An iterator over the iterable.
+
     """
 
     def iterator() -> Iterator[T]:
@@ -136,8 +136,7 @@ def iter_with_callback(
 
 
 def wrap_iterator(wrapper: Callable[[Iterable[T]], Iterator[T]], iterable: Iterable[T]) -> Iterator:
-    """
-    Wrap an iterator with a function.
+    """Wrap an iterator with a function.
 
     Note:
         This function assume that the wrapped iterator is of the same size as the input iterator.
@@ -147,6 +146,7 @@ def wrap_iterator(wrapper: Callable[[Iterable[T]], Iterator[T]], iterable: Itera
 
     Returns:
         An iterator wrapped with the function.
+
     """
 
     def wrapped() -> Iterator[T]:
