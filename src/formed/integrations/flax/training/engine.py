@@ -76,8 +76,6 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
         state: TrainState,
         trainer: "FlaxTrainer[Any, ModelInputT, ModelOutputT, ModelParamsT]",
     ) -> tuple[TrainState, ModelOutputT]:
-        del trainer
-
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
             def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
                 model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(
@@ -89,6 +87,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
                 return loss, output
 
             grads, output = jax.grad(loss_fn, has_aux=True)(state.params)
+            grads = trainer.distributor.reduce(grads)
             state = state.apply_gradients(grads=grads)
             return state, output
 

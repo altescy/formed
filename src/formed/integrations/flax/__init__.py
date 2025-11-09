@@ -1,3 +1,4 @@
+from .distributors import BaseDistributor, DataParallelDistributor, SingleDeviceDistributor
 from .model import BaseFlaxModel
 from .training import (
     DefaultFlaxTrainingEngine,
@@ -18,6 +19,10 @@ __all__ = [
     "EvaluationCallback",
     "FlaxTrainingCallback",
     "MlflowCallback",
+    # distributors
+    "BaseDistributor",
+    "DataParallelDistributor",
+    "SingleDeviceDistributor",
     # engine
     "DefaultFlaxTrainingEngine",
     "FlaxTrainingEngine",

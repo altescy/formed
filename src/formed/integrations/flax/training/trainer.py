@@ -8,6 +8,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 
 from formed.workflow import use_step_logger
 
+from ..distributors import BaseDistributor, SingleDeviceDistributor
 from ..model import BaseFlaxModel
 from ..types import IDataLoader, IEvaluator, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 from .callbacks import FlaxTrainingCallback
@@ -26,11 +27,13 @@ class FlaxTrainer(
 ):
     def __init__(
         self,
+        *,
         train_dataloader: IDataLoader[ItemT, ModelInputT],
         val_dataloader: Optional[IDataLoader[ItemT, ModelInputT]] = None,
         engine: Optional[FlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]] = None,
         optimizer: Union[IOptimizer, optax.MultiSteps, optax.GradientTransformation] = optax.adamw(1e-3),
         callbacks: Sequence[FlaxTrainingCallback] = (),
+        distributor: Optional[BaseDistributor] = None,
         max_epochs: int = 10,
         eval_strategy: Literal["epoch", "step"] = "epoch",
         eval_interval: int = 1,
@@ -45,6 +48,7 @@ class FlaxTrainer(
         self._train_dataloader = train_dataloader
         self._val_dataloader = val_dataloader
         self._engine = engine or DefaultFlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]()
+        self._distributor = distributor or SingleDeviceDistributor()
         self._max_epochs = max_epochs
         self._eval_strategy = eval_strategy
         self._eval_interval = eval_interval
@@ -56,6 +60,10 @@ class FlaxTrainer(
     @property
     def optimizer(self) -> optax.GradientTransformation:
         return self._optimizer
+
+    @property
+    def distributor(self) -> BaseDistributor:
+        return self._distributor
 
     def train(
         self,
@@ -73,7 +81,7 @@ class FlaxTrainer(
         if state is None:
             state = self._engine.create_state(rngs, self, model)
 
-        train_step = partial(nnx.jit, static_argnames=("trainer"))(self._engine.train_step)
+        train_step = self._distributor.map(self._engine.train_step, static_argnums=(2,))
         eval_step = partial(nnx.jit, static_argnames=("trainer"))(self._engine.eval_step)
 
         for callback in self._callbacks:
@@ -199,8 +207,16 @@ class FlaxTrainer(
                     for batch in self._train_dataloader(train_dataset):
                         new_batch(epoch)
 
-                        state, output = train_step(batch, state, self)
+                        sharded_batch = self._distributor.shard(batch)
+                        state = self._distributor.replicate(state)
                         assert state is not None
+
+                        state, output = train_step(sharded_batch, state, self)
+
+                        state = self._distributor.unreplicate(state)
+                        output = self._distributor.unreplicate(output)
+                        assert state is not None
+
                         update_metrics(evaluators, batch, output)
 
                         if is_logging_step(int(state.step)):
