@@ -94,6 +94,8 @@ class BinaryAccuracy(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[Bina
 
 @BaseMetric.register("multiclass_accuracy")
 class MulticlassAccuracy(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
+    Input: type[ClassificationInput[LabelT]] = ClassificationInput
+
     def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
         self._average = average
         self._correct: dict[LabelT, int] = defaultdict(int)

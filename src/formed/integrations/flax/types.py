@@ -1,8 +1,10 @@
 from collections.abc import Iterator, Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, Union, runtime_checkable
 
+import jax
+import numpy
 import optax
-from typing_extensions import TypeVar
+from typing_extensions import TypeAlias, TypeVar
 
 
 @runtime_checkable
@@ -11,6 +13,8 @@ class IOptimizer(Protocol):
     update: optax.TransformUpdateFn
 
 
+ArrayCompatible: TypeAlias = Union[numpy.ndarray, jax.Array]
+ArrayCompatibleT = TypeVar("ArrayCompatibleT", bound=ArrayCompatible)
 ItemT = TypeVar("ItemT", default=Any)
 ItemT_contra = TypeVar("ItemT_contra", contravariant=True, default=Any)
 ModelInputT = TypeVar("ModelInputT", default=Any)
@@ -35,3 +39,29 @@ class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
     def update(self, inputs: ModelInputT_contra, output: ModelOutputT_contra, /) -> None: ...
     def compute(self) -> dict[str, float]: ...
     def reset(self) -> None: ...
+
+
+class IIDSequenceBatch(Protocol[ArrayCompatibleT]):
+    ids: ArrayCompatibleT
+    mask: ArrayCompatibleT
+
+    def __len__(self) -> int: ...
+
+
+IDSequenceBatchT = TypeVar("IDSequenceBatchT", bound=IIDSequenceBatch)
+
+
+SurfaceBatchT = TypeVar("SurfaceBatchT", bound=IIDSequenceBatch, default=Any)
+PostagBatchT = TypeVar("PostagBatchT", bound=Optional[IIDSequenceBatch], default=Any)
+CharacterBatchT = TypeVar("CharacterBatchT", bound=Optional[IIDSequenceBatch], default=Any)
+
+
+class IAnalyzedTextBatch(Protocol[SurfaceBatchT, PostagBatchT, CharacterBatchT]):
+    surfaces: SurfaceBatchT
+    postags: PostagBatchT
+    characters: CharacterBatchT
+
+    def __len__(self) -> int: ...
+
+
+AnalyzedTextBatchT = TypeVar("AnalyzedTextBatchT", bound=IAnalyzedTextBatch, default=Any)

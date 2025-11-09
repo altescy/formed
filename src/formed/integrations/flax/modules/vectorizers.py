@@ -1,0 +1,57 @@
+from typing import Literal, Optional
+
+import jax
+from colt import Registrable
+from flax import nnx
+
+from formed.integrations.flax.utils import masked_pool
+
+
+class BaseSequenceVectorizer(nnx.Module, Registrable):
+    def __call__(
+        self,
+        inputs: jax.Array,
+        *,
+        mask: Optional[jax.Array] = None,
+    ) -> jax.Array:
+        raise NotImplementedError
+
+    def get_input_dim(self) -> Optional[int]:
+        raise NotImplementedError
+
+    def get_output_dim(self) -> Optional[int]:
+        raise NotImplementedError
+
+
+@BaseSequenceVectorizer.register("boe")
+@BaseSequenceVectorizer.register("bag_of_embeddings")
+class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
+    def __init__(
+        self,
+        pooling: Literal["mean", "max", "min", "sum", "hier", "first", "last"] = "mean",
+        normalize: bool = False,
+        window_size: Optional[int] = None,
+    ) -> None:
+        self._pooling: Literal["mean", "max", "min", "sum", "hier", "first", "last"] = pooling
+        self._normalize = normalize
+        self._window_size = window_size
+
+    def __call__(
+        self,
+        inputs: jax.Array,
+        *,
+        mask: Optional[jax.Array] = None,
+    ) -> jax.Array:
+        return masked_pool(
+            inputs,
+            mask=mask,
+            pooling=self._pooling,
+            normalize=self._normalize,
+            window_size=self._window_size,
+        )
+
+    def get_input_dim(self) -> None:
+        return None
+
+    def get_output_dim(self) -> None:
+        return None

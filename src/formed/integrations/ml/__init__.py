@@ -12,6 +12,7 @@ from .transforms import (
     TokenCharactersIndexer,
     Tokenizer,
     TokenSequenceIndexer,
+    register_dataclass,
 )
 from .types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleMode, DataModuleModeT, IDSequenceBatch
 
@@ -36,6 +37,7 @@ __all__ = [
     "Tokenizer",
     "TokenCharactersIndexer",
     "TokenSequenceIndexer",
+    "register_dataclass",
     # types
     "AnalyzedText",
     "AsBatch",
@@ -45,3 +47,12 @@ __all__ = [
     "DataModuleModeT",
     "IDSequenceBatch",
 ]
+
+
+def _setup() -> None:
+    from .types import IDSequenceBatch
+
+    register_dataclass(IDSequenceBatch)
+
+
+_setup()
