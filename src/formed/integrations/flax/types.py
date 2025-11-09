@@ -15,16 +15,23 @@ ItemT = TypeVar("ItemT", default=Any)
 ItemT_contra = TypeVar("ItemT_contra", contravariant=True, default=Any)
 ModelInputT = TypeVar("ModelInputT", default=Any)
 ModelInputT_co = TypeVar("ModelInputT_co", covariant=True, default=Any)
+ModelInputT_contra = TypeVar("ModelInputT_contra", contravariant=True, default=Any)
 ModelOutputT = TypeVar("ModelOutputT", default=Any)
+ModelOutputT_contra = TypeVar("ModelOutputT_contra", contravariant=True, default=Any)
 ModelParamsT = TypeVar("ModelParamsT", default=None)
 OptimizerT = TypeVar("OptimizerT", bound=IOptimizer)
 
 
 class IBatchIterator(Protocol[ModelInputT_co]):
     def __iter__(self) -> Iterator[ModelInputT_co]: ...
-
     def __len__(self) -> int: ...
 
 
 class IDataLoader(Protocol[ItemT_contra, ModelInputT_co]):
     def __call__(self, data: Sequence[ItemT_contra]) -> IBatchIterator[ModelInputT_co]: ...
+
+
+class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
+    def update(self, inputs: ModelInputT_contra, output: ModelOutputT_contra, /) -> None: ...
+    def compute(self) -> dict[str, float]: ...
+    def reset(self) -> None: ...

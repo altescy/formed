@@ -2,6 +2,7 @@ from .model import BaseFlaxModel
 from .training import (
     DefaultFlaxTrainingEngine,
     EarlyStoppingCallback,
+    EvaluationCallback,
     FlaxTrainer,
     FlaxTrainingCallback,
     FlaxTrainingEngine,
@@ -14,6 +15,7 @@ from .utils import ensure_jax_array
 __all__ = [
     # callbacks
     "EarlyStoppingCallback",
+    "EvaluationCallback",
     "FlaxTrainingCallback",
     "MlflowCallback",
     # engine

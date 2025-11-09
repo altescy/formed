@@ -6,8 +6,17 @@ import numpy
 import pytest
 from flax import nnx, struct
 
-from formed.integrations.flax import BaseFlaxModel, FlaxTrainer, ensure_jax_array
-from formed.integrations.ml import BasicBatchSampler, DataLoader, DataModule, Extra, ScalarTransform, TensorTransform
+from formed.integrations.flax import BaseFlaxModel, EvaluationCallback, FlaxTrainer, ensure_jax_array
+from formed.integrations.ml import (
+    Average,
+    BasicBatchSampler,
+    DataLoader,
+    DataModule,
+    Extra,
+    MeanSquaredError,
+    ScalarTransform,
+    TensorTransform,
+)
 from formed.integrations.ml.types import AsBatch, AsInstance, DataModuleModeT  # noqa: F401
 
 
@@ -34,6 +43,33 @@ class RegressionDataModule(
 class RegressorOutput:
     predictions: jax.Array
     loss: Optional[jax.Array] = None
+
+
+class RegressionEvaluator:
+    def __init__(self) -> None:
+        self._loss = Average("loss")
+        self._mse = MeanSquaredError()
+
+    def update(self, inputs: RegressionDataModule[AsBatch], output: RegressorOutput) -> None:
+        if output.loss is not None:
+            self._loss.update([output.loss.item()])
+        if inputs.target is not None:
+            self._mse.update(
+                self._mse.Input(
+                    predictions=output.predictions.tolist(),
+                    targets=inputs.target.tolist(),
+                )
+            )
+
+    def compute(self) -> dict[str, float]:
+        return {
+            **self._loss.compute(),
+            **self._mse.compute(),
+        }
+
+    def reset(self) -> None:
+        self._loss.reset()
+        self._mse.reset()
 
 
 @pytest.fixture
@@ -95,6 +131,7 @@ class TestTrainingWithRegressor:
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
             max_epochs=5,
+            callbacks=[EvaluationCallback(RegressionEvaluator())],
         )
 
         trainer.train(rngs, model, train_instances, val_instances)

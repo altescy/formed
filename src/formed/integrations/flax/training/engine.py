@@ -70,8 +70,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
             ),
         )
 
-    @partial(nnx.jit, static_argnames=("self", "trainer"))
-    def train_step(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def train_step(
         self,
         inputs: ModelInputT,
         state: TrainState,
@@ -95,8 +94,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
 
         return step(state, inputs)
 
-    @partial(nnx.jit, static_argnames=("self", "trainer"))
-    def eval_step(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def eval_step(
         self,
         inputs: ModelInputT,
         state: TrainState,

@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Generic, Optional, cast
 
 import cloudpickle
 from colt import Registrable
@@ -7,7 +7,7 @@ from colt import Registrable
 from formed.workflow import use_step_logger, use_step_workdir
 
 from ..model import BaseFlaxModel
-from ..types import ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from ..types import IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 from .exceptions import StopEarly
 from .state import TrainState
 
@@ -74,8 +74,18 @@ class FlaxTrainingCallback(Registrable):
         trainer: "FlaxTrainer[ItemT, ModelInputT, ModelOutputT, ModelParamsT]",
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
-    ) -> None:
-        pass
+    ) -> IEvaluator[ModelInputT, ModelOutputT]:
+        class DummyMetric(IEvaluator):
+            def update(self, inputs, output, /) -> None:
+                pass
+
+            def compute(self) -> dict[str, float]:
+                return {}
+
+            def reset(self) -> None:
+                pass
+
+        return DummyMetric()
 
     def on_eval_end(
         self,
@@ -95,6 +105,21 @@ class FlaxTrainingCallback(Registrable):
         prefix: str = "",
     ) -> None:
         pass
+
+
+@FlaxTrainingCallback.register("evaluation")
+class EvaluationCallback(FlaxTrainingCallback, Generic[ModelInputT, ModelOutputT]):
+    def __init__(self, evaluator: IEvaluator[ModelInputT, ModelOutputT]) -> None:
+        self._evaluator = evaluator
+
+    def on_eval_start(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        trainer: "FlaxTrainer[ItemT, ModelInputT, ModelOutputT, ModelParamsT]",
+        model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
+        state: TrainState,
+    ) -> IEvaluator[ModelInputT, ModelOutputT]:
+        self._evaluator.reset()
+        return self._evaluator
 
 
 @FlaxTrainingCallback.register("early_stopping")

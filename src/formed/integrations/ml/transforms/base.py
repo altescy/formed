@@ -3,12 +3,12 @@ import dataclasses
 import sys
 import typing
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from functools import partial
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Optional, Union, cast, overload
+from typing import Any, ClassVar, Final, Generic, Literal, Optional, Union, cast, overload
 
 import cloudpickle
 from colt import Registrable
@@ -41,15 +41,53 @@ logger = getLogger(__name__)
 _S = TypeVar("_S", default=Any)
 _T = TypeVar("_T", default=Any)
 _T_co = TypeVar("_T_co", covariant=True)
-_BaseTransformT = TypeVar(
-    "_BaseTransformT",
-    bound="BaseTransform",
-)
-_BaseTransformT_co = TypeVar(
-    "_BaseTransformT_co",
-    bound="BaseTransform",
-    covariant=True,
-)
+_BaseTransformT = TypeVar("_BaseTransformT", bound="BaseTransform")
+_BaseTransformT_co = TypeVar("_BaseTransformT_co", bound="BaseTransform", covariant=True)
+
+
+_DATAMODULE_REGISTRY: Final = set[type["BaseTransform"]]()
+
+
+def register_transform(cls: type) -> None:
+    if not hasattr(cls, "__is_datamodule__"):
+        return
+    if cls in _DATAMODULE_REGISTRY:
+        return
+
+    _DATAMODULE_REGISTRY.add(cls)
+
+    with suppress(ImportError):
+        import jax
+
+        for field in dataclasses.fields(cls):
+            field_datamodule = _find_datamodule_field(field.type)
+            if field_datamodule is not None:
+                register_transform(field_datamodule)
+
+        drop_fields = [f.name for f in dataclasses.fields(cls) if not f.init and not _is_param_field(f.type)]
+        data_fields = [
+            f.name
+            for f in dataclasses.fields(cls)
+            if not f.metadata.get(JAX_STATIC_FIELD, False) and f.name not in drop_fields
+        ]
+        meta_fields = [
+            f.name
+            for f in dataclasses.fields(cls)
+            if f.metadata.get(JAX_STATIC_FIELD, False) and f.name not in drop_fields
+        ]
+
+        try:
+            jax.tree_util.register_dataclass(
+                cls,
+                data_fields=data_fields,
+                meta_fields=meta_fields,
+                drop_fields=drop_fields,
+            )
+        except ValueError as error:
+            if str(error.args[0]).startswith("Duplicate custom dataclass"):
+                pass
+            else:
+                raise
 
 
 class Extra(Generic[_BaseTransformT_co]):
@@ -161,6 +199,7 @@ class BaseTransformMeta(abc.ABCMeta):
         dataclass_params = {"kw_only": True} if sys.version_info >= (3, 10) else {}
         cls = super().__new__(mcls, name, bases, namespace)
         cls = dataclasses.dataclass(**dataclass_params)(cls)
+        register_transform(cls)
         return cls
 
 
@@ -361,10 +400,24 @@ def _is_extra_field(annotation: Any) -> bool:
     return False
 
 
+def _find_datamodule_field(annotation: Any) -> Optional[type["DataModule"]]:
+    if isinstance(annotation, type) and hasattr(annotation, "__is_datamodule__"):
+        return annotation
+    origin = typing.get_origin(annotation)
+    args = typing.get_args(annotation)
+    if origin in (Union, UnionType) and args:
+        for arg in args:
+            result = _find_datamodule_field(arg)
+            if result is not None:
+                return result
+    return None
+
+
 class DataModule(
     BaseTransform[_T, _T, _InstanceT, _BatchT],
     Generic[_DataModuleModeT_co, _T, _InstanceT, _BatchT],
 ):
+    __is_datamodule__: ClassVar[Literal[True]] = True
     __param_fields__: ClassVar[Optional[Mapping[str, dataclasses.Field]]] = None
     __extra_fields__: ClassVar[Optional[Mapping[str, dataclasses.Field]]] = None
 

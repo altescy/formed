@@ -1,5 +1,5 @@
 from .dataloader import BaseBatchSampler, BasicBatchSampler, DataLoader
-from .metrics import AverageMetric, BaseMetric
+from .metrics import Average, BaseMetric, MeanSquaredError
 from .transforms import (
     BaseTransform,
     DataModule,
@@ -21,8 +21,9 @@ __all__ = [
     "BasicBatchSampler",
     "DataLoader",
     # metrics
+    "Average",
     "BaseMetric",
-    "AverageMetric",
+    "MeanSquaredError",
     # transforms
     "BaseTransform",
     "DataModule",
