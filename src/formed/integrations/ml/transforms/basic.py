@@ -23,6 +23,7 @@ Example:
     >>> scalar_transform = ScalarTransform()
     >>> values = [1.5, 2.3, 4.1]
     >>> batch = scalar_transform.batch(values)  # np.array([1.5, 2.3, 4.1])
+
 """
 
 import dataclasses
@@ -69,6 +70,7 @@ class MetadataTransform(
 
     Note:
         This transform is stateless and does not require training.
+
     """
 
     def instance(self, value: _T, /) -> _T:
@@ -122,6 +124,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
         - Raises KeyError if a label is not in vocabulary during inference
         - Use freeze=True to prevent accidental vocabulary updates
         - Distribution uses Laplace smoothing (add-one)
+
     """
 
     label2id: Sequence[tuple[LabelT, int]] = dataclasses.field(default_factory=list)
@@ -154,6 +157,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
 
         Returns:
             Array of probabilities summing to 1.0, one per label.
+
         """
         total = sum(count for _, count in self._label_counts) + self.num_labels
         counts = [count for _, count in sorted(self._label_counts, key=operator.itemgetter(1))]
@@ -176,6 +180,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
 
         Raises:
             KeyError: If the label is not in the vocabulary.
+
         """
         with suppress(StopIteration):
             return next(label_id for label, label_id in self.label2id if label == value)
@@ -192,6 +197,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
 
         Raises:
             KeyError: If the index is not in the vocabulary.
+
         """
         for label, label_id in self.label2id:
             if label_id == index:
@@ -210,6 +216,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
         Note:
             Only effective when in training mode and freeze=False.
             Logs a warning if called outside training mode.
+
         """
         if self.freeze:
             return
@@ -248,6 +255,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
             >>> indices = numpy.array([0, 1, 0])
             >>> labels = indexer.reconstruct(indices)
             >>> print(labels)  # ["cat", "dog", "cat"]
+
         """
         return [self.get_value(index) for index in batch.tolist()]
 
@@ -277,6 +285,7 @@ class ScalarTransform(
         - Instance values remain as Python floats
         - Batch values are converted to float32 numpy arrays
         - Stateless transform, no training required
+
     """
 
     def instance(self, value: float, /) -> float:
@@ -319,6 +328,7 @@ class TensorTransform(
 
     Raises:
         ValueError: If arrays have incompatible shapes for stacking.
+
     """
 
     def instance(self, value: numpy.ndarray, /) -> numpy.ndarray:

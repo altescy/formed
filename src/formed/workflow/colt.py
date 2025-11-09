@@ -79,9 +79,7 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
 
 
 class RefCallback(ColtCallback):
-    """
-    Replace `ref` configs with `WorkflowRef` instances as placeholders
-    """
+    """Replace `ref` configs with `WorkflowRef` instances as placeholders"""
 
     _STEP_NAME_TO_TYPE_KEY: Final[str] = "__worktop_workflow_step__"
 

@@ -32,6 +32,7 @@ Example:
 Note:
     If JAX is installed, all DataModule instances are automatically registered
     as JAX pytrees for compatibility with JAX transformations.
+
 """
 
 import abc
@@ -146,6 +147,7 @@ def register_dataclass(cls: _TypeT) -> _TypeT:
         ...     metadata: str = dataclasses.field(metadata={JAX_STATIC_FIELD: True})
         >>> register_dataclass(MyData)
         >>> # Now MyData can be used with JAX transformations
+
     """
     if cls in _DATACLASS_REGISTRY:
         return cls
@@ -219,6 +221,7 @@ class Extra(Generic[_BaseTransformT_co]):
     Note:
         Extra is a marker class and cannot be instantiated directly.
         Use Extra.default() to provide a default value.
+
     """
 
     @classmethod
@@ -237,6 +240,7 @@ class Extra(Generic[_BaseTransformT_co]):
 
         Returns:
             An Extra field with the specified default.
+
         """
         return cast(Extra[_BaseTransformT], default)
 
@@ -303,6 +307,7 @@ class Param(Generic[_T_co]):
     Note:
         Param is a marker class and cannot be instantiated directly.
         Use Param.default() or Param.default_factory() to provide defaults.
+
     """
 
     @classmethod
@@ -318,6 +323,7 @@ class Param(Generic[_T_co]):
 
         Returns:
             A Param field with the specified default.
+
         """
         return cast(Param[_T], default)
 
@@ -333,6 +339,7 @@ class Param(Generic[_T_co]):
 
         Returns:
             A factory callable for creating Param fields.
+
         """
         return cast(Callable[[], Param[_T]], factory)
 
@@ -432,6 +439,7 @@ class BaseTransform(
         - Subclasses are automatically converted to dataclasses via metaclass.
         - Use the train() context manager for stateful transformations.
         - Supports saving/loading with cloudpickle for persistence.
+
     """
 
     accessor: Optional[Union[str, Callable[[_S], _T]]] = None
@@ -461,6 +469,7 @@ class BaseTransform(
 
         Note:
             This method is called for each individual data point.
+
         """
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -476,6 +485,7 @@ class BaseTransform(
 
         Note:
             This method should handle padding, stacking, or other batching logic.
+
         """
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -581,6 +591,7 @@ class BaseTransform(
 
         Note:
             Training mode is reentrant but nested calls won't trigger hooks again.
+
         """
         original = self._training
         self._training = True
@@ -602,6 +613,7 @@ class BaseTransform(
         Note:
             The transform is saved as 'transform.pkl' in the specified directory.
             cloudpickle is used to handle complex objects like lambdas and closures.
+
         """
         filepath = Path(directory) / "transform.pkl"
         with filepath.open("wb") as f:
@@ -622,6 +634,7 @@ class BaseTransform(
 
         Note:
             Expects a 'transform.pkl' file in the specified directory.
+
         """
         filepath = Path(directory) / "transform.pkl"
         with filepath.open("rb") as f:
@@ -735,6 +748,7 @@ class DataModule(
         - Automatically registered as JAX pytree if JAX is available
         - Mode transitions are enforced by type system
         - Fields are descriptors with mode-dependent behavior
+
     """
 
     __is_datamodule__: ClassVar[Literal[True]] = True
@@ -801,6 +815,7 @@ class DataModule(
 
         Note:
             Can only be called in AsConverter mode.
+
         """
         assert self.__mode__ in (None, DataModuleMode.AS_CONVERTER), (
             "DataModule must be in converter mode to enter training mode"
@@ -832,6 +847,7 @@ class DataModule(
             - Can only be called in AsConverter mode
             - Returns a new DataModule with mode=AsInstance
             - Extra fields can be None if data is missing
+
         """
         assert self.__mode__ in (None, DataModuleMode.AS_CONVERTER), (
             "DataModule must be in converter mode to create an instance"
@@ -879,6 +895,7 @@ class DataModule(
             - Automatically converts raw data to instances if needed
             - Returns a new DataModule with mode=AsBatch
             - Extra fields are None if all instances have None for that field
+
         """
         assert self.__mode__ in (None, DataModuleMode.AS_CONVERTER), (
             "DataModule must be in converter mode to create a batch"

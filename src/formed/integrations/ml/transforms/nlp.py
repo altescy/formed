@@ -32,6 +32,7 @@ Example:
     >>>
     >>> # Reconstruct tokens from indices
     >>> tokens = tokenizer.surfaces.reconstruct(batch.surfaces)
+
 """
 
 import dataclasses
@@ -121,6 +122,7 @@ class TokenSequenceIndexer(
 
     Raises:
         ValueError: If configuration is invalid (e.g., min_df>1 without unk_token).
+
     """
 
     vocab: Mapping[str, int] = dataclasses.field(default_factory=dict)
@@ -324,6 +326,7 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
         - BOS/EOS are added per token, not per sequence
         - Vocabulary contains individual characters, not tokens
         - Useful for morphologically rich languages or rare word handling
+
     """
 
     min_characters: int = 1
@@ -437,6 +440,7 @@ class Tokenizer(
         - Accepts string, token list, or AnalyzedText as input
         - Extra fields (postags, characters) can be None
         - All indexers share the same training context
+
     """
 
     surfaces: TokenSequenceIndexer = dataclasses.field(default_factory=TokenSequenceIndexer)
