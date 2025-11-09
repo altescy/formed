@@ -84,7 +84,7 @@ class FeedForward(nnx.Module):
         ) -> tuple[jax.Array, Optional[jax.Array]]:
             x, r = inputs
             output = block(x, r, deterministic=deterministic, rngs=rngs)
-            if self.residual_connection == "dense":
+            if self.residual_connection == "dense" and r is not None:
                 r = r + x
             return output, r
 

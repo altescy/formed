@@ -82,7 +82,7 @@ class FlaxTrainer(
             state = self._engine.create_state(rngs, self, model)
 
         train_step = self._distributor.map(self._engine.train_step, static_argnums=(2,))
-        eval_step = partial(nnx.jit, static_argnames=("trainer"))(self._engine.eval_step)
+        eval_step = partial(nnx.jit, static_argnames=("trainer"))(self._engine.eval_step)  # pyright: ignore[reportArgumentType]
 
         for callback in self._callbacks:
             callback.on_training_start(self, model, state)
