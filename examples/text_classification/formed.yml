@@ -1,0 +1,10 @@
+workflow:
+  organizer:
+    type: mlflow
+    log_execution_metrics: true
+
+required_modules:
+  - formed.integrations.flax
+  - formed.integrations.ml
+  - formed.integrations.mlflow
+  - text_classification
