@@ -3,12 +3,13 @@ from itertools import starmap
 from typing import Literal, Optional, TypeVar, Union, cast, overload
 
 import jax
-import numpy
+
+from .types import ArrayCompatible
 
 _MappingT = TypeVar("_MappingT", bound=Mapping[str, jax.Array])
 
 
-def ensure_jax_array(x: numpy.ndarray) -> jax.Array:
+def ensure_jax_array(x: ArrayCompatible) -> jax.Array:
     if isinstance(x, jax.Array):
         return x
     return jax.numpy.asarray(x)

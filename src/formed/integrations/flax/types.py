@@ -41,7 +41,7 @@ class IOptimizer(Protocol):
     update: optax.TransformUpdateFn
 
 
-ArrayCompatible: TypeAlias = Union[numpy.ndarray, jax.Array]
+ArrayCompatible: TypeAlias = Union[numpy.ndarray, jax.Array, Sequence[float]]
 ArrayCompatibleT = TypeVar("ArrayCompatibleT", bound=ArrayCompatible)
 ItemT = TypeVar("ItemT", default=Any)
 ItemT_contra = TypeVar("ItemT_contra", contravariant=True, default=Any)

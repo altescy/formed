@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from typing import Any, Generic
 
 import jax
-import optax
 from flax import nnx, struct
 from typing_extensions import TypeVar
 
@@ -62,9 +61,12 @@ class TextClassifier(xf.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch],
         vectorizer: xfm.BaseSequenceVectorizer,
         encoder: xfm.BaseSequenceEncoder | None = None,
         feedforward: xfm.FeedForward | None = None,
+        sampler: xfm.BaseLabelSampler | None = None,
+        loss: xfm.BaseClassificationLoss | None = None,
         dropout: float = 0.1,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
-        rngs = xf.require_rngs()
+        rngs = rngs or xf.require_rngs()
 
         embedding_dim = embedder.get_output_dim()
         vector_dim = vectorizer.get_output_dim()
@@ -78,6 +80,8 @@ class TextClassifier(xf.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch],
         self._feedforward = feedforward
         self._dropout = nnx.Dropout(dropout, rngs=rngs) if dropout > 0.0 else None
         self._classifier = nnx.Linear(feature_dim, num_classes, rngs=rngs)
+        self._sampler = sampler or xfm.ArgmaxLabelSampler()
+        self._loss = loss or xfm.CrossEntropyLoss()
 
     def __call__(
         self,
@@ -99,12 +103,11 @@ class TextClassifier(xf.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch],
 
         logits = self._classifier(features)
         probs = jax.nn.softmax(logits, axis=-1)
-        label = probs.argmax(axis=-1)
+        label = self._sampler(logits)
 
         loss: jax.Array | None = None
         if inputs.label is not None:
-            one_hot_labels = jax.nn.one_hot(inputs.label, logits.shape[-1])
-            loss = optax.softmax_cross_entropy(logits, one_hot_labels).mean()
+            loss = self._loss(logits, inputs.label)
 
         return ClassifierOutput(probs=probs, label=label, loss=loss)
 

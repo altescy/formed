@@ -52,6 +52,7 @@ Example:
 
 """
 
+import abc
 from collections.abc import Callable
 from functools import lru_cache
 from typing import Optional, Union, cast
@@ -63,7 +64,7 @@ from flax import nnx
 from ..random import require_rngs
 
 
-class BasePositionEncoder(Registrable):
+class BasePositionEncoder(Registrable, abc.ABC):
     """Abstract base class for position encoders.
 
     Position encoders add positional information to input embeddings,
@@ -71,6 +72,7 @@ class BasePositionEncoder(Registrable):
 
     """
 
+    @abc.abstractmethod
     def __call__(self, inputs: jax.Array) -> jax.Array:
         """Add position encoding to inputs.
 
@@ -158,7 +160,7 @@ class LearnablePositionEncoder(BasePositionEncoder):
         return inputs + encodings
 
 
-class BaseSequenceEncoder(nnx.Module, Registrable):
+class BaseSequenceEncoder(nnx.Module, Registrable, abc.ABC):
     """Abstract base class for sequence encoders.
 
     Sequence encoders process sequential data and output contextual
@@ -166,6 +168,7 @@ class BaseSequenceEncoder(nnx.Module, Registrable):
 
     """
 
+    @abc.abstractmethod
     def __call__(
         self,
         inputs: jax.Array,
@@ -184,6 +187,7 @@ class BaseSequenceEncoder(nnx.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_input_dim(self) -> int:
         """Get the expected input dimension.
 
@@ -193,6 +197,7 @@ class BaseSequenceEncoder(nnx.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_output_dim(self) -> int:
         """Get the output dimension.
 

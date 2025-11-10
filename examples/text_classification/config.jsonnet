@@ -60,6 +60,13 @@ local evaluator = {
           type: 'boe',
           pooling: 'last',
         },
+        loss: {
+          type: 'cross_entropy',
+          weighter: {
+            type: 'balanced_by_distribution',
+            distribution: ref('datamodule.label.distribution'),
+          },
+        },
         dropout: 0.2,
       },
       trainer: {

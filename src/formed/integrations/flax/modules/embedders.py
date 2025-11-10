@@ -34,6 +34,7 @@ Example:
 
 """
 
+import abc
 from typing import Generic, NamedTuple, Optional, TypeVar
 
 import jax
@@ -61,7 +62,7 @@ class EmbedderOutput(NamedTuple):
     mask: jax.Array
 
 
-class BaseEmbedder(nnx.Module, Registrable, Generic[_TextBatchT]):
+class BaseEmbedder(nnx.Module, Registrable, Generic[_TextBatchT], abc.ABC):
     """Abstract base class for text embedders.
 
     Embedders convert tokenized text into dense vector representations.
@@ -72,6 +73,7 @@ class BaseEmbedder(nnx.Module, Registrable, Generic[_TextBatchT]):
 
     """
 
+    @abc.abstractmethod
     def __call__(self, inputs: _TextBatchT) -> EmbedderOutput:
         """Embed input tokens into dense vectors.
 
@@ -84,6 +86,7 @@ class BaseEmbedder(nnx.Module, Registrable, Generic[_TextBatchT]):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_output_dim(self) -> int:
         """Get the output embedding dimension.
 

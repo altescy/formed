@@ -10,7 +10,10 @@ from .encoders import (
     SinusoidalPositionEncoder,
 )
 from .feedforward import FeedForward
+from .losses import BaseClassificationLoss, CrossEntropyLoss
+from .samplers import ArgmaxLabelSampler, BaseLabelSampler, MultinomialLabelSampler
 from .vectorizers import BagOfEmbeddingsSequenceVectorizer, BaseSequenceVectorizer
+from .weighters import BalancedByDistributionLabelWeighter, BaseLabelWeighter, StaticLabelWeighter
 
 __all__ = [
     # embedders
@@ -28,7 +31,18 @@ __all__ = [
     "SinusoidalPositionEncoder",
     # feedforward
     "FeedForward",
+    # losses
+    "BaseClassificationLoss",
+    "CrossEntropyLoss",
+    # samplers
+    "BaseLabelSampler",
+    "ArgmaxLabelSampler",
+    "MultinomialLabelSampler",
     # vectorizers
     "BaseSequenceVectorizer",
     "BagOfEmbeddingsSequenceVectorizer",
+    # weighters
+    "BaseLabelWeighter",
+    "StaticLabelWeighter",
+    "BalancedByDistributionLabelWeighter",
 ]

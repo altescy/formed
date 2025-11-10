@@ -29,6 +29,7 @@ Example:
 
 """
 
+import abc
 from typing import Literal, Optional
 
 import jax
@@ -38,7 +39,7 @@ from flax import nnx
 from formed.integrations.flax.utils import masked_pool
 
 
-class BaseSequenceVectorizer(nnx.Module, Registrable):
+class BaseSequenceVectorizer(nnx.Module, Registrable, abc.ABC):
     """Abstract base class for sequence vectorizers.
 
     Vectorizers convert variable-length sequences into fixed-size vectors
@@ -46,6 +47,7 @@ class BaseSequenceVectorizer(nnx.Module, Registrable):
 
     """
 
+    @abc.abstractmethod
     def __call__(
         self,
         inputs: jax.Array,
@@ -64,6 +66,7 @@ class BaseSequenceVectorizer(nnx.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_input_dim(self) -> Optional[int]:
         """Get the expected input dimension.
 
@@ -73,6 +76,7 @@ class BaseSequenceVectorizer(nnx.Module, Registrable):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_output_dim(self) -> Optional[int]:
         """Get the output dimension.
 
