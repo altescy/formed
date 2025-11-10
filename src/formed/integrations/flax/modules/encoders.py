@@ -1,3 +1,57 @@
+"""Sequence encoding modules for Flax models.
+
+This module provides encoders that process sequential data, including
+position encoders, RNN-based encoders, and transformer encoders.
+
+Key Components:
+    Position Encoders:
+    - BasePositionEncoder: Abstract base for position encoding
+    - SinusoidalPositionEncoder: Sinusoidal position embeddings
+    - LearnablePositionEncoder: Learned position embeddings
+
+    Sequence Encoders:
+    - BaseSequenceEncoder: Abstract base for sequence encoders
+    - RNNSequenceEncoder: Generic RNN encoder (LSTM, GRU, vanilla RNN)
+    - LSTMSequenceEncoder: LSTM-specific encoder
+    - OptimizedLSTMSequenceEncoder: Optimized LSTM encoder
+    - GRUSequenceEncoder: GRU-specific encoder
+    - TransformerSequenceEncoder: Transformer encoder with multi-head attention
+
+Features:
+    - Bidirectional RNN support
+    - Stacked layers with dropout
+    - Position encoding for transformers
+    - Efficient implementation using scan and vmap
+    - Masked sequence processing
+
+Example:
+    >>> from formed.integrations.flax.modules import (
+    ...     LSTMSequenceEncoder,
+    ...     TransformerSequenceEncoder,
+    ...     SinusoidalPositionEncoder
+    ... )
+    >>> from flax import nnx
+    >>>
+    >>> # Bidirectional LSTM encoder
+    >>> encoder = LSTMSequenceEncoder(
+    ...     features=128,
+    ...     num_layers=2,
+    ...     bidirectional=True,
+    ...     dropout=0.1,
+    ...     rngs=nnx.Rngs(0)
+    ... )
+    >>>
+    >>> # Transformer encoder with sinusoidal positions
+    >>> encoder = TransformerSequenceEncoder(
+    ...     features=128,
+    ...     num_heads=8,
+    ...     num_layers=6,
+    ...     position_encoder=SinusoidalPositionEncoder(),
+    ...     rngs=rngs
+    ... )
+
+"""
+
 from collections.abc import Callable
 from functools import lru_cache
 from typing import Optional, Union, cast
@@ -8,12 +62,45 @@ from flax import nnx
 
 
 class BasePositionEncoder(Registrable):
+    """Abstract base class for position encoders.
+
+    Position encoders add positional information to input embeddings,
+    allowing models to understand token positions in sequences.
+
+    """
+
     def __call__(self, inputs: jax.Array) -> jax.Array:
+        """Add position encoding to inputs.
+
+        Args:
+            inputs: Input embeddings of shape (..., seq_len, features).
+
+        Returns:
+            Position-encoded embeddings of same shape as inputs.
+
+        """
         raise NotImplementedError
 
 
 @BasePositionEncoder.register("sinusoidal")
 class SinusoidalPositionEncoder(BasePositionEncoder):
+    """Sinusoidal position encoding from "Attention Is All You Need".
+
+    This encoder uses sine and cosine functions of different frequencies
+    to generate position embeddings without learnable parameters.
+
+    Args:
+        max_length: Maximum sequence length to support.
+
+    Example:
+        >>> encoder = SinusoidalPositionEncoder(max_length=512)
+        >>> encoded = encoder(embeddings)
+
+    Note:
+        Encodings are cached for efficiency.
+
+    """
+
     def __init__(self, max_length: int = 512) -> None:
         self.max_length = max_length
 
@@ -34,6 +121,25 @@ class SinusoidalPositionEncoder(BasePositionEncoder):
 
 @BasePositionEncoder.register("learnable")
 class LearnablePositionEncoder(BasePositionEncoder):
+    """Learnable position embeddings.
+
+    This encoder uses a learned embedding matrix for position encoding,
+    allowing the model to learn task-specific positional patterns.
+
+    Args:
+        features: Embedding dimension.
+        rngs: Random number generators.
+        max_length: Maximum sequence length to support.
+
+    Example:
+        >>> encoder = LearnablePositionEncoder(
+        ...     features=128,
+        ...     max_length=512,
+        ...     rngs=rngs
+        ... )
+
+    """
+
     def __init__(
         self,
         features: int,
@@ -50,23 +156,69 @@ class LearnablePositionEncoder(BasePositionEncoder):
 
 
 class BaseSequenceEncoder(nnx.Module, Registrable):
+    """Abstract base class for sequence encoders.
+
+    Sequence encoders process sequential data and output contextual
+    representations for each position in the sequence.
+
+    """
+
     def __call__(
         self,
         inputs: jax.Array,
         *,
         mask: Optional[jax.Array] = None,
     ) -> jax.Array:
+        """Encode a sequence.
+
+        Args:
+            inputs: Input embeddings of shape (batch_size, seq_len, input_dim).
+            mask: Optional attention mask of shape (batch_size, seq_len).
+
+        Returns:
+            Encoded representations of shape (batch_size, seq_len, output_dim).
+
+        """
         raise NotImplementedError
 
     def get_input_dim(self) -> int:
+        """Get the expected input dimension.
+
+        Returns:
+            Input feature dimension.
+
+        """
         raise NotImplementedError
 
     def get_output_dim(self) -> int:
+        """Get the output dimension.
+
+        Returns:
+            Output feature dimension.
+
+        """
         raise NotImplementedError
 
 
 @BaseSequenceEncoder.register("rnn")
 class RNNSequenceEncoder(BaseSequenceEncoder):
+    """Generic RNN-based sequence encoder.
+
+    This encoder supports various RNN cell types (LSTM, GRU, vanilla RNN)
+    with optional bidirectionality, multiple layers, and dropout.
+
+    Args:
+        cell_factory: Function that creates an RNN cell given rngs.
+        num_layers: Number of stacked RNN layers.
+        bidirectional: Whether to use bidirectional RNN.
+        dropout: Dropout rate between layers.
+        rngs: Random number generators (int or nnx.Rngs).
+
+    Note:
+        This is a base class. Use LSTMSequenceEncoder, GRUSequenceEncoder,
+        or OptimizedLSTMSequenceEncoder for specific cell types.
+
+    """
     class _BidirectionalProjection(nnx.Module):
         def __init__(
             self,
@@ -162,6 +314,27 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
 
 @BaseSequenceEncoder.register("lstm")
 class LSTMSequenceEncoder(RNNSequenceEncoder):
+    """LSTM-based sequence encoder.
+
+    Args:
+        features: Hidden dimension.
+        num_layers: Number of LSTM layers.
+        bidirectional: Whether to use bidirectional LSTM.
+        dropout: Dropout rate between layers.
+        rngs: Random number generators.
+
+    Example:
+        >>> # Bidirectional 2-layer LSTM
+        >>> encoder = LSTMSequenceEncoder(
+        ...     features=128,
+        ...     num_layers=2,
+        ...     bidirectional=True,
+        ...     dropout=0.1,
+        ...     rngs=0
+        ... )
+
+    """
+
     def __init__(
         self,
         features: int,
@@ -181,6 +354,19 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
 
 @BaseSequenceEncoder.register("optimized_lstm")
 class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
+    """Optimized LSTM sequence encoder.
+
+    Uses Flax's optimized LSTM implementation for better performance.
+
+    Args:
+        features: Hidden dimension.
+        num_layers: Number of LSTM layers.
+        bidirectional: Whether to use bidirectional LSTM.
+        dropout: Dropout rate between layers.
+        rngs: Random number generators.
+
+    """
+
     def __init__(
         self,
         features: int,
@@ -200,6 +386,25 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
 
 @BaseSequenceEncoder.register("gru")
 class GRUSequenceEncoder(RNNSequenceEncoder):
+    """GRU-based sequence encoder.
+
+    Args:
+        features: Hidden dimension.
+        num_layers: Number of GRU layers.
+        bidirectional: Whether to use bidirectional GRU.
+        dropout: Dropout rate between layers.
+        rngs: Random number generators.
+
+    Example:
+        >>> encoder = GRUSequenceEncoder(
+        ...     features=256,
+        ...     num_layers=3,
+        ...     bidirectional=True,
+        ...     rngs=0
+        ... )
+
+    """
+
     def __init__(
         self,
         features: int,
@@ -219,6 +424,43 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
 
 @BaseSequenceEncoder.register("transformer")
 class TransformerSequenceEncoder(BaseSequenceEncoder):
+    """Transformer-based sequence encoder.
+
+    This encoder uses multi-head self-attention and feed-forward layers
+    to process sequences, following the Transformer architecture.
+
+    Args:
+        features: Model dimension.
+        num_heads: Number of attention heads.
+        num_layers: Number of transformer layers.
+        dropout: Dropout rate.
+        epsilon: Layer normalization epsilon.
+        feedworward_features: Feed-forward hidden dimension (defaults to 4*features).
+        activation: Activation function for feed-forward layers.
+        position_encoder: Optional position encoder.
+        rngs: Random number generators.
+
+    Example:
+        >>> # Transformer with sinusoidal positions
+        >>> encoder = TransformerSequenceEncoder(
+        ...     features=512,
+        ...     num_heads=8,
+        ...     num_layers=6,
+        ...     dropout=0.1,
+        ...     position_encoder=SinusoidalPositionEncoder(),
+        ...     rngs=rngs
+        ... )
+        >>>
+        >>> # Transformer with learnable positions
+        >>> encoder = TransformerSequenceEncoder(
+        ...     features=512,
+        ...     num_heads=8,
+        ...     num_layers=6,
+        ...     position_encoder=LearnablePositionEncoder(512, rngs=rngs),
+        ...     rngs=rngs
+        ... )
+
+    """
     class _TransformerBlock(nnx.Module):
         def __init__(
             self,

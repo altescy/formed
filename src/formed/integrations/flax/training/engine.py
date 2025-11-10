@@ -1,3 +1,33 @@
+"""Training engine abstractions for Flax models.
+
+This module provides the training engine abstraction that defines how
+models are trained and evaluated. Engines handle loss computation,
+gradient calculation, and parameter updates.
+
+Key Components:
+    - FlaxTrainingEngine: Abstract base class for training engines
+    - DefaultFlaxTrainingEngine: Default implementation with automatic differentiation
+
+Features:
+    - Customizable loss functions
+    - Automatic gradient computation using JAX
+    - State creation and management
+    - Separate train and eval steps
+    - Compatible with FlaxTrainer and distributors
+
+Example:
+    >>> from formed.integrations.flax import DefaultFlaxTrainingEngine
+    >>>
+    >>> # Create engine with custom loss accessor
+    >>> engine = DefaultFlaxTrainingEngine(loss="total_loss")
+    >>>
+    >>> # Or with custom loss function
+    >>> def custom_loss(output):
+    ...     return output.loss + 0.1 * output.regularization
+    >>> engine = DefaultFlaxTrainingEngine(loss=custom_loss)
+
+"""
+
 import abc
 from collections.abc import Callable
 from functools import partial
@@ -18,6 +48,19 @@ if TYPE_CHECKING:
 
 
 class FlaxTrainingEngine(abc.ABC, Registrable, Generic[ModelInputT, ModelOutputT, ModelParamsT]):
+    """Abstract base class for Flax training engines.
+
+    A training engine defines how models are trained by implementing
+    state creation, training steps, and evaluation steps. This allows
+    for custom training loops and loss computations.
+
+    Type Parameters:
+        ModelInputT: Type of model input.
+        ModelOutputT: Type of model output.
+        ModelParamsT: Type of additional parameters.
+
+    """
+
     @abc.abstractmethod
     def create_state(
         self,
@@ -25,6 +68,17 @@ class FlaxTrainingEngine(abc.ABC, Registrable, Generic[ModelInputT, ModelOutputT
         trainer: "FlaxTrainer[Any, ModelInputT, ModelOutputT, ModelParamsT]",
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
     ) -> TrainState:
+        """Create initial training state from model and trainer.
+
+        Args:
+            rngs: Random number generators.
+            trainer: Trainer instance.
+            model: Model to train.
+
+        Returns:
+            Initial training state.
+
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -34,6 +88,17 @@ class FlaxTrainingEngine(abc.ABC, Registrable, Generic[ModelInputT, ModelOutputT
         state: TrainState,
         trainer: "FlaxTrainer[Any, ModelInputT, ModelOutputT, ModelParamsT]",
     ) -> tuple[TrainState, ModelOutputT]:
+        """Execute a single training step.
+
+        Args:
+            inputs: Batch of training inputs.
+            state: Current training state.
+            trainer: Trainer instance.
+
+        Returns:
+            Tuple of (updated_state, model_output).
+
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -43,11 +108,43 @@ class FlaxTrainingEngine(abc.ABC, Registrable, Generic[ModelInputT, ModelOutputT
         state: TrainState,
         trainer: "FlaxTrainer[Any, ModelInputT, ModelOutputT, ModelParamsT]",
     ) -> ModelOutputT:
+        """Execute a single evaluation step.
+
+        Args:
+            inputs: Batch of evaluation inputs.
+            state: Current training state.
+            trainer: Trainer instance.
+
+        Returns:
+            Model output.
+
+        """
         raise NotImplementedError
 
 
 @FlaxTrainingEngine.register("default")
 class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]):
+    """Default training engine using automatic differentiation.
+
+    This engine computes gradients using JAX's automatic differentiation
+    and updates parameters using the provided optimizer. Loss is extracted
+    from model output either by attribute name or custom function.
+
+    Args:
+        loss: Loss accessor - either attribute name (e.g., "loss") or
+            callable that extracts loss from model output.
+
+    Example:
+        >>> # Use output.loss attribute
+        >>> engine = DefaultFlaxTrainingEngine(loss="loss")
+        >>>
+        >>> # Use custom loss function
+        >>> engine = DefaultFlaxTrainingEngine(
+        ...     loss=lambda output: output.loss + 0.01 * output.regularization
+        ... )
+
+    """
+
     def __init__(self, loss: Union[str, Callable[[ModelOutputT], jax.Array]] = "loss") -> None:
         super().__init__()
         self._loss = partial(xgetattr, name=loss) if isinstance(loss, str) else loss

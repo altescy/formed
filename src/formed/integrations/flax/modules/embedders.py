@@ -1,3 +1,39 @@
+"""Text embedding modules for Flax models.
+
+This module provides embedders that convert tokenized text into dense vector
+representations. Embedders handle various text representations including
+surface forms, part-of-speech tags, and character sequences.
+
+Key Components:
+    - BaseEmbedder: Abstract base class for all embedders
+    - TokenEmbedder: Embeds token ID sequences into dense vectors
+    - AnalyzedTextEmbedder: Combines multiple embedding types (surface, POS, chars)
+
+Features:
+    - Support for nested token sequences (e.g., word -> character)
+    - Automatic masking and padding handling
+    - Configurable vectorization for character-level embeddings
+    - Concatenation of multiple embedding types
+
+Example:
+    >>> from formed.integrations.flax.modules import TokenEmbedder, AnalyzedTextEmbedder
+    >>> from flax import nnx
+    >>>
+    >>> # Simple token embedder
+    >>> embedder = TokenEmbedder(
+    ...     vocab_size=10000,
+    ...     embedding_dim=128,
+    ...     rngs=nnx.Rngs(0)
+    ... )
+    >>>
+    >>> # Multi-feature embedder
+    >>> embedder = AnalyzedTextEmbedder(
+    ...     surface=TokenEmbedder(vocab_size=10000, embedding_dim=128, rngs=rngs),
+    ...     postag=TokenEmbedder(vocab_size=50, embedding_dim=32, rngs=rngs)
+    ... )
+
+"""
+
 from typing import Generic, NamedTuple, Optional, TypeVar
 
 import jax
@@ -12,20 +48,84 @@ _TextBatchT = TypeVar("_TextBatchT")
 
 
 class EmbedderOutput(NamedTuple):
+    """Output from an embedder.
+
+    Attributes:
+        embeddings: Dense embeddings of shape (batch_size, seq_len, embedding_dim).
+        mask: Attention mask of shape (batch_size, seq_len).
+
+    """
+
     embeddings: jax.Array
     mask: jax.Array
 
 
 class BaseEmbedder(nnx.Module, Registrable, Generic[_TextBatchT]):
+    """Abstract base class for text embedders.
+
+    Embedders convert tokenized text into dense vector representations.
+    They output both embeddings and attention masks.
+
+    Type Parameters:
+        _TextBatchT: Type of input batch (e.g., IIDSequenceBatch, IAnalyzedTextBatch).
+
+    """
+
     def __call__(self, inputs: _TextBatchT) -> EmbedderOutput:
+        """Embed input tokens into dense vectors.
+
+        Args:
+            inputs: Batch of tokenized text.
+
+        Returns:
+            EmbedderOutput containing embeddings and mask.
+
+        """
         raise NotImplementedError
 
     def get_output_dim(self) -> int:
+        """Get the output embedding dimension.
+
+        Returns:
+            Embedding dimension.
+
+        """
         raise NotImplementedError
 
 
 @BaseEmbedder.register("token")
 class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
+    """Embedder for token ID sequences.
+
+    This embedder converts token IDs into dense embeddings using a learned
+    embedding matrix. It supports both 2D (batch_size, seq_len) and 3D
+    (batch_size, seq_len, char_len) token ID tensors.
+
+    For 3D inputs (e.g., character-level tokens within words), the embedder
+    can either average the embeddings or apply a custom vectorizer.
+
+    Args:
+        vocab_size: Size of the vocabulary.
+        embedding_dim: Dimension of the embedding vectors.
+        vectorizer: Optional vectorizer for 3D inputs (character sequences).
+        rngs: Random number generators.
+
+    Example:
+        >>> # Simple word embeddings
+        >>> embedder = TokenEmbedder(vocab_size=10000, embedding_dim=128, rngs=rngs)
+        >>> output = embedder(word_ids_batch)
+        >>>
+        >>> # Character-level embeddings with pooling
+        >>> from formed.integrations.flax.modules import BagOfEmbeddingsSequenceVectorizer
+        >>> embedder = TokenEmbedder(
+        ...     vocab_size=256,
+        ...     embedding_dim=32,
+        ...     vectorizer=BagOfEmbeddingsSequenceVectorizer(pooling="max"),
+        ...     rngs=rngs
+        ... )
+
+    """
+
     def __init__(
         self,
         vocab_size: int,
@@ -70,6 +170,41 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
 
 @BaseEmbedder.register("analyzed_text")
 class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
+    """Embedder for analyzed text with multiple linguistic features.
+
+    This embedder combines embeddings from multiple linguistic representations
+    (surface forms, part-of-speech tags, character sequences) by concatenating
+    them along the feature dimension.
+
+    Args:
+        surface: Optional embedder for surface form tokens.
+        postag: Optional embedder for part-of-speech tags.
+        character: Optional embedder for character sequences.
+
+    Raises:
+        ValueError: If all embedders are None (at least one is required).
+
+    Example:
+        >>> from formed.integrations.flax.modules import (
+        ...     AnalyzedTextEmbedder,
+        ...     TokenEmbedder
+        ... )
+        >>>
+        >>> embedder = AnalyzedTextEmbedder(
+        ...     surface=TokenEmbedder(vocab_size=10000, embedding_dim=128, rngs=rngs),
+        ...     postag=TokenEmbedder(vocab_size=50, embedding_dim=32, rngs=rngs),
+        ...     character=TokenEmbedder(vocab_size=256, embedding_dim=32, rngs=rngs)
+        ... )
+        >>>
+        >>> # Output dimension is sum of all embedding dimensions (128 + 32 + 32 = 192)
+        >>> assert embedder.get_output_dim() == 192
+
+    Note:
+        All provided embedders share the same mask, which is taken from
+        the last non-None embedder processed.
+
+    """
+
     def __init__(
         self,
         surface: Optional[BaseEmbedder[IIDSequenceBatch]] = None,

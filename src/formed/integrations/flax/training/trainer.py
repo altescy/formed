@@ -1,3 +1,51 @@
+"""High-level trainer for Flax models.
+
+This module provides the FlaxTrainer class, which orchestrates the complete
+training process for Flax models including data loading, optimization,
+evaluation, callbacks, and distributed training.
+
+Key Features:
+    - Flexible training loop with epoch and step-based logging/evaluation
+    - Support for callbacks at various training stages
+    - Distributed training via data parallelism
+    - Integration with optax optimizers
+    - Rich progress bars with training metrics
+    - Early stopping and checkpointing
+    - MLflow integration
+
+Example:
+    >>> from formed.integrations.flax import (
+    ...     FlaxTrainer,
+    ...     EvaluationCallback,
+    ...     EarlyStoppingCallback
+    ... )
+    >>> from formed.integrations.ml import DataLoader, BasicBatchSampler
+    >>> import optax
+    >>>
+    >>> # Setup data loaders
+    >>> train_dataloader = DataLoader(
+    ...     sampler=BasicBatchSampler(batch_size=32, shuffle=True),
+    ...     collator=datamodule.batch
+    ... )
+    >>>
+    >>> # Create trainer
+    >>> trainer = FlaxTrainer(
+    ...     train_dataloader=train_dataloader,
+    ...     val_dataloader=val_dataloader,
+    ...     optimizer=optax.adamw(learning_rate=1e-3),
+    ...     max_epochs=10,
+    ...     callbacks=[
+    ...         EvaluationCallback(my_evaluator),
+    ...         EarlyStoppingCallback(patience=3)
+    ...     ]
+    ... )
+    >>>
+    >>> # Train model
+    >>> rngs = nnx.Rngs(42)
+    >>> state = trainer.train(rngs, model, train_dataset, val_dataset)
+
+"""
+
 from collections.abc import Mapping, Sequence
 from functools import partial
 from typing import Generic, Literal, Optional, Union
@@ -25,6 +73,46 @@ class FlaxTrainer(
         ModelParamsT,
     ]
 ):
+    """High-level trainer for Flax models.
+
+    FlaxTrainer provides a complete training loop with support for
+    distributed training, callbacks, evaluation, and metric logging.
+    It handles the coordination of data loading, model training,
+    evaluation, and callback execution.
+
+    Type Parameters:
+        ItemT: Type of raw dataset items.
+        ModelInputT: Type of batched model inputs.
+        ModelOutputT: Type of model outputs.
+        ModelParamsT: Type of additional model parameters.
+
+    Args:
+        train_dataloader: Data loader for training dataset.
+        val_dataloader: Optional data loader for validation dataset.
+        engine: Training engine (defaults to DefaultFlaxTrainingEngine).
+        optimizer: Optax optimizer or transformation.
+        callbacks: Sequence of training callbacks.
+        distributor: Device distributor (defaults to SingleDeviceDistributor).
+        max_epochs: Maximum number of training epochs.
+        eval_strategy: When to evaluate - "epoch" or "step".
+        eval_interval: Evaluation interval (epochs or steps).
+        logging_strategy: When to log - "epoch" or "step".
+        logging_interval: Logging interval (epochs or steps).
+        logging_first_step: Whether to log after the first training step.
+
+    Example:
+        >>> trainer = FlaxTrainer(
+        ...     train_dataloader=train_loader,
+        ...     val_dataloader=val_loader,
+        ...     optimizer=optax.adamw(1e-3),
+        ...     max_epochs=10,
+        ...     eval_strategy="epoch",
+        ...     logging_strategy="step",
+        ...     logging_interval=100
+        ... )
+
+    """
+
     def __init__(
         self,
         *,
@@ -73,6 +161,32 @@ class FlaxTrainer(
         val_dataset: Optional[Sequence[ItemT]] = None,
         state: Optional[TrainState] = None,
     ) -> TrainState:
+        """Train a model on the provided datasets.
+
+        Args:
+            rngs: Random number generators for initialization.
+            model: Model to train.
+            train_dataset: Sequence of training items.
+            val_dataset: Optional sequence of validation items.
+            state: Optional pre-initialized training state (for resuming).
+
+        Returns:
+            Final training state with trained parameters.
+
+        Raises:
+            ValueError: If val_dataset is provided but val_dataloader is not.
+
+        Example:
+            >>> rngs = nnx.Rngs(42)
+            >>> state = trainer.train(
+            ...     rngs, model, train_items, val_items
+            ... )
+            >>> # Reconstruct trained model
+            >>> trained_model = nnx.merge(
+            ...     state.graphdef, state.params, *state.additional_states
+            ... )
+
+        """
         if val_dataset is not None and self._val_dataloader is None:
             raise ValueError("Validation dataloader is not provided.")
 
