@@ -36,7 +36,7 @@ from .training import FlaxTrainer
 from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 
 
-@step("flax::train")
+@step("flax::train", format="pickle")
 def train_flax_model(
     model: Lazy[BaseFlaxModel],
     trainer: FlaxTrainer,
