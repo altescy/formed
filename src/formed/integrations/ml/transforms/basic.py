@@ -73,6 +73,8 @@ class MetadataTransform(
 
     """
 
+    __is_static__ = True
+
     def instance(self, value: _T, /) -> _T:
         return value
 

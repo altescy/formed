@@ -1,5 +1,19 @@
 from .dataloader import BaseBatchSampler, BasicBatchSampler, DataLoader
-from .metrics import Average, BaseMetric, MeanSquaredError
+from .metrics import (
+    NDCG,
+    Average,
+    BaseMetric,
+    BinaryAccuracy,
+    BinaryFBeta,
+    EmptyMetric,
+    MeanAbsoluteError,
+    MeanAveragePrecision,
+    MeanSquaredError,
+    MulticlassAccuracy,
+    MulticlassFBeta,
+    MultilabelAccuracy,
+    MultilabelFBeta,
+)
 from .transforms import (
     BaseTransform,
     DataModule,
@@ -22,9 +36,19 @@ __all__ = [
     "BasicBatchSampler",
     "DataLoader",
     # metrics
+    "NDCG",
     "Average",
     "BaseMetric",
+    "BinaryAccuracy",
+    "BinaryFBeta",
+    "EmptyMetric",
+    "MeanAbsoluteError",
+    "MeanAveragePrecision",
     "MeanSquaredError",
+    "MulticlassAccuracy",
+    "MulticlassFBeta",
+    "MultilabelAccuracy",
+    "MultilabelFBeta",
     # transforms
     "BaseTransform",
     "DataModule",

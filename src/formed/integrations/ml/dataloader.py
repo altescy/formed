@@ -51,7 +51,7 @@ class BasicBatchSampler(BaseBatchSampler):
 class DataLoader(Generic[_InputT, _BatchT]):
     def __init__(
         self,
-        sampler: Callable[[Sequence[_InputT]], SizedIterator[Sequence[int]]],
+        sampler: BaseBatchSampler,
         collator: Callable[[Sequence[_InputT]], _BatchT],
     ) -> None:
         self._collator = collator

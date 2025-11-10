@@ -69,6 +69,8 @@ class ClassificationInput(Generic[_T]):
 
 @BaseMetric.register("binary_accuracy")
 class BinaryAccuracy(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
+    Input: type[ClassificationInput[BinaryLabelT]] = ClassificationInput
+
     def __init__(self) -> None:
         self._correct = 0
         self._total = 0
@@ -135,6 +137,8 @@ class MulticlassAccuracy(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT
 
 @BaseMetric.register("multilabel_accuracy")
 class MultilabelAccuracy(BaseMetric[ClassificationInput[Sequence[LabelT]]], Generic[LabelT]):
+    Input: type[ClassificationInput[Sequence[LabelT]]] = ClassificationInput
+
     def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
         self._average = average
         self._correct: dict[LabelT, int] = defaultdict(int)
@@ -177,6 +181,8 @@ class MultilabelAccuracy(BaseMetric[ClassificationInput[Sequence[LabelT]]], Gene
 
 @BaseMetric.register("binary_fbeta")
 class BinaryFBeta(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
+    Input: type[ClassificationInput[BinaryLabelT]] = ClassificationInput
+
     def __init__(self, beta: float = 1.0) -> None:
         self._beta = beta
         self._true_positive = 0
@@ -300,6 +306,8 @@ class MulticlassFBeta(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
 
 @BaseMetric.register("multilabel_fbeta")
 class MultilabelFBeta(BaseMetric[ClassificationInput[Sequence[LabelT]]], Generic[LabelT]):
+    Input: type[ClassificationInput[Sequence[LabelT]]] = ClassificationInput
+
     def __init__(self, beta: float = 1.0, average: Literal["micro", "macro"] = "micro") -> None:
         self._beta = beta
         self._average = average
@@ -416,6 +424,8 @@ class MeanSquaredError(BaseMetric[RegressionInput]):
 
 @BaseMetric.register("mean_absolute_error")
 class MeanAbsoluteError(BaseMetric[RegressionInput]):
+    Input = RegressionInput
+
     def __init__(self) -> None:
         self._absolute_error = 0.0
         self._count = 0
@@ -446,6 +456,8 @@ class RankingInput(Generic[LabelT]):
 
 @BaseMetric.register("mean_average_precision")
 class MeanAveragePrecision(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
+    Input: type[RankingInput[LabelT]] = RankingInput
+
     def __init__(self) -> None:
         self._average_precisions: list[float] = []
 
@@ -479,6 +491,8 @@ class MeanAveragePrecision(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
 
 @BaseMetric.register("ndcg")
 class NDCG(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
+    Input: type[RankingInput[LabelT]] = RankingInput
+
     def __init__(self, k: int = 10) -> None:
         self._k = k
         self._ndcgs: list[float] = []

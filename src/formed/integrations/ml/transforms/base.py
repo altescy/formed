@@ -104,6 +104,8 @@ def _find_dataclass_field(annotation: Any) -> Optional[type]:
         return annotation
     origin = typing.get_origin(annotation)
     args = typing.get_args(annotation)
+    if isinstance(origin, type) and dataclasses.is_dataclass(origin):
+        return origin
     if origin in (Union, UnionType) and args:
         for arg in args:
             result = _find_dataclass_field(arg)
@@ -150,6 +152,14 @@ def register_dataclass(cls: _TypeT) -> _TypeT:
     with suppress(ImportError):
         import jax
 
+        def _is_static_field(field: dataclasses.Field) -> bool:
+            if field.metadata.get(JAX_STATIC_FIELD, False):
+                return True
+            field_class = _find_dataclass_field(field.type)
+            if field_class is not None:
+                return getattr(field_class, "__is_static__", False)
+            return False
+
         if getattr(cls, "__is_datamodule__", False):
             for field in dataclasses.fields(cls):
                 field_class = _find_dataclass_field(field.type)
@@ -157,16 +167,8 @@ def register_dataclass(cls: _TypeT) -> _TypeT:
                     register_dataclass(field_class)
 
         drop_fields = [f.name for f in dataclasses.fields(cls) if not f.init and not _is_param_field(f.type)]
-        data_fields = [
-            f.name
-            for f in dataclasses.fields(cls)
-            if not f.metadata.get(JAX_STATIC_FIELD, False) and f.name not in drop_fields
-        ]
-        meta_fields = [
-            f.name
-            for f in dataclasses.fields(cls)
-            if f.metadata.get(JAX_STATIC_FIELD, False) and f.name not in drop_fields
-        ]
+        data_fields = [f.name for f in dataclasses.fields(cls) if not _is_static_field(f) and f.name not in drop_fields]
+        meta_fields = [f.name for f in dataclasses.fields(cls) if _is_static_field(f) and f.name not in drop_fields]
 
         try:
             jax.tree_util.register_dataclass(
@@ -409,6 +411,7 @@ class BaseTransform(
                   Can be a string (attribute/key name) or a callable.
 
     Class Attributes:
+        __is_static__: If True, indicates the batched value is static for JAX.
         __process_parent__: If True, the accessor receives the entire parent object.
 
     Abstract Methods:
@@ -447,6 +450,7 @@ class BaseTransform(
         default=False, init=False, repr=False, compare=False, metadata={JAX_STATIC_FIELD: True}
     )
 
+    __is_static__: ClassVar[bool] = False
     __process_parent__: ClassVar[bool] = False
 
     @abc.abstractmethod
