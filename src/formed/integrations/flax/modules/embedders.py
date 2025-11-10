@@ -43,7 +43,7 @@ from flax import nnx
 
 from ..random import require_rngs
 from ..types import IAnalyzedTextBatch, IIDSequenceBatch
-from ..utils import ensure_jax_array
+from ..utils import ensure_jax_array, sequence_distribute, sequence_undistribute
 from .vectorizers import BaseSequenceVectorizer
 
 _TextBatchT = TypeVar("_TextBatchT")
@@ -164,7 +164,10 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
                 embeddings = (embeddings * mask[..., None]).sum(axis=-2) / mask.sum(axis=-1, keepdims=True).clip(min=1)
                 mask = mask.any(axis=-1)
             else:
-                embeddings = self._vectorizer(embeddings, mask=mask)
+                dist_embeddings, dist_shape = sequence_distribute(embeddings)
+                dist_mask, _ = sequence_distribute(mask)
+                dist_embeddings = self._vectorizer(dist_embeddings, mask=dist_mask)
+                embeddings = sequence_undistribute(dist_embeddings, dist_shape)
                 mask = mask.any(axis=-1)
 
         return EmbedderOutput(embeddings=embeddings, mask=mask)
