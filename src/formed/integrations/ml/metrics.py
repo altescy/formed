@@ -1,3 +1,66 @@
+"""Metrics for evaluating machine learning models.
+
+This module provides a comprehensive set of metrics for evaluating
+classification, regression, and ranking models. All metrics follow
+a common interface with reset, update, and compute methods.
+
+Key Components:
+    Base Classes:
+    - BaseMetric: Abstract base for all metrics
+    - BinaryClassificationMetric: Base for binary classification metrics
+    - MulticlassClassificationMetric: Base for multiclass metrics
+    - MultilabelClassificationMetric: Base for multilabel metrics
+    - RegressionMetric: Base for regression metrics
+    - RankingMetric: Base for ranking metrics
+
+    Classification Metrics:
+    - BinaryAccuracy: Binary classification accuracy
+    - BinaryFBeta: Binary F-beta score (precision, recall, F1)
+    - MulticlassAccuracy: Multiclass accuracy (micro/macro)
+    - MulticlassFBeta: Multiclass F-beta (micro/macro)
+    - MultilabelAccuracy: Multilabel accuracy
+    - MultilabelFBeta: Multilabel F-beta
+
+    Regression Metrics:
+    - MeanAbsoluteError: MAE metric
+    - MeanSquaredError: MSE metric
+
+    Ranking Metrics:
+    - MeanAveragePrecision: MAP metric
+    - NDCG: Normalized Discounted Cumulative Gain
+
+    Utility Metrics:
+    - Average: Simple averaging metric
+    - EmptyMetric: No-op metric
+
+Features:
+    - Stateful metrics with accumulation across batches
+    - Support for micro and macro averaging
+    - Flexible label types (int, str, bool)
+    - Registrable for configuration-based instantiation
+
+Example:
+    >>> from formed.integrations.ml.metrics import MulticlassAccuracy, ClassificationInput
+    >>>
+    >>> # Create metric
+    >>> metric = MulticlassAccuracy(average="macro")
+    >>>
+    >>> # Update with batch
+    >>> inputs = ClassificationInput(
+    ...     predictions=[0, 1, 2, 1],
+    ...     targets=[0, 1, 1, 1]
+    ... )
+    >>> metric.update(inputs)
+    >>>
+    >>> # Compute final metrics
+    >>> results = metric.compute()
+    >>> print(results)  # {"accuracy": 0.75}
+    >>>
+    >>> # Reset for next evaluation
+    >>> metric.reset()
+
+"""
+
 import abc
 import dataclasses
 import math
@@ -13,25 +76,77 @@ _T = TypeVar("_T")
 
 
 class BaseMetric(Registrable, Generic[_T], abc.ABC):
+    """Abstract base class for all metrics.
+
+    Metrics are stateful objects that accumulate predictions and targets
+    across multiple batches, then compute aggregate statistics.
+
+    Type Parameters:
+        _T: Type of input data for this metric.
+
+    Example:
+        >>> @BaseMetric.register("my_metric")
+        ... class MyMetric(BaseMetric[MyInputType]):
+        ...     def reset(self):
+        ...         self._state = 0
+        ...     def update(self, inputs):
+        ...         self._state += process(inputs)
+        ...     def compute(self):
+        ...         return {"metric": self._state}
+
+    """
+
     @abc.abstractmethod
     def reset(self) -> None:
+        """Reset internal state for a new evaluation.
+
+        This should clear all accumulated statistics.
+
+        """
         raise NotImplementedError()
 
     @abc.abstractmethod
     def update(self, inputs: _T) -> None:
+        """Update internal state with a batch of predictions.
+
+        Args:
+            inputs: Batch of predictions and targets.
+
+        """
         raise NotImplementedError()
 
     @abc.abstractmethod
     def compute(self) -> dict[str, float]:
+        """Compute metrics from accumulated state.
+
+        Returns:
+            Dictionary mapping metric names to values.
+
+        """
         raise NotImplementedError()
 
     def __call__(self, inputs: _T) -> dict[str, float]:
+        """Update and compute in one call.
+
+        Args:
+            inputs: Batch of predictions and targets.
+
+        Returns:
+            Dictionary of computed metrics.
+
+        """
         self.update(inputs)
         return self.compute()
 
 
 @BaseMetric.register("empty")
 class EmptyMetric(BaseMetric[Any]):
+    """No-op metric that does nothing.
+
+    This metric can be used as a placeholder when no evaluation is needed.
+
+    """
+
     def reset(self) -> None:
         pass
 
@@ -44,6 +159,21 @@ class EmptyMetric(BaseMetric[Any]):
 
 @BaseMetric.register("average")
 class Average(BaseMetric[Sequence[float]]):
+    """Simple averaging metric for numeric values.
+
+    Computes the mean of all values seen across batches.
+
+    Args:
+        name: Name for the metric in output dictionary.
+
+    Example:
+        >>> metric = Average(name="loss")
+        >>> metric.update([1.0, 2.0, 3.0])
+        >>> metric.update([4.0, 5.0])
+        >>> metric.compute()  # {"loss": 3.0}
+
+    """
+
     def __init__(self, name: str = "average") -> None:
         self._name = name
         self._total = 0.0
@@ -63,13 +193,48 @@ class Average(BaseMetric[Sequence[float]]):
 
 @dataclasses.dataclass
 class ClassificationInput(Generic[_T]):
+    """Input data for classification metrics.
+
+    Attributes:
+        predictions: Sequence of predicted labels.
+        targets: Sequence of ground truth labels.
+
+    """
+
     predictions: Sequence[_T]
     targets: Sequence[_T]
 
 
-@BaseMetric.register("binary_accuracy")
-class BinaryAccuracy(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
+class BinaryClassificationMetric(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
+    """Base class for binary classification metrics.
+
+    Binary classification metrics work with two classes (0 and 1, or True/False).
+
+    Type Parameters:
+        BinaryLabelT: Type of labels (int, bool, etc.).
+
+    """
+
     Input: type[ClassificationInput[BinaryLabelT]] = ClassificationInput
+
+
+@BaseMetric.register("binary_accuracy")
+@BinaryClassificationMetric.register("accuracy")
+class BinaryAccuracy(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT]):
+    """Binary classification accuracy metric.
+
+    Computes the fraction of correct predictions.
+
+    Example:
+        >>> metric = BinaryAccuracy()
+        >>> inputs = ClassificationInput(
+        ...     predictions=[1, 0, 1, 1],
+        ...     targets=[1, 0, 0, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> metric.compute()  # {"accuracy": 0.75}
+
+    """
 
     def __init__(self) -> None:
         self._correct = 0
@@ -94,94 +259,36 @@ class BinaryAccuracy(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[Bina
         return {"accuracy": accuracy}
 
 
-@BaseMetric.register("multiclass_accuracy")
-class MulticlassAccuracy(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
-    Input: type[ClassificationInput[LabelT]] = ClassificationInput
-
-    def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
-        self._average = average
-        self._correct: dict[LabelT, int] = defaultdict(int)
-        self._total: dict[LabelT, int] = defaultdict(int)
-
-    def reset(self) -> None:
-        self._correct = defaultdict(int)
-        self._total = defaultdict(int)
-
-    def update(self, inputs: ClassificationInput[LabelT]) -> None:
-        predictions = inputs.predictions
-        targets = inputs.targets
-        assert len(predictions) == len(targets), "Predictions and targets must have the same length"
-
-        for pred, target in zip(predictions, targets):
-            if pred == target:
-                self._correct[target] += 1
-            self._total[target] += 1
-
-    def compute(self) -> dict[str, float]:
-        if self._average == "micro":
-            total_correct = sum(self._correct.values())
-            total_count = sum(self._total.values())
-            accuracy = total_correct / total_count if total_count > 0 else 0.0
-            return {"accuracy": accuracy}
-        elif self._average == "macro":
-            accuracies = []
-            for label in self._total.keys():
-                correct = self._correct[label]
-                total = self._total[label]
-                accuracies.append(correct / total if total > 0 else 0.0)
-            macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
-            return {"accuracy": macro_accuracy}
-        else:
-            raise ValueError(f"Unknown average type: {self._average}")
-
-
-@BaseMetric.register("multilabel_accuracy")
-class MultilabelAccuracy(BaseMetric[ClassificationInput[Sequence[LabelT]]], Generic[LabelT]):
-    Input: type[ClassificationInput[Sequence[LabelT]]] = ClassificationInput
-
-    def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
-        self._average = average
-        self._correct: dict[LabelT, int] = defaultdict(int)
-        self._total: dict[LabelT, int] = defaultdict(int)
-
-    def reset(self) -> None:
-        self._correct = defaultdict(int)
-        self._total = defaultdict(int)
-
-    def update(self, inputs: ClassificationInput[Sequence[LabelT]]) -> None:
-        predictions = inputs.predictions
-        targets = inputs.targets
-        assert len(predictions) == len(targets), "Predictions and targets must have the same length"
-
-        for pred_labels, target_labels in zip(predictions, targets):
-            pred_set = set(pred_labels)
-            target_set = set(target_labels)
-            for label in target_set.union(pred_set):
-                if label in target_set and label in pred_set:
-                    self._correct[label] += 1
-                self._total[label] += 1
-
-    def compute(self) -> dict[str, float]:
-        if self._average == "micro":
-            total_correct = sum(self._correct.values())
-            total_count = sum(self._total.values())
-            accuracy = total_correct / total_count if total_count > 0 else 0.0
-            return {"accuracy": accuracy}
-        elif self._average == "macro":
-            accuracies = []
-            for label in self._total.keys():
-                correct = self._correct[label]
-                total = self._total[label]
-                accuracies.append(correct / total if total > 0 else 0.0)
-            macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
-            return {"accuracy": macro_accuracy}
-        else:
-            raise ValueError(f"Unknown average type: {self._average}")
-
-
 @BaseMetric.register("binary_fbeta")
-class BinaryFBeta(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
-    Input: type[ClassificationInput[BinaryLabelT]] = ClassificationInput
+@BinaryClassificationMetric.register("fbeta")
+class BinaryFBeta(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT]):
+    """Binary F-beta score with precision and recall.
+
+    Computes F-beta score, precision, and recall for binary classification.
+    F-beta is the weighted harmonic mean of precision and recall, where
+    beta controls the weight of recall relative to precision.
+
+    Args:
+        beta: Weight of recall relative to precision. Common values:
+            - 1.0: F1 score (balanced)
+            - 0.5: F0.5 (emphasizes precision)
+            - 2.0: F2 (emphasizes recall)
+
+    Returns:
+        Dictionary with "fbeta", "precision", and "recall" metrics.
+
+    Example:
+        >>> # F1 score (beta=1.0)
+        >>> metric = BinaryFBeta(beta=1.0)
+        >>> inputs = ClassificationInput(
+        ...     predictions=[1, 1, 0, 1],
+        ...     targets=[1, 0, 0, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> result = metric.compute()
+        >>> # {"fbeta": 0.67, "precision": 0.67, "recall": 1.0}
+
+    """
 
     def __init__(self, beta: float = 1.0) -> None:
         self._beta = beta
@@ -223,8 +330,116 @@ class BinaryFBeta(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryL
         return {"fbeta": fbeta, "precision": precision, "recall": recall}
 
 
+class MulticlassClassificationMetric(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
+    """Base class for multiclass classification metrics.
+
+    Multiclass metrics work with any number of classes and support
+    both micro and macro averaging strategies.
+
+    Type Parameters:
+        LabelT: Type of labels (int, str, etc.).
+
+    """
+
+    Input: type[ClassificationInput[LabelT]] = ClassificationInput
+
+
+@BaseMetric.register("multiclass_accuracy")
+@MulticlassClassificationMetric.register("accuracy")
+class MulticlassAccuracy(MulticlassClassificationMetric[LabelT], Generic[LabelT]):
+    """Multiclass classification accuracy with averaging strategies.
+
+    Computes accuracy for multiclass classification with support for
+    micro (overall accuracy) and macro (per-class average) strategies.
+
+    Args:
+        average: Averaging strategy:
+            - "micro": Overall accuracy across all samples
+            - "macro": Average of per-class accuracies
+
+    Example:
+        >>> # Micro averaging (overall accuracy)
+        >>> metric = MulticlassAccuracy(average="micro")
+        >>> inputs = ClassificationInput(
+        ...     predictions=[0, 1, 2, 1],
+        ...     targets=[0, 1, 1, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> metric.compute()  # {"accuracy": 0.75}
+        >>>
+        >>> # Macro averaging (per-class average)
+        >>> metric = MulticlassAccuracy(average="macro")
+        >>> metric.update(inputs)
+        >>> metric.compute()  # Average of class-wise accuracies
+
+    """
+
+    def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
+        self._average = average
+        self._correct: dict[LabelT, int] = defaultdict(int)
+        self._total: dict[LabelT, int] = defaultdict(int)
+
+    def reset(self) -> None:
+        self._correct = defaultdict(int)
+        self._total = defaultdict(int)
+
+    def update(self, inputs: ClassificationInput[LabelT]) -> None:
+        predictions = inputs.predictions
+        targets = inputs.targets
+        assert len(predictions) == len(targets), "Predictions and targets must have the same length"
+
+        for pred, target in zip(predictions, targets):
+            if pred == target:
+                self._correct[target] += 1
+            self._total[target] += 1
+
+    def compute(self) -> dict[str, float]:
+        if self._average == "micro":
+            total_correct = sum(self._correct.values())
+            total_count = sum(self._total.values())
+            accuracy = total_correct / total_count if total_count > 0 else 0.0
+            return {"accuracy": accuracy}
+        elif self._average == "macro":
+            accuracies = []
+            for label in self._total.keys():
+                correct = self._correct[label]
+                total = self._total[label]
+                accuracies.append(correct / total if total > 0 else 0.0)
+            macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
+            return {"accuracy": macro_accuracy}
+        else:
+            raise ValueError(f"Unknown average type: {self._average}")
+
+
 @BaseMetric.register("multiclass_fbeta")
-class MulticlassFBeta(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
+@MulticlassClassificationMetric.register("fbeta")
+class MulticlassFBeta(MulticlassClassificationMetric[LabelT], Generic[LabelT]):
+    """Multiclass F-beta score with precision and recall.
+
+    Computes F-beta, precision, and recall for multiclass classification
+    with support for micro and macro averaging.
+
+    Args:
+        beta: Weight of recall relative to precision (default: 1.0 for F1).
+        average: Averaging strategy:
+            - "micro": Compute globally across all classes
+            - "macro": Compute per-class then average
+
+    Returns:
+        Dictionary with "fbeta", "precision", and "recall" metrics.
+
+    Example:
+        >>> metric = MulticlassFBeta(beta=1.0, average="macro")
+        >>> inputs = ClassificationInput(
+        ...     predictions=[0, 1, 2, 1],
+        ...     targets=[0, 1, 1, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> metric.compute()
+        >>> # {"fbeta": ..., "precision": ..., "recall": ...}
+
+    """
+
     def __init__(self, beta: float = 1.0, average: Literal["micro", "macro"] = "micro") -> None:
         self._beta = beta
         self._average = average
@@ -304,10 +519,56 @@ class MulticlassFBeta(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
             raise ValueError(f"Unknown average type: {self._average}")
 
 
-@BaseMetric.register("multilabel_fbeta")
-class MultilabelFBeta(BaseMetric[ClassificationInput[Sequence[LabelT]]], Generic[LabelT]):
+class MultilabelClassificationMetric(BaseMetric[ClassificationInput[Sequence[LabelT]]], Generic[LabelT]):
     Input: type[ClassificationInput[Sequence[LabelT]]] = ClassificationInput
 
+
+@BaseMetric.register("multilabel_accuracy")
+@MultilabelClassificationMetric.register("accuracy")
+class MultilabelAccuracy(MultilabelClassificationMetric[LabelT], Generic[LabelT]):
+    def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
+        self._average = average
+        self._correct: dict[LabelT, int] = defaultdict(int)
+        self._total: dict[LabelT, int] = defaultdict(int)
+
+    def reset(self) -> None:
+        self._correct = defaultdict(int)
+        self._total = defaultdict(int)
+
+    def update(self, inputs: ClassificationInput[Sequence[LabelT]]) -> None:
+        predictions = inputs.predictions
+        targets = inputs.targets
+        assert len(predictions) == len(targets), "Predictions and targets must have the same length"
+
+        for pred_labels, target_labels in zip(predictions, targets):
+            pred_set = set(pred_labels)
+            target_set = set(target_labels)
+            for label in target_set.union(pred_set):
+                if label in target_set and label in pred_set:
+                    self._correct[label] += 1
+                self._total[label] += 1
+
+    def compute(self) -> dict[str, float]:
+        if self._average == "micro":
+            total_correct = sum(self._correct.values())
+            total_count = sum(self._total.values())
+            accuracy = total_correct / total_count if total_count > 0 else 0.0
+            return {"accuracy": accuracy}
+        elif self._average == "macro":
+            accuracies = []
+            for label in self._total.keys():
+                correct = self._correct[label]
+                total = self._total[label]
+                accuracies.append(correct / total if total > 0 else 0.0)
+            macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
+            return {"accuracy": macro_accuracy}
+        else:
+            raise ValueError(f"Unknown average type: {self._average}")
+
+
+@BaseMetric.register("multilabel_fbeta")
+@MultilabelClassificationMetric.register("fbeta")
+class MultilabelFBeta(MultilabelClassificationMetric[LabelT], Generic[LabelT]):
     def __init__(self, beta: float = 1.0, average: Literal["micro", "macro"] = "micro") -> None:
         self._beta = beta
         self._average = average
@@ -396,10 +657,13 @@ class RegressionInput:
     targets: Sequence[float]
 
 
-@BaseMetric.register("mean_squared_error")
-class MeanSquaredError(BaseMetric[RegressionInput]):
-    Input = RegressionInput
+class RegressionMetric(BaseMetric[RegressionInput]):
+    Input: type[RegressionInput] = RegressionInput
 
+
+@BaseMetric.register("mean_squared_error")
+@RegressionMetric.register("mean_squared_error")
+class MeanSquaredError(RegressionMetric):
     def __init__(self) -> None:
         self._squared_error = 0.0
         self._count = 0
@@ -423,9 +687,8 @@ class MeanSquaredError(BaseMetric[RegressionInput]):
 
 
 @BaseMetric.register("mean_absolute_error")
-class MeanAbsoluteError(BaseMetric[RegressionInput]):
-    Input = RegressionInput
-
+@RegressionMetric.register("mean_absolute_error")
+class MeanAbsoluteError(RegressionMetric):
     def __init__(self) -> None:
         self._absolute_error = 0.0
         self._count = 0
@@ -454,10 +717,13 @@ class RankingInput(Generic[LabelT]):
     targets: Sequence[Sequence[LabelT]]
 
 
-@BaseMetric.register("mean_average_precision")
-class MeanAveragePrecision(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
+class RankingMetric(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
     Input: type[RankingInput[LabelT]] = RankingInput
 
+
+@BaseMetric.register("mean_average_precision")
+@RankingMetric.register("mean_average_precision")
+class MeanAveragePrecision(RankingMetric[LabelT], Generic[LabelT]):
     def __init__(self) -> None:
         self._average_precisions: list[float] = []
 
@@ -490,9 +756,8 @@ class MeanAveragePrecision(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
 
 
 @BaseMetric.register("ndcg")
-class NDCG(BaseMetric[RankingInput[LabelT]], Generic[LabelT]):
-    Input: type[RankingInput[LabelT]] = RankingInput
-
+@RankingMetric.register("ndcg")
+class NDCG(RankingMetric[LabelT], Generic[LabelT]):
     def __init__(self, k: int = 10) -> None:
         self._k = k
         self._ndcgs: list[float] = []
