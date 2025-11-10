@@ -239,6 +239,22 @@ class Extra(Generic[_BaseTransformT_co]):
         """
         return cast(Extra[_BaseTransformT], default)
 
+    @classmethod
+    def default_factory(
+        cls: type["Extra[_BaseTransformT]"],
+        factory: Callable[[], Optional[_BaseTransformT]],
+    ) -> Callable[[], "Extra[_BaseTransformT]"]:
+        """Create a factory for an Extra field with an optional default transform.
+
+        Args:
+            factory: A callable that returns the default transform.
+
+        Returns:
+            A factory callable for creating Extra fields.
+
+        """
+        return cast(Callable[[], Extra[_BaseTransformT]], factory)
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise TypeError("Extra is a marker class and cannot be instantiated directly")
 
