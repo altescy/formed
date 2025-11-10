@@ -7,7 +7,14 @@ import optax
 import pytest
 from flax import nnx, struct
 
-from formed.integrations.flax import BaseFlaxModel, EvaluationCallback, FlaxTrainer, ensure_jax_array
+from formed.integrations.flax import (
+    BaseFlaxModel,
+    EvaluationCallback,
+    FlaxTrainer,
+    ensure_jax_array,
+    require_rngs,
+    use_rngs,
+)
 from formed.integrations.flax.modules import (
     AnalyzedTextEmbedder,
     BagOfEmbeddingsSequenceVectorizer,
@@ -98,7 +105,8 @@ def regression_dataset() -> list[RegressionExample]:
 
 class TestTrainingWithRegressor:
     class FlaxRegressor(BaseFlaxModel[RegressionDataModule[AsBatch], RegressorOutput]):
-        def __init__(self, rngs: nnx.Rngs, feature_dim: int) -> None:
+        def __init__(self, feature_dim: int) -> None:
+            rngs = require_rngs()
             self.dense = nnx.Linear(in_features=feature_dim, out_features=1, rngs=rngs)
 
         def __call__(self, inputs: RegressionDataModule[AsBatch], params: None = None) -> RegressorOutput:
@@ -132,18 +140,17 @@ class TestTrainingWithRegressor:
             collator=datamodule.batch,
         )
 
-        rngs = nnx.Rngs(42)
+        with use_rngs(42):
+            model = TestTrainingWithRegressor.FlaxRegressor(feature_dim=10)
 
-        model = TestTrainingWithRegressor.FlaxRegressor(rngs=rngs, feature_dim=10)
+            trainer = FlaxTrainer(
+                train_dataloader=train_dataloader,
+                val_dataloader=val_dataloader,
+                max_epochs=5,
+                callbacks=[EvaluationCallback(RegressionEvaluator())],
+            )
 
-        trainer = FlaxTrainer(
-            train_dataloader=train_dataloader,
-            val_dataloader=val_dataloader,
-            max_epochs=5,
-            callbacks=[EvaluationCallback(RegressionEvaluator())],
-        )
-
-        trainer.train(rngs, model, train_instances, val_instances)
+            trainer.train(model, train_instances, val_instances)
 
 
 @dataclasses.dataclass
@@ -254,11 +261,11 @@ class TestTrainingWithTextClassifier:
     class TextClassifier(BaseFlaxModel[TextClassificationDataModule[AsBatch], ClassifierOutput]):
         def __init__(
             self,
-            rngs: nnx.Rngs,
             num_classes: int,
             embedder: AnalyzedTextEmbedder,
             vectorizer: BaseSequenceVectorizer,
         ) -> None:
+            rngs = require_rngs()
             self._num_classes = num_classes
             self._embedder = embedder
             self._vectorizer = vectorizer
@@ -309,26 +316,23 @@ class TestTrainingWithTextClassifier:
             collator=datamodule.batch,
         )
 
-        rngs = nnx.Rngs(42)
+        with use_rngs(42):
+            model = self.TextClassifier(
+                num_classes=datamodule.label.num_labels,
+                embedder=AnalyzedTextEmbedder(
+                    surface=TokenEmbedder(
+                        vocab_size=datamodule.text.surfaces.vocab_size,
+                        embedding_dim=64,
+                    )
+                ),
+                vectorizer=BagOfEmbeddingsSequenceVectorizer(),
+            )
 
-        model = self.TextClassifier(
-            rngs=rngs,
-            num_classes=datamodule.label.num_labels,
-            embedder=AnalyzedTextEmbedder(
-                surface=TokenEmbedder(
-                    vocab_size=datamodule.text.surfaces.vocab_size,
-                    embedding_dim=64,
-                    rngs=rngs,
-                )
-            ),
-            vectorizer=BagOfEmbeddingsSequenceVectorizer(),
-        )
+            trainer = FlaxTrainer(
+                train_dataloader=train_dataloader,
+                val_dataloader=val_dataloader,
+                max_epochs=5,
+                callbacks=[EvaluationCallback(ClassificationEvaluator())],
+            )
 
-        trainer = FlaxTrainer(
-            train_dataloader=train_dataloader,
-            val_dataloader=val_dataloader,
-            max_epochs=5,
-            callbacks=[EvaluationCallback(ClassificationEvaluator())],
-        )
-
-        trainer.train(rngs, model, train_instances, val_instances)
+        trainer.train(model, train_instances, val_instances)

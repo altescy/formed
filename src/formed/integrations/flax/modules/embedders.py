@@ -40,6 +40,7 @@ import jax
 from colt import Registrable
 from flax import nnx
 
+from ..random import require_rngs
 from ..types import IAnalyzedTextBatch, IIDSequenceBatch
 from ..utils import ensure_jax_array
 from .vectorizers import BaseSequenceVectorizer
@@ -132,8 +133,9 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         embedding_dim: int,
         *,
         vectorizer: Optional[BaseSequenceVectorizer] = None,
-        rngs: nnx.Rngs,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
+        rngs = rngs or require_rngs()
         self._embedding = nnx.Embed(num_embeddings=vocab_size, features=embedding_dim, rngs=rngs)
         self._vectorizer = vectorizer
 

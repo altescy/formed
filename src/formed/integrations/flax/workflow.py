@@ -30,6 +30,7 @@ from flax import nnx
 from formed.workflow import step
 
 from .model import BaseFlaxModel
+from .random import use_rngs
 from .training import FlaxTrainer
 from .types import ItemT
 
@@ -69,6 +70,7 @@ def train_flax_model(
         ... )
 
     """
-    rngs = nnx.Rngs(random_seed)
-    state = trainer.train(rngs, model, train_dataset, val_dataset)
+
+    with use_rngs(random_seed):
+        state = trainer.train(model, train_dataset, val_dataset)
     return nnx.merge(state.graphdef, state.params, *state.additional_states)

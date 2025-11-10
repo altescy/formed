@@ -60,6 +60,8 @@ import jax
 from colt import Registrable
 from flax import nnx
 
+from ..random import require_rngs
+
 
 class BasePositionEncoder(Registrable):
     """Abstract base class for position encoders.
@@ -144,9 +146,10 @@ class LearnablePositionEncoder(BasePositionEncoder):
         self,
         features: int,
         *,
-        rngs: nnx.Rngs,
         max_length: int = 512,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
+        rngs = rngs or require_rngs()
         self.embed = nnx.Embed(max_length, features, rngs=rngs)
 
     def __call__(self, inputs: jax.Array) -> jax.Array:
@@ -219,13 +222,15 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         or OptimizedLSTMSequenceEncoder for specific cell types.
 
     """
+
     class _BidirectionalProjection(nnx.Module):
         def __init__(
             self,
             forward_cell: nnx.RNNCellBase,
             backward_cell: nnx.RNNCellBase,
-            rngs: nnx.Rngs,
+            rngs: Optional[nnx.Rngs] = None,
         ) -> None:
+            rngs = rngs or require_rngs()
             in_features = int(getattr(forward_cell, "in_features"))
             forward_features = int(getattr(forward_cell, "hidden_features"))
             backward_features = int(getattr(backward_cell, "hidden_features"))
@@ -239,8 +244,9 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
             self,
             rnn: Union[nnx.RNN, nnx.Bidirectional],
             dropout: float,
-            rngs: nnx.Rngs,
+            rngs: Optional[nnx.Rngs] = None,
         ) -> None:
+            rngs = rngs or require_rngs()
             self.rnn = rnn
             self.dropout = nnx.Dropout(dropout, rngs=rngs)
 
@@ -264,10 +270,9 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         num_layers: int = 1,
         bidirectional: bool = False,
         dropout: float = 0.0,
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
-        if isinstance(rngs, int):
-            rngs = nnx.Rngs(rngs)
+        rngs = rngs or require_rngs()
 
         @nnx.split_rngs(splits=num_layers)
         @nnx.vmap(in_axes=0, out_axes=0)
@@ -341,8 +346,9 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
         num_layers: int = 1,
         bidirectional: bool = False,
         dropout: float = 0.0,
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
+        rngs = rngs or require_rngs()
         super().__init__(
             cell_factory=lambda rngs: nnx.LSTMCell(features, features, rngs=rngs),
             num_layers=num_layers,
@@ -373,7 +379,7 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
         num_layers: int = 1,
         bidirectional: bool = False,
         dropout: float = 0.0,
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.OptimizedLSTMCell(features, features, rngs=rngs),
@@ -411,7 +417,7 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
         num_layers: int = 1,
         bidirectional: bool = False,
         dropout: float = 0.0,
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.GRUCell(features, features, rngs=rngs),
@@ -461,6 +467,7 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         ... )
 
     """
+
     class _TransformerBlock(nnx.Module):
         def __init__(
             self,
@@ -471,8 +478,9 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
             dropout: float,
             feedworward_features: int,
             activation: Callable[[jax.Array], jax.Array],
-            rngs: nnx.Rngs,
+            rngs: Optional[nnx.Rngs] = None,
         ) -> None:
+            rngs = rngs or require_rngs()
             self.mha = nnx.MultiHeadAttention(num_heads, features, features, decode=False, rngs=rngs)
             self.feedworward = nnx.Sequential(
                 nnx.Linear(features, feedworward_features, rngs=rngs),
@@ -507,10 +515,9 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         feedworward_features: Optional[int] = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.gelu,
         position_encoder: Optional[BasePositionEncoder] = None,
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
-        if isinstance(rngs, int):
-            rngs = nnx.Rngs(rngs)
+        rngs = rngs or require_rngs()
 
         @nnx.split_rngs(splits=num_layers)
         @nnx.vmap(in_axes=0, out_axes=0)

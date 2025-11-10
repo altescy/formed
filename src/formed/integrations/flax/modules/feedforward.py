@@ -39,10 +39,12 @@ Example:
 """
 
 from collections.abc import Callable
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 import jax
 from flax import nnx
+
+from ..random import require_rngs
 
 
 class Block(nnx.Module):
@@ -63,13 +65,14 @@ class Block(nnx.Module):
 
     def __init__(
         self,
-        rngs: nnx.Rngs,
         input_dim: int,
         output_dim: int,
         dropout: float = 0.0,
         layer_norm_eps: Optional[float] = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
+        rngs = rngs or require_rngs()
         self.linear = nnx.Linear(input_dim, output_dim, rngs=rngs)
         self.activation = activation
         self.dropout = nnx.Dropout(dropout, rngs=rngs) if dropout > 0.0 else None
@@ -148,15 +151,14 @@ class FeedForward(nnx.Module):
         layer_norm_eps: Optional[float] = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
         residual_connection: Literal["none", "dense"] = "none",
-        rngs: Union[int, nnx.Rngs] = 0,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> None:
-        if isinstance(rngs, int):
-            rngs = nnx.Rngs(rngs)
+        rngs = rngs or require_rngs()
 
         @nnx.split_rngs(splits=num_layers)
         @nnx.vmap(in_axes=(0,), out_axes=0)
         def create_block(rngs: nnx.Rngs) -> Block:
-            return Block(rngs, features, features, dropout, layer_norm_eps, activation)
+            return Block(features, features, dropout, layer_norm_eps, activation, rngs=rngs)
 
         self.features = features
         self.num_layers = num_layers

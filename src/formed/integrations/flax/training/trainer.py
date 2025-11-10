@@ -58,6 +58,7 @@ from formed.workflow import use_step_logger
 
 from ..distributors import BaseDistributor, SingleDeviceDistributor
 from ..model import BaseFlaxModel
+from ..random import require_rngs
 from ..types import IDataLoader, IEvaluator, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 from .callbacks import FlaxTrainingCallback
 from .engine import DefaultFlaxTrainingEngine, FlaxTrainingEngine
@@ -155,20 +156,20 @@ class FlaxTrainer(
 
     def train(
         self,
-        rngs: nnx.Rngs,
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         train_dataset: Sequence[ItemT],
         val_dataset: Optional[Sequence[ItemT]] = None,
         state: Optional[TrainState] = None,
+        rngs: Optional[nnx.Rngs] = None,
     ) -> TrainState:
         """Train a model on the provided datasets.
 
         Args:
-            rngs: Random number generators for initialization.
             model: Model to train.
             train_dataset: Sequence of training items.
             val_dataset: Optional sequence of validation items.
             state: Optional pre-initialized training state (for resuming).
+            rngs: Optional random number generators for initialization.
 
         Returns:
             Final training state with trained parameters.
@@ -177,9 +178,8 @@ class FlaxTrainer(
             ValueError: If val_dataset is provided but val_dataloader is not.
 
         Example:
-            >>> rngs = nnx.Rngs(42)
             >>> state = trainer.train(
-            ...     rngs, model, train_items, val_items
+            ...     model, train_items, val_items
             ... )
             >>> # Reconstruct trained model
             >>> trained_model = nnx.merge(
@@ -190,6 +190,7 @@ class FlaxTrainer(
         if val_dataset is not None and self._val_dataloader is None:
             raise ValueError("Validation dataloader is not provided.")
 
+        rngs = rngs or require_rngs()
         logger = use_step_logger(__name__)
 
         if state is None:

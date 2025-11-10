@@ -1,5 +1,6 @@
 from .distributors import BaseDistributor, DataParallelDistributor, SingleDeviceDistributor
 from .model import BaseFlaxModel
+from .random import require_rngs, use_rngs
 from .training import (
     DefaultFlaxTrainingEngine,
     EarlyStoppingCallback,
@@ -28,6 +29,9 @@ __all__ = [
     "FlaxTrainingEngine",
     # exceptions
     "StopEarly",
+    # random
+    "require_rngs",
+    "use_rngs",
     # state
     "TrainState",
     # trainer
