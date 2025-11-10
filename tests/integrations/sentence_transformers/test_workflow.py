@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 
 import datasets
@@ -42,7 +41,6 @@ def dataset_path(tmp_path: Path, dataset: datasets.Dataset) -> Path:
     return dataset_path
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher")
 def test_sentence_transformers_workflow(
     dataset_path: Path,
 ) -> None:

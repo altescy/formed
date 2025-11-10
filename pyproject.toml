@@ -11,14 +11,13 @@ keywords=["python", "workflow"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.10,<4.0"
 dependencies = [
     "cloudpickle>=3.1.1",
     "colt>=0.17.2",
@@ -40,8 +39,7 @@ formed = "formed.__main__:run"
 
 [project.optional-dependencies]
 flax = [
-    "flax>=0.9; python_version >= '3.10'",
-    "flax<0.9; python_version < '3.10'",
+    "flax>=0.9",
 ]
 mlflow = [
     "mlflow>=2.0",
@@ -61,14 +59,12 @@ transformers = [
 ]
 sentence-transformers = [
     "datasets>=2.0",
-    "sentence-transformers>=3.0; python_version >= '3.10'",
-    "sentence-transformers>=3.0,<3.1; python_version < '3.10'",
+    "sentence-transformers>=3.0",
     "transformers[torch]>=4.0",
 ]
 all = [
     "datasets>=2.0",
-    "flax>=0.9; python_version >= '3.10'",
-    "flax<0.9; python_version < '3.10'",
+    "flax>=0.9",
     "mlflow>=2.0",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
@@ -76,8 +72,7 @@ all = [
     "protobuf>=5.0",
     "pyarrow>=18.0; python_version >= '3.12'",
     "pyarrow; python_version < '3.12'",
-    "sentence-transformers>=3.0; python_version >= '3.10'",
-    "sentence-transformers>=3.0,<3.1; python_version < '3.10'",
+    "sentence-transformers>=3.0",
     "transformers[torch]>=4.0",
 ]
 
@@ -98,7 +93,7 @@ docs = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.8.2,<0.9.0"]
+requires = ["uv_build>=0.9,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.pytest.ini_options]
@@ -108,7 +103,7 @@ filterwarnings = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 
 [tool.ruff]
 line-length = 120

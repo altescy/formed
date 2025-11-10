@@ -37,7 +37,6 @@ Note:
 
 import abc
 import dataclasses
-import sys
 import typing
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager, suppress
@@ -45,6 +44,7 @@ from functools import partial
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
+from types import UnionType
 from typing import Any, ClassVar, Final, Generic, Literal, Optional, Union, cast, overload
 
 import cloudpickle
@@ -64,13 +64,6 @@ from ..types import (
     InstanceT,
     InstanceT_co,
 )
-
-if sys.version_info >= (3, 10):
-    from types import UnionType
-else:
-
-    class UnionType: ...
-
 
 logger = getLogger(__name__)
 
@@ -384,9 +377,8 @@ class Param(Generic[_T_co]):
 class BaseTransformMeta(abc.ABCMeta):
     def __new__(mcls, name, bases, namespace):
         namespace = {k: None if isinstance(v, Extra) else v for k, v in namespace.items()}
-        dataclass_params = {"kw_only": True} if sys.version_info >= (3, 10) else {}
         cls = super().__new__(mcls, name, bases, namespace)
-        cls = dataclasses.dataclass(**dataclass_params)(cls)
+        cls = dataclasses.dataclass(kw_only=True)(cls)
         register_dataclass(cls)
         return cls
 
