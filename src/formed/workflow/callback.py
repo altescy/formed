@@ -60,6 +60,7 @@ class WorkflowCallback(Registrable):
         ...         print(f"Step {step_context.info.name} completed")
 
     """
+
     def on_execution_start(
         self,
         execution_context: "WorkflowExecutionContext",
@@ -121,6 +122,7 @@ class EmptyWorkflowCallback(WorkflowCallback):
     callback behavior is needed.
 
     """
+
     ...
 
 

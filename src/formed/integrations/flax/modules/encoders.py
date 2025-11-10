@@ -267,6 +267,7 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
     def __init__(
         self,
         cell_factory: Callable[[nnx.Rngs], nnx.RNNCellBase],
+        features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
         dropout: float = 0.0,
@@ -292,6 +293,8 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
 
         self.num_layers = num_layers
         self.blocks = create_block(rngs)
+        self.bidirectional = bidirectional
+        self.features = features
 
     def __call__(
         self,
@@ -315,6 +318,12 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
             return block(x, seq_lengths=seq_lengths, deterministic=deterministic, rngs=rngs)
 
         return forward(inputs, self.blocks, rngs)
+
+    def get_input_dim(self) -> int:
+        return self.features
+
+    def get_output_dim(self) -> int:
+        return self.features
 
 
 @BaseSequenceEncoder.register("lstm")
@@ -351,6 +360,7 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
         rngs = rngs or require_rngs()
         super().__init__(
             cell_factory=lambda rngs: nnx.LSTMCell(features, features, rngs=rngs),
+            features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
             dropout=dropout,
@@ -383,6 +393,7 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.OptimizedLSTMCell(features, features, rngs=rngs),
+            features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
             dropout=dropout,
@@ -421,6 +432,7 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.GRUCell(features, features, rngs=rngs),
+            features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
             dropout=dropout,
@@ -535,6 +547,7 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         self.num_layers = num_layers
         self.blocks = create_block(rngs)
         self.position_encoder = position_encoder
+        self.features = features
 
     def __call__(
         self,
@@ -562,3 +575,9 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         if mask is not None:
             output = output * mask
         return output
+
+    def get_input_dim(self) -> int:
+        return self.features
+
+    def get_output_dim(self) -> int:
+        return self.features

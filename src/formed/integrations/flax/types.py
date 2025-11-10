@@ -54,6 +54,7 @@ ModelParamsT = TypeVar("ModelParamsT", default=None)
 OptimizerT = TypeVar("OptimizerT", bound=IOptimizer)
 
 
+@runtime_checkable
 class IBatchIterator(Protocol[ModelInputT_co]):
     """Protocol for batch iterators.
 
@@ -66,6 +67,7 @@ class IBatchIterator(Protocol[ModelInputT_co]):
     def __len__(self) -> int: ...
 
 
+@runtime_checkable
 class IDataLoader(Protocol[ItemT_contra, ModelInputT_co]):
     """Protocol for data loader functions.
 
@@ -80,6 +82,7 @@ class IDataLoader(Protocol[ItemT_contra, ModelInputT_co]):
     def __call__(self, data: Sequence[ItemT_contra]) -> IBatchIterator[ModelInputT_co]: ...
 
 
+@runtime_checkable
 class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
     """Protocol for metric evaluators.
 
@@ -115,6 +118,7 @@ class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
         ...
 
 
+@runtime_checkable
 class IIDSequenceBatch(Protocol[ArrayCompatibleT]):
     """Protocol for tokenized sequence batches.
 

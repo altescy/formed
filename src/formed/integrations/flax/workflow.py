@@ -25,6 +25,7 @@ Example:
 from collections.abc import Sequence
 from typing import Optional
 
+from colt import Lazy
 from flax import nnx
 
 from formed.workflow import step
@@ -37,7 +38,7 @@ from .types import ItemT
 
 @step("flax::train")
 def train_flax_model(
-    model: BaseFlaxModel,
+    model: Lazy[BaseFlaxModel],
     trainer: FlaxTrainer,
     train_dataset: Sequence[ItemT],
     val_dataset: Optional[Sequence[ItemT]] = None,
@@ -72,5 +73,5 @@ def train_flax_model(
     """
 
     with use_rngs(random_seed):
-        state = trainer.train(model, train_dataset, val_dataset)
+        state = trainer.train(model.construct(), train_dataset, val_dataset)
     return nnx.merge(state.graphdef, state.params, *state.additional_states)

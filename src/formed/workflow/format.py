@@ -65,6 +65,7 @@ class Format(Generic[_T], Registrable):
         _T: Type of data this format can serialize/deserialize.
 
     """
+
     @property
     def identifier(self) -> str:
         """Get the unique identifier for this format.
@@ -132,6 +133,7 @@ class PickleFormat(Format[_T], Generic[_T]):
         This is the fallback format when no other format applies.
 
     """
+
     class _IteratorWrapper(Generic[_S]):
         def __init__(self, path: Path) -> None:
             self._file: Optional[IO[Any]] = path.open("rb")
@@ -206,6 +208,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
         Objects are reconstructed with their original type using metadata.
 
     """
+
     class _IteratorWrapper(Generic[_S]):
         def __init__(self, path: Path, artifact_class: Optional[type[_S]]) -> None:
             self._file = path.open("r")

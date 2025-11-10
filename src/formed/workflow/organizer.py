@@ -80,6 +80,7 @@ class WorkflowOrganizer(Registrable):
         callbacks: Optional callback or sequence of callbacks.
 
     """
+
     def __init__(
         self,
         cache: "WorkflowCache",
