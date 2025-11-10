@@ -23,17 +23,17 @@ Example:
 """
 
 from collections.abc import Sequence
-from typing import Optional
+from typing import Annotated, Optional
 
 from colt import Lazy
 from flax import nnx
 
-from formed.workflow import step
+from formed.workflow import WorkflowStepResultFlag, step
 
 from .model import BaseFlaxModel
 from .random import use_rngs
 from .training import FlaxTrainer
-from .types import ItemT
+from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 
 
 @step("flax::train")
@@ -75,3 +75,31 @@ def train_flax_model(
     with use_rngs(random_seed):
         state = trainer.train(model.construct(), train_dataset, val_dataset)
     return nnx.merge(state.graphdef, state.params, *state.additional_states)
+
+
+@step("flax::evaluate", format="json")
+def evaluate_flax_model(
+    model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
+    evaluator: IEvaluator[ModelInputT, ModelOutputT],
+    dataset: list[ItemT],
+    dataloader: IDataLoader[ItemT, ModelInputT],
+    params: ModelParamsT | None = None,
+) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
+    """Evaluate a Flax model on a dataset using the provided evaluator.
+
+    Args:
+        model: Flax model to evaluate.
+        evaluator: Evaluator to compute metrics.
+        dataset: Dataset items for evaluation.
+        dataloader: DataLoader to convert items to model inputs.
+        params: Optional model parameters to use for evaluation.
+
+    Returns:
+        Dictionary of computed evaluation metrics.
+    """
+
+    evaluator.reset()
+    for inputs in dataloader(dataset):
+        output = model(inputs, params)
+        evaluator.update(inputs, output)
+    return evaluator.compute()
