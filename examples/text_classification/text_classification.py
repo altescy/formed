@@ -7,11 +7,11 @@ import jax
 from flax import nnx, struct
 from typing_extensions import TypeVar
 
-from formed.integrations import flax as xf
+from formed import workflow
+from formed.integrations import flax as fl
 from formed.integrations import ml
-from formed.integrations.flax import modules as xfm
+from formed.integrations.flax import modules as flm
 from formed.integrations.ml import types as mlt
-from formed.workflow import step
 
 InputT = TypeVar(
     "InputT",
@@ -53,26 +53,27 @@ class ClassifierOutput:
     loss: jax.Array | None = None
 
 
-class TextClassifier(xf.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch], ClassifierOutput]):
+class TextClassifier(fl.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch], ClassifierOutput]):
     def __init__(
         self,
         num_classes: int,
-        embedder: xfm.BaseEmbedder[mlt.BatchT],
-        vectorizer: xfm.BaseSequenceVectorizer,
-        encoder: xfm.BaseSequenceEncoder | None = None,
-        feedforward: xfm.FeedForward | None = None,
-        sampler: xfm.BaseLabelSampler | None = None,
-        loss: xfm.BaseClassificationLoss | None = None,
+        embedder: flm.BaseEmbedder[mlt.BatchT],
+        vectorizer: flm.BaseSequenceVectorizer,
+        encoder: flm.BaseSequenceEncoder | None = None,
+        feedforward: flm.FeedForward | None = None,
+        sampler: flm.BaseLabelSampler | None = None,
+        loss: flm.BaseClassificationLoss | None = None,
         dropout: float = 0.1,
         rngs: nnx.Rngs | None = None,
     ) -> None:
-        rngs = rngs or xf.require_rngs()
+        rngs = rngs or fl.require_rngs()
 
-        embedding_dim = embedder.get_output_dim()
-        vector_dim = vectorizer.get_output_dim()
-        encoding_dim = encoder.get_output_dim() if encoder is not None else None
-        feedforward_dim = feedforward.get_output_dim() if feedforward is not None else None
-        feature_dim = feedforward_dim or vector_dim or encoding_dim or embedding_dim
+        feature_dim = fl.determine_ndim(
+            embedder.get_output_dim(),
+            encoder.get_output_dim() if encoder is not None else None,
+            vectorizer.get_output_dim(),
+            feedforward.get_output_dim() if feedforward is not None else None,
+        )
 
         self._embedder = embedder
         self._vectorizer = vectorizer
@@ -80,8 +81,8 @@ class TextClassifier(xf.BaseFlaxModel[TextClassificationDataModule[mlt.AsBatch],
         self._feedforward = feedforward
         self._dropout = nnx.Dropout(dropout, rngs=rngs) if dropout > 0.0 else None
         self._classifier = nnx.Linear(feature_dim, num_classes, rngs=rngs)
-        self._sampler = sampler or xfm.ArgmaxLabelSampler()
-        self._loss = loss or xfm.CrossEntropyLoss()
+        self._sampler = sampler or flm.ArgmaxLabelSampler()
+        self._loss = loss or flm.CrossEntropyLoss()
 
     def __call__(
         self,
@@ -138,7 +139,7 @@ class ClassificationEvaluator:
             metric.reset()
 
 
-@step
+@workflow.step
 def generate_sort_detection_dataset(
     vocab: Sequence[str] = "abcdefghijklmnopqrstuvwxyz",
     num_examples: int = 100,
