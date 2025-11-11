@@ -113,7 +113,6 @@ class TestLSTMSequenceEncoder:
 
         assert output.shape == (2, 10, 128)
 
-    @pytest.mark.skip(reason="Bidirectional RNN has implementation issues with single layer")
     def test_bidirectional(self) -> None:
         """Test bidirectional LSTM encoder."""
         rngs = nnx.Rngs(0)
@@ -163,7 +162,6 @@ class TestOptimizedLSTMSequenceEncoder:
 
         assert output.shape == (2, 10, 64)
 
-    @pytest.mark.skip(reason="Bidirectional RNN has implementation issues")
     def test_bidirectional(self) -> None:
         """Test bidirectional optimized LSTM encoder."""
         rngs = nnx.Rngs(0)
@@ -198,7 +196,6 @@ class TestGRUSequenceEncoder:
 
         assert output.shape == (2, 10, 128)
 
-    @pytest.mark.skip(reason="Bidirectional RNN has implementation issues")
     def test_bidirectional(self) -> None:
         """Test bidirectional GRU encoder."""
         rngs = nnx.Rngs(0)

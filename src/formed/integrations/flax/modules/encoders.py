@@ -291,6 +291,7 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
                     forward_rnn=nnx.RNN(forward_cell, rngs=rngs),
                     backward_rnn=nnx.RNN(backward_cell, rngs=rngs),
                     merge_fn=self._BidirectionalProjection(forward_cell, backward_cell, rngs=rngs),
+                    rngs=rngs,
                 )
             else:
                 rnn = nnx.RNN(cell_factory(rngs), rngs=rngs)
