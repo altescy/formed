@@ -58,6 +58,7 @@ from functools import lru_cache
 from typing import Optional, Union, cast
 
 import jax
+import numpy
 from colt import Registrable
 from flax import nnx
 
@@ -110,13 +111,11 @@ class SinusoidalPositionEncoder(BasePositionEncoder):
         self.max_length = max_length
 
     @lru_cache(maxsize=1)
-    def _encodings(self, features: int) -> jax.Array:
-        p, i = jax.numpy.meshgrid(jax.numpy.arange(float(self.max_length)), jax.numpy.arange(features / 2) * 2)
+    def _encodings(self, features: int) -> numpy.ndarray:
+        p, i = numpy.meshgrid(numpy.arange(float(self.max_length)), numpy.arange(features / 2) * 2)
         theta = (p / 1e4 ** (i / features)).T
-        encodings = jax.numpy.stack([jax.numpy.sin(theta), jax.numpy.cos(theta)], axis=-1).reshape(
-            (self.max_length, features)
-        )
-        return cast(jax.Array, encodings[None, ...])
+        encodings = numpy.stack([numpy.sin(theta), numpy.cos(theta)], axis=-1).reshape((self.max_length, features))
+        return encodings[None, ...]
 
     def __call__(self, inputs: jax.Array) -> jax.Array:
         seq_length, features = inputs.shape[-2:]
@@ -620,21 +619,25 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         deterministic: Optional[bool] = None,
         rngs: Optional[nnx.Rngs] = None,
     ) -> jax.Array:
+        if mask is not None and mask.ndim == 2:
+            mask = mask[..., None]
+
         @nnx.split_rngs(splits=self.num_layers)
         @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
         def forward(
-            x: jax.Array,
+            inputs: tuple[jax.Array, Optional[jax.Array]],
             block: TransformerSequenceEncoder._TransformerBlock,
             rngs: Optional[nnx.Rngs],
-        ) -> jax.Array:
+        ) -> tuple[jax.Array, Optional[jax.Array]]:
+            x, mask = inputs
             if mask is not None:
                 x = x * mask
-            return block(x, mask=mask, deterministic=deterministic, rngs=rngs)
+            return block(x, mask=mask, deterministic=deterministic, rngs=rngs), mask
 
         if self.position_encoder is not None:
             inputs = self.position_encoder(inputs)
 
-        output = forward(inputs, self.blocks, rngs)
+        output, mask = forward((inputs, mask), self.blocks, rngs)
         if mask is not None:
             output = output * mask
         return output

@@ -313,8 +313,6 @@ class TestTransformerSequenceEncoder:
 
         inputs = jax.numpy.ones((2, 10, 128))
         mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
-        # Expand mask for attention
-        mask = mask[:, :, None]
 
         output = encoder(inputs, mask=mask)
 
