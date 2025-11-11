@@ -1,8 +1,9 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from itertools import starmap
-from typing import Literal, Optional, TypeVar, Union, cast, overload
+from typing import Literal, TypeVar, Union, cast, overload
 
 import jax
+from typing_extensions import TypeAlias
 
 from .types import ArrayCompatible
 
@@ -15,12 +16,23 @@ def ensure_jax_array(x: ArrayCompatible) -> jax.Array:
     return jax.numpy.asarray(x)
 
 
+PoolingMethod: TypeAlias = Literal[
+    "mean",
+    "max",
+    "min",
+    "sum",
+    "hier",
+    "first",
+    "last",
+]
+
+
 def masked_pool(
     embeddings: jax.Array,
-    mask: Optional[jax.Array] = None,
-    pooling: Literal["mean", "max", "min", "sum", "hier", "first", "last"] = "mean",
+    mask: jax.Array | None = None,
+    pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
     normalize: bool = False,
-    window_size: Optional[int] = None,
+    window_size: int | None = None,
 ) -> jax.Array:
     """
     Pool embeddings with a mask.
@@ -28,10 +40,25 @@ def masked_pool(
     Args:
         embeddings: Embeddings to pool of shape (batch_size, sequence_length, embedding_size).
         mask: Mask of shape (batch_size, sequence_length).
-        pooling: Pooling method. Defaults to `"mean"`.
+        pooling:
         normalize: Whether to normalize the embeddings before pooling. Defaults to `False`.
         window_size: Window size for hierarchical pooling. Defaults to `None`.
     """
+
+    if not isinstance(pooling, str):
+        return jax.numpy.concatenate(
+            [
+                masked_pool(
+                    embeddings,
+                    mask=mask,
+                    pooling=method,
+                    normalize=normalize,
+                    window_size=window_size,
+                )
+                for method in pooling
+            ],
+            axis=-1,
+        )
 
     batch_size, sequence_length, embedding_size = embeddings.shape
 
@@ -140,3 +167,18 @@ def sequence_undistribute(
         _MappingT,
         {key: sequence_undistribute(value, shape) for key, value in inputs.items() if key not in ignore},
     )
+
+
+def determine_ndim(
+    first: int,
+    *args: int | Callable[[int], int] | None,
+) -> int:
+    output_dim = first
+    for arg in args:
+        if arg is None:
+            continue
+        if callable(arg):
+            output_dim = arg(output_dim)
+        else:
+            output_dim = arg
+    return output_dim

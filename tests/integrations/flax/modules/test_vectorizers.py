@@ -151,7 +151,7 @@ class TestBagOfEmbeddingsSequenceVectorizer:
         vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
 
         assert vectorizer.get_input_dim() is None
-        assert vectorizer.get_output_dim() is None
+        assert callable(vectorizer.get_output_dim())
 
         # Test with different embedding dimensions
         inputs_64 = jnp.ones((2, 10, 64))

@@ -62,6 +62,7 @@ from colt import Registrable
 from flax import nnx
 
 from ..random import require_rngs
+from .feedforward import FeedForward
 
 
 class BasePositionEncoder(Registrable, abc.ABC):
@@ -188,21 +189,21 @@ class BaseSequenceEncoder(nnx.Module, Registrable, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_input_dim(self) -> int:
+    def get_input_dim(self) -> int | None:
         """Get the expected input dimension.
 
         Returns:
-            Input feature dimension.
+            Input feature dimension or None if dimension-agnostic.
 
         """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_output_dim(self) -> int:
+    def get_output_dim(self) -> int | Callable[[int], int]:
         """Get the output dimension.
 
         Returns:
-            Output feature dimension.
+            Output feature dimension or a function mapping input dim to output dim.
 
         """
         raise NotImplementedError
@@ -233,27 +234,72 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
             self,
             forward_cell: nnx.RNNCellBase,
             backward_cell: nnx.RNNCellBase,
+            feedforward_layers: Optional[int] = None,
             rngs: Optional[nnx.Rngs] = None,
         ) -> None:
             rngs = rngs or require_rngs()
             in_features = int(getattr(forward_cell, "in_features"))
             forward_features = int(getattr(forward_cell, "hidden_features"))
             backward_features = int(getattr(backward_cell, "hidden_features"))
-            self.projection = nnx.Linear(forward_features + backward_features, in_features, rngs=rngs)
+            concat_features = forward_features + backward_features
+
+            feedforward: Optional[FeedForward] = None
+            if feedforward_layers is not None and feedforward_layers > 0:
+                feedforward = FeedForward(
+                    features=concat_features,
+                    num_layers=feedforward_layers,
+                    rngs=rngs,
+                )
+
+            self.feedforward = feedforward
+            self.projection = nnx.Linear(
+                concat_features if feedforward is None else feedforward.get_output_dim(),
+                in_features,
+                rngs=rngs,
+            )
 
         def __call__(self, a: jax.Array, b: jax.Array) -> jax.Array:
-            return self.projection(jax.numpy.concatenate([a, b], axis=-1))
+            h = jax.numpy.concatenate([a, b], axis=-1)
+            if self.feedforward is not None:
+                h = self.feedforward(h) + h
+            return self.projection(h)
 
     class _RNNBlock(nnx.Module):
         def __init__(
             self,
             rnn: Union[nnx.RNN, nnx.Bidirectional],
+            feedforward_layers: int,
             dropout: float,
             rngs: Optional[nnx.Rngs] = None,
         ) -> None:
             rngs = rngs or require_rngs()
             self.rnn = rnn
             self.dropout = nnx.Dropout(dropout, rngs=rngs)
+
+            in_features: int
+            out_features: int
+            if isinstance(rnn, nnx.Bidirectional):
+                forward_cell = getattr(rnn.forward_rnn, "cell")
+                backward_cell = getattr(rnn.backward_rnn, "cell")
+                forward_features = int(getattr(forward_cell, "hidden_features"))
+                backward_features = int(getattr(backward_cell, "hidden_features"))
+                in_features = forward_features
+                out_features = forward_features + backward_features
+            else:
+                cell = rnn.cell
+                in_features = int(getattr(cell, "in_features"))
+                out_features = int(getattr(cell, "hidden_features"))
+
+            feedforward: Optional[FeedForward] = None
+            if feedforward_layers is not None and feedforward_layers > 0:
+                feedforward = FeedForward(
+                    features=out_features,
+                    num_layers=feedforward_layers,
+                    rngs=rngs,
+                )
+
+            self.feedforward = feedforward
+            self.projection = nnx.Linear(out_features, in_features, rngs=rngs)
 
         def __call__(
             self,
@@ -263,11 +309,11 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
             deterministic: Optional[bool] = None,
             rngs: Optional[nnx.Rngs] = None,
         ) -> jax.Array:
-            return self.dropout(
-                self.rnn(inputs, seq_lengths=seq_lengths, rngs=rngs),
-                deterministic=deterministic,
-                rngs=rngs,
-            )
+            h = cast(jax.Array, self.rnn(inputs, seq_lengths=seq_lengths, rngs=rngs))
+            if self.feedforward is not None:
+                h = self.feedforward(h) + h
+            h = self.projection(h)
+            return self.dropout(h, deterministic=deterministic, rngs=rngs)
 
     def __init__(
         self,
@@ -275,6 +321,7 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
+        feedforward_layers: Optional[int] = None,
         dropout: float = 0.0,
         rngs: Optional[nnx.Rngs] = None,
     ) -> None:
@@ -290,12 +337,16 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
                 rnn = nnx.Bidirectional(
                     forward_rnn=nnx.RNN(forward_cell, rngs=rngs),
                     backward_rnn=nnx.RNN(backward_cell, rngs=rngs),
-                    merge_fn=self._BidirectionalProjection(forward_cell, backward_cell, rngs=rngs),
                     rngs=rngs,
                 )
             else:
                 rnn = nnx.RNN(cell_factory(rngs), rngs=rngs)
-            return self._RNNBlock(rnn, dropout=dropout, rngs=rngs)
+            return self._RNNBlock(
+                rnn,
+                feedforward_layers=feedforward_layers or 0,
+                dropout=dropout,
+                rngs=rngs,
+            )
 
         self.num_layers = num_layers
         self.blocks = create_block(rngs)
@@ -360,6 +411,7 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
+        feedforward_layers: Optional[int] = None,
         dropout: float = 0.0,
         rngs: Optional[nnx.Rngs] = None,
     ) -> None:
@@ -369,6 +421,7 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
             features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
+            feedforward_layers=feedforward_layers,
             dropout=dropout,
             rngs=rngs,
         )
@@ -394,6 +447,7 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
+        feedforward_layers: Optional[int] = None,
         dropout: float = 0.0,
         rngs: Optional[nnx.Rngs] = None,
     ) -> None:
@@ -402,6 +456,7 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
             features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
+            feedforward_layers=feedforward_layers,
             dropout=dropout,
             rngs=rngs,
         )
@@ -433,6 +488,7 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
+        feedforward_layers: Optional[int] = None,
         dropout: float = 0.0,
         rngs: Optional[nnx.Rngs] = None,
     ) -> None:
@@ -441,6 +497,7 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
             features=features,
             num_layers=num_layers,
             bidirectional=bidirectional,
+            feedforward_layers=feedforward_layers,
             dropout=dropout,
             rngs=rngs,
         )

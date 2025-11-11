@@ -11,6 +11,7 @@ from formed.integrations.flax import (
     BaseFlaxModel,
     EvaluationCallback,
     FlaxTrainer,
+    determine_ndim,
     ensure_jax_array,
     require_rngs,
     use_rngs,
@@ -270,10 +271,12 @@ class TestTrainingWithTextClassifier:
             self._embedder = embedder
             self._vectorizer = vectorizer
 
-            encoding_dim = self._embedder.get_output_dim()
-            vector_dim = self._vectorizer.get_output_dim() or encoding_dim
+            feature_dim = determine_ndim(
+                self._embedder.get_output_dim(),
+                self._vectorizer.get_output_dim(),
+            )
 
-            self._classifier = nnx.Linear(vector_dim, num_classes, rngs=rngs)
+            self._classifier = nnx.Linear(feature_dim, num_classes, rngs=rngs)
 
         def __call__(
             self,

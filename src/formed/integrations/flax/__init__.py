@@ -12,7 +12,7 @@ from .training import (
     StopEarly,
     TrainState,
 )
-from .utils import ensure_jax_array
+from .utils import determine_ndim, ensure_jax_array
 
 __all__ = [
     # callbacks
@@ -39,5 +39,6 @@ __all__ = [
     # model
     "BaseFlaxModel",
     # utils
+    "determine_ndim",
     "ensure_jax_array",
 ]

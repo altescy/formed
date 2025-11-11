@@ -1,6 +1,4 @@
 import jax
-import jax.numpy as jnp
-import pytest
 from flax import nnx
 
 from formed.integrations.flax.modules.encoders import (
@@ -18,18 +16,18 @@ class TestSinusoidalPositionEncoder:
         """Test basic sinusoidal position encoding."""
         encoder = SinusoidalPositionEncoder(max_length=512)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
         # Output should be different from input due to added positional encoding
-        assert not jnp.allclose(output, inputs)
+        assert not jax.numpy.allclose(output, inputs)
 
     def test_max_length(self) -> None:
         """Test with sequences up to max length."""
         encoder = SinusoidalPositionEncoder(max_length=100)
 
-        inputs = jnp.ones((1, 100, 32))
+        inputs = jax.numpy.ones((1, 100, 32))
         output = encoder(inputs)
 
         assert output.shape == (1, 100, 32)
@@ -39,7 +37,7 @@ class TestSinusoidalPositionEncoder:
         encoder = SinusoidalPositionEncoder(max_length=512)
 
         for features in [32, 64, 128, 256]:
-            inputs = jnp.ones((2, 10, features))
+            inputs = jax.numpy.ones((2, 10, features))
             output = encoder(inputs)
             assert output.shape == (2, 10, features)
 
@@ -47,10 +45,10 @@ class TestSinusoidalPositionEncoder:
         """Test that encodings are cached."""
         encoder = SinusoidalPositionEncoder(max_length=512)
 
-        inputs1 = jnp.ones((2, 10, 64))
+        inputs1 = jax.numpy.ones((2, 10, 64))
         output1 = encoder(inputs1)
 
-        inputs2 = jnp.ones((3, 10, 64))
+        inputs2 = jax.numpy.ones((3, 10, 64))
         output2 = encoder(inputs2)
 
         # Should use same cached encodings for same feature dimension
@@ -64,7 +62,7 @@ class TestLearnablePositionEncoder:
         rngs = nnx.Rngs(0)
         encoder = LearnablePositionEncoder(features=64, max_length=512, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -74,7 +72,7 @@ class TestLearnablePositionEncoder:
         rngs = nnx.Rngs(0)
         encoder = LearnablePositionEncoder(features=32, max_length=100, rngs=rngs)
 
-        inputs = jnp.ones((1, 100, 32))
+        inputs = jax.numpy.ones((1, 100, 32))
         output = encoder(inputs)
 
         assert output.shape == (1, 100, 32)
@@ -85,7 +83,7 @@ class TestLearnablePositionEncoder:
             rngs = nnx.Rngs(0)
             encoder = LearnablePositionEncoder(features=features, max_length=512, rngs=rngs)
 
-            inputs = jnp.ones((2, 10, features))
+            inputs = jax.numpy.ones((2, 10, features))
             output = encoder(inputs)
             assert output.shape == (2, 10, features)
 
@@ -96,7 +94,7 @@ class TestLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = LSTMSequenceEncoder(features=64, num_layers=1, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -108,7 +106,7 @@ class TestLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = LSTMSequenceEncoder(features=128, num_layers=3, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -118,7 +116,7 @@ class TestLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = LSTMSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -128,7 +126,7 @@ class TestLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = LSTMSequenceEncoder(features=64, num_layers=2, dropout=0.5, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
 
         # Training mode
         output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
@@ -143,8 +141,8 @@ class TestLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = LSTMSequenceEncoder(features=64, num_layers=2, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
-        mask = jnp.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
+        inputs = jax.numpy.ones((2, 10, 64))
+        mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
 
         output = encoder(inputs, mask=mask)
 
@@ -157,7 +155,7 @@ class TestOptimizedLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = OptimizedLSTMSequenceEncoder(features=64, num_layers=2, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -167,7 +165,7 @@ class TestOptimizedLSTMSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = OptimizedLSTMSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -179,7 +177,7 @@ class TestGRUSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = GRUSequenceEncoder(features=64, num_layers=1, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -191,7 +189,7 @@ class TestGRUSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = GRUSequenceEncoder(features=128, num_layers=3, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -201,7 +199,7 @@ class TestGRUSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = GRUSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -211,7 +209,7 @@ class TestGRUSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = GRUSequenceEncoder(features=64, num_layers=2, dropout=0.5, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
 
         # Training mode
         output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
@@ -226,8 +224,8 @@ class TestGRUSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = GRUSequenceEncoder(features=64, num_layers=2, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
-        mask = jnp.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
+        inputs = jax.numpy.ones((2, 10, 64))
+        mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
 
         output = encoder(inputs, mask=mask)
 
@@ -240,7 +238,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -252,7 +250,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=64, num_heads=4, num_layers=1, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 64))
+        inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
@@ -262,7 +260,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=256, num_heads=8, num_layers=6, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 256))
+        inputs = jax.numpy.ones((2, 10, 256))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 256)
@@ -272,7 +270,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, dropout=0.1, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
 
         # Training mode
         output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
@@ -290,7 +288,7 @@ class TestTransformerSequenceEncoder:
             features=128, num_heads=8, num_layers=2, position_encoder=position_encoder, rngs=rngs
         )
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -303,7 +301,7 @@ class TestTransformerSequenceEncoder:
             features=128, num_heads=8, num_layers=2, position_encoder=position_encoder, rngs=rngs
         )
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -313,8 +311,8 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
-        mask = jnp.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
+        inputs = jax.numpy.ones((2, 10, 128))
+        mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
         # Expand mask for attention
         mask = mask[:, :, None]
 
@@ -329,7 +327,7 @@ class TestTransformerSequenceEncoder:
             features=128, num_heads=8, num_layers=2, feedworward_features=256, rngs=rngs
         )
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -339,7 +337,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, activation=jax.nn.relu, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -349,7 +347,7 @@ class TestTransformerSequenceEncoder:
         rngs = nnx.Rngs(0)
         encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, epsilon=1e-5, rngs=rngs)
 
-        inputs = jnp.ones((2, 10, 128))
+        inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
@@ -360,7 +358,7 @@ class TestTransformerSequenceEncoder:
             rngs = nnx.Rngs(0)
             encoder = TransformerSequenceEncoder(features=128, num_heads=num_heads, num_layers=1, rngs=rngs)
 
-            inputs = jnp.ones((2, 10, 128))
+            inputs = jax.numpy.ones((2, 10, 128))
             output = encoder(inputs)
 
             assert output.shape == (2, 10, 128)

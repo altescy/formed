@@ -30,13 +30,14 @@ Example:
 """
 
 import abc
-from typing import Literal, Optional
+from collections.abc import Callable, Sequence
+from typing import Optional
 
 import jax
 from colt import Registrable
 from flax import nnx
 
-from formed.integrations.flax.utils import masked_pool
+from formed.integrations.flax.utils import PoolingMethod, masked_pool
 
 
 class BaseSequenceVectorizer(nnx.Module, Registrable, abc.ABC):
@@ -77,11 +78,11 @@ class BaseSequenceVectorizer(nnx.Module, Registrable, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_output_dim(self) -> Optional[int]:
+    def get_output_dim(self) -> int | Callable[[int], int]:
         """Get the output dimension.
 
         Returns:
-            Output dimension or None if same as input.
+            Output feature dimension or a function mapping input dim to output dim.
 
         """
         raise NotImplementedError
@@ -133,11 +134,11 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
 
     def __init__(
         self,
-        pooling: Literal["mean", "max", "min", "sum", "hier", "first", "last"] = "mean",
+        pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
         normalize: bool = False,
         window_size: Optional[int] = None,
     ) -> None:
-        self._pooling: Literal["mean", "max", "min", "sum", "hier", "first", "last"] = pooling
+        self._pooling: PoolingMethod | Sequence[PoolingMethod] = pooling
         self._normalize = normalize
         self._window_size = window_size
 
@@ -158,5 +159,6 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
     def get_input_dim(self) -> None:
         return None
 
-    def get_output_dim(self) -> None:
-        return None
+    def get_output_dim(self) -> Callable[[int], int]:
+        num_pooling = 1 if isinstance(self._pooling, str) else len(self._pooling)
+        return lambda input_dim: input_dim * num_pooling
