@@ -48,7 +48,7 @@ Example:
 
 from collections.abc import Mapping, Sequence
 from functools import partial
-from typing import Generic, Literal, Optional, Union
+from typing import Generic, Literal
 
 import optax
 from flax import nnx
@@ -118,11 +118,11 @@ class FlaxTrainer(
         self,
         *,
         train_dataloader: IDataLoader[ItemT, ModelInputT],
-        val_dataloader: Optional[IDataLoader[ItemT, ModelInputT]] = None,
-        engine: Optional[FlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]] = None,
-        optimizer: Union[IOptimizer, optax.MultiSteps, optax.GradientTransformation] = optax.adamw(1e-3),
+        val_dataloader: IDataLoader[ItemT, ModelInputT] | None = None,
+        engine: FlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT] | None = None,
+        optimizer: IOptimizer | optax.MultiSteps | optax.GradientTransformation = optax.adamw(1e-3),
         callbacks: Sequence[FlaxTrainingCallback] = (),
-        distributor: Optional[BaseDistributor] = None,
+        distributor: BaseDistributor | None = None,
         max_epochs: int = 10,
         eval_strategy: Literal["epoch", "step"] = "epoch",
         eval_interval: int = 1,
@@ -158,9 +158,9 @@ class FlaxTrainer(
         self,
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         train_dataset: Sequence[ItemT],
-        val_dataset: Optional[Sequence[ItemT]] = None,
-        state: Optional[TrainState] = None,
-        rngs: Optional[nnx.Rngs] = None,
+        val_dataset: Sequence[ItemT] | None = None,
+        state: TrainState | None = None,
+        rngs: nnx.Rngs | None = None,
     ) -> TrainState:
         """Train a model on the provided datasets.
 

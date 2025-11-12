@@ -1,12 +1,11 @@
 import argparse
-from typing import Optional
 
 from formed import __version__
 from formed.commands import workflow  # noqa: F401
 from formed.commands.subcommand import Subcommand
 
 
-def create_subcommand(prog: Optional[str] = None) -> Subcommand:
+def create_subcommand(prog: str | None = None) -> Subcommand:
     parser = argparse.ArgumentParser(usage="%(prog)s", prog=prog)
     parser.add_argument(
         "--version",
@@ -16,6 +15,6 @@ def create_subcommand(prog: Optional[str] = None) -> Subcommand:
     return Subcommand(parser)
 
 
-def main(prog: Optional[str] = None) -> None:
+def main(prog: str | None = None) -> None:
     app = create_subcommand(prog)
     app()

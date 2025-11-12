@@ -25,7 +25,7 @@ Example:
 
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 from colt import Registrable
 from filelock import BaseFileLock, FileLock
@@ -216,7 +216,7 @@ class FilesystemWorkflowCache(WorkflowCache):
 
     _LOCK_FILENAME: ClassVar[str] = "__lock__"
 
-    def __init__(self, directory: Union[str, PathLike]) -> None:
+    def __init__(self, directory: str | PathLike) -> None:
         """Initialize filesystem cache.
 
         Args:

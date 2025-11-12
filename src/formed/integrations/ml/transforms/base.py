@@ -45,11 +45,11 @@ from logging import getLogger
 from os import PathLike
 from pathlib import Path
 from types import UnionType
-from typing import Any, ClassVar, Final, Generic, Literal, Optional, Union, cast, overload
+from typing import Any, ClassVar, Final, Generic, Literal, Optional, Self, Union, cast, overload
 
 import cloudpickle
 from colt import Registrable
-from typing_extensions import Self, TypeVar, dataclass_transform
+from typing_extensions import TypeVar, dataclass_transform
 
 from formed.common.attributeutils import xgetattr
 from formed.common.jax import JAX_STATIC_FIELD
@@ -99,7 +99,7 @@ def _is_extra_field(annotation: Any) -> bool:
     return False
 
 
-def _find_dataclass_field(annotation: Any) -> Optional[type]:
+def _find_dataclass_field(annotation: Any) -> type | None:
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
         return annotation
     origin = typing.get_origin(annotation)
@@ -226,7 +226,7 @@ class Extra(Generic[_BaseTransformT_co]):
     @classmethod
     def default(
         cls: type["Extra[_BaseTransformT]"],
-        default: Optional[_BaseTransformT] = None,
+        default: _BaseTransformT | None = None,
     ) -> "Extra[_BaseTransformT]":
         """Create a default Extra field with an optional default transform.
 
@@ -242,7 +242,7 @@ class Extra(Generic[_BaseTransformT_co]):
     @classmethod
     def default_factory(
         cls: type["Extra[_BaseTransformT]"],
-        factory: Callable[[], Optional[_BaseTransformT]],
+        factory: Callable[[], _BaseTransformT | None],
     ) -> Callable[[], "Extra[_BaseTransformT]"]:
         """Create a factory for an Extra field with an optional default transform.
 
@@ -261,7 +261,7 @@ class Extra(Generic[_BaseTransformT_co]):
     def __set__(
         self: "Extra[_BaseTransformT]",
         instance: "DataModule",
-        value: Optional[_BaseTransformT],
+        value: _BaseTransformT | None,
     ) -> None: ...
 
     @overload
@@ -269,14 +269,14 @@ class Extra(Generic[_BaseTransformT_co]):
         self: "Extra[BaseTransform[Any, Any, Any, BatchT]]",
         instance: "DataModule[AsBatch]",
         owner: type["DataModule[AsBatch]"],
-    ) -> Optional[BatchT]: ...
+    ) -> BatchT | None: ...
 
     @overload
     def __get__(
         self: "Extra[BaseTransform[Any, Any, InstanceT, Any]]",
         instance: "DataModule[AsInstance]",
         owner: type["DataModule[AsInstance]"],
-    ) -> Optional[InstanceT]: ...
+    ) -> InstanceT | None: ...
 
     @overload
     def __get__(
@@ -289,7 +289,7 @@ class Extra(Generic[_BaseTransformT_co]):
         self,
         instance: "DataModule",
         owner: type["DataModule"],
-    ) -> Union[_BaseTransformT_co, Any]: ...
+    ) -> _BaseTransformT_co | Any: ...
 
 
 class Param(Generic[_T_co]):
@@ -360,7 +360,7 @@ class Param(Generic[_T_co]):
     def __set__(
         self: "Param[_BaseTransformT]",
         instance: "DataModule",
-        value: Optional[_BaseTransformT],
+        value: _BaseTransformT | None,
     ) -> None: ...
 
     @overload
@@ -388,7 +388,7 @@ class Param(Generic[_T_co]):
         self,
         instance: "DataModule",
         owner: type["DataModule"],
-    ) -> Union[_T_co, Any]: ...
+    ) -> _T_co | Any: ...
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(dataclasses.field,))
@@ -453,10 +453,10 @@ class BaseTransform(
 
     """
 
-    accessor: Optional[Union[str, Callable[[_S], _T]]] = None
+    accessor: str | Callable[[_S], _T] | None = None
 
-    _parent: Optional[type["DataModule"]] = dataclasses.field(default=None, init=False, repr=False, compare=False)
-    _field_name: Optional[str] = dataclasses.field(
+    _parent: type["DataModule"] | None = dataclasses.field(default=None, init=False, repr=False, compare=False)
+    _field_name: str | None = dataclasses.field(
         default=None, init=False, repr=False, compare=False, metadata={JAX_STATIC_FIELD: True}
     )
     _training: bool = dataclasses.field(
@@ -501,7 +501,7 @@ class BaseTransform(
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def __call__(self, data: _S, /) -> Optional[InstanceT_co]:
+    def __call__(self, data: _S, /) -> InstanceT_co | None:
         value = self._get_input_value(data)
         if self._extra and value is None:
             return None
@@ -512,7 +512,7 @@ class BaseTransform(
     def __set__(
         self,
         instance: "DataModule[AsInstance]",
-        value: Union[InstanceT_co, Self],
+        value: InstanceT_co | Self,
     ) -> None: ...
 
     @overload
@@ -525,7 +525,7 @@ class BaseTransform(
     def __set__(
         self,
         instance: "DataModule",
-        value: Union[InstanceT_co, Self],
+        value: InstanceT_co | Self,
     ) -> None: ...
 
     def __set_name__(self, owner: type["DataModule"], name: str) -> None:
@@ -545,7 +545,7 @@ class BaseTransform(
         self: "BaseTransform[BatchT_co]",
         instance: Extra,
         owner: type[Extra],
-    ) -> Optional[BatchT_co]: ...
+    ) -> BatchT_co | None: ...
 
     @overload
     def __get__(
@@ -559,7 +559,7 @@ class BaseTransform(
         self,
         instance: Extra,
         owner: type[Extra],
-    ) -> Optional[InstanceT_co]: ...
+    ) -> InstanceT_co | None: ...
 
     @overload
     def __get__(
@@ -578,8 +578,8 @@ class BaseTransform(
     def __get__(
         self,
         instance: Union["DataModule", Extra],
-        owner: Union[type["DataModule"], type[Extra]],
-    ) -> Union[InstanceT_co, Self, Any, Optional[BatchT_co]]: ...
+        owner: type["DataModule"] | type[Extra],
+    ) -> InstanceT_co | Self | Any | BatchT_co | None: ...
 
     @contextmanager
     def train(self) -> Iterator[None]:
@@ -616,7 +616,7 @@ class BaseTransform(
         finally:
             self._training = original
 
-    def save(self, directory: Union[str, PathLike]) -> None:
+    def save(self, directory: str | PathLike) -> None:
         """Save the transform to a directory using cloudpickle.
 
         Args:
@@ -632,7 +632,7 @@ class BaseTransform(
             cloudpickle.dump(self, f)
 
     @classmethod
-    def load(cls, directory: Union[str, PathLike]) -> Self:
+    def load(cls, directory: str | PathLike) -> Self:
         """Load a transform from a directory.
 
         Args:
@@ -655,7 +655,7 @@ class BaseTransform(
             raise TypeError(f"Loaded object is not an instance of {cls.__name__}")
         return obj
 
-    def _get_input_value(self, data: _S) -> Optional[_T]:
+    def _get_input_value(self, data: _S) -> _T | None:
         if self._parent and self._parent.__process_parent__:
             return cast(_T, data)
         else:
@@ -764,13 +764,13 @@ class DataModule(
     """
 
     __is_datamodule__: ClassVar[Literal[True]] = True
-    __param_fields__: ClassVar[Optional[Mapping[str, dataclasses.Field]]] = None
-    __extra_fields__: ClassVar[Optional[Mapping[str, dataclasses.Field]]] = None
+    __param_fields__: ClassVar[Mapping[str, dataclasses.Field] | None] = None
+    __extra_fields__: ClassVar[Mapping[str, dataclasses.Field] | None] = None
 
-    _batch_size: Optional[int] = dataclasses.field(
+    _batch_size: int | None = dataclasses.field(
         default=None, init=False, repr=False, compare=False, metadata={JAX_STATIC_FIELD: True}
     )
-    __mode__: Optional[_DataModuleModeT_co] = dataclasses.field(
+    __mode__: _DataModuleModeT_co | None = dataclasses.field(
         default=None, init=False, repr=False, compare=False, metadata={JAX_STATIC_FIELD: True}
     )
 
@@ -881,7 +881,7 @@ class DataModule(
 
         return instance
 
-    def batch(self: "DataModule[AsConverter]", instances: Sequence[Union[_T, _InstanceT]]) -> _BatchT:
+    def batch(self: "DataModule[AsConverter]", instances: Sequence[_T | _InstanceT]) -> _BatchT:
         """Collate multiple instances into a batched representation.
 
         Takes a sequence of raw data or instances and creates a DataModule in
@@ -932,12 +932,12 @@ class DataModule(
         batch._batch_size = len(instances)
         return batch
 
-    def __call__(self, data: Union[_T, _InstanceT], /) -> Optional[_InstanceT]:
+    def __call__(self, data: _T | _InstanceT, /) -> _InstanceT | None:
         if isinstance(data, self.__class__) and data.__mode__ == DataModuleMode.AS_INSTANCE:
             return cast(Optional[_InstanceT], data)
         return super().__call__(cast(_T, data))
 
-    def _get_input_value(self, data: _T) -> Optional[_T]:
+    def _get_input_value(self, data: _T) -> _T | None:
         if self._parent is None:
             return data
         return super()._get_input_value(data)

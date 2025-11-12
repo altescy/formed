@@ -1,6 +1,7 @@
 import dataclasses
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Generic, Iterable, Iterator
+from typing import Any, Generic
 
 from typing_extensions import TypeVar
 

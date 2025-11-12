@@ -39,7 +39,7 @@ Example:
 """
 
 from collections.abc import Callable
-from typing import Literal, Optional
+from typing import Literal
 
 import jax
 from flax import nnx
@@ -68,9 +68,9 @@ class Block(nnx.Module):
         input_dim: int,
         output_dim: int,
         dropout: float = 0.0,
-        layer_norm_eps: Optional[float] = None,
+        layer_norm_eps: float | None = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
         self.linear = nnx.Linear(input_dim, output_dim, rngs=rngs)
@@ -83,10 +83,10 @@ class Block(nnx.Module):
     def __call__(
         self,
         x: jax.Array,
-        r: Optional[jax.Array] = None,
+        r: jax.Array | None = None,
         *,
-        deterministic: Optional[bool] = None,
-        rngs: Optional[nnx.Rngs] = None,
+        deterministic: bool | None = None,
+        rngs: nnx.Rngs | None = None,
     ) -> jax.Array:
         x = self.activation(self.linear(x))
         if r is not None:
@@ -148,10 +148,10 @@ class FeedForward(nnx.Module):
         features: int,
         num_layers: int = 1,
         dropout: float = 0.0,
-        layer_norm_eps: Optional[float] = None,
+        layer_norm_eps: float | None = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.relu,
         residual_connection: Literal["none", "dense"] = "none",
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
 
@@ -174,13 +174,13 @@ class FeedForward(nnx.Module):
         self,
         x: jax.Array,
         *,
-        deterministic: Optional[bool] = None,
+        deterministic: bool | None = None,
     ) -> jax.Array:
         prev = jax.numpy.zeros_like(x) if self.residual_connection == "dense" else None
 
         def forward(
-            inputs: tuple[jax.Array, Optional[jax.Array]], block: Block
-        ) -> tuple[tuple[jax.Array, Optional[jax.Array]], None]:
+            inputs: tuple[jax.Array, jax.Array | None], block: Block
+        ) -> tuple[tuple[jax.Array, jax.Array | None], None]:
             x, r = inputs
             output = block(x, r, deterministic=deterministic)
             if self.residual_connection == "dense" and r is not None:

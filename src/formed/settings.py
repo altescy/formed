@@ -1,8 +1,9 @@
 import dataclasses
 import logging
 import os
+from collections.abc import Mapping, Sequence
 from os import PathLike
-from typing import ClassVar, Literal, Mapping, Optional, Sequence, TypeVar, Union
+from typing import ClassVar, Literal, TypeVar
 
 import yaml
 from colt import import_modules
@@ -35,10 +36,10 @@ class FormedSettings:
     logging: Mapping[str, LoggingSettings] = dataclasses.field(default_factory=dict)
 
     @classmethod
-    def from_file(cls: type[T_FormedSettings], path: Union[str, PathLike]) -> T_FormedSettings:
+    def from_file(cls: type[T_FormedSettings], path: str | PathLike) -> T_FormedSettings:
         logger = logging.getLogger(__name__)
 
-        with open(path, "r") as f:
+        with open(path) as f:
             settings = yaml.safe_load(f)
 
         # load required modules
@@ -62,7 +63,7 @@ class FormedSettings:
         return formed_settings
 
 
-def load_formed_settings(path: Optional[Union[str, PathLike]] = None) -> FormedSettings:
+def load_formed_settings(path: str | PathLike | None = None) -> FormedSettings:
     if path is not None or DEFAULT_FORMED_SETTINGS_PATH.exists():
         path = path or DEFAULT_FORMED_SETTINGS_PATH
         logger.info(f"Load formed settings from {path}")

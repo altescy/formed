@@ -27,7 +27,7 @@ Example:
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Optional
+from typing import Any
 
 _NotSpecified = object()
 
@@ -90,7 +90,7 @@ def xgetattr(
 
     """
     try:
-        child: Optional[str] = None
+        child: str | None = None
         if "." in name:
             name, child = name.split(".", 1)
         if name == "*":

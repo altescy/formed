@@ -35,7 +35,7 @@ Example:
 """
 
 import abc
-from typing import Generic, NamedTuple, Optional, TypeVar
+from typing import Generic, NamedTuple, TypeVar
 
 import jax
 from colt import Registrable
@@ -135,8 +135,8 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         vocab_size: int,
         embedding_dim: int,
         *,
-        vectorizer: Optional[BaseSequenceVectorizer] = None,
-        rngs: Optional[nnx.Rngs] = None,
+        vectorizer: BaseSequenceVectorizer | None = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
         self._embedding = nnx.Embed(num_embeddings=vocab_size, features=embedding_dim, rngs=rngs)
@@ -215,9 +215,9 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
 
     def __init__(
         self,
-        surface: Optional[BaseEmbedder[IIDSequenceBatch]] = None,
-        postag: Optional[BaseEmbedder[IIDSequenceBatch]] = None,
-        character: Optional[BaseEmbedder[IIDSequenceBatch]] = None,
+        surface: BaseEmbedder[IIDSequenceBatch] | None = None,
+        postag: BaseEmbedder[IIDSequenceBatch] | None = None,
+        character: BaseEmbedder[IIDSequenceBatch] | None = None,
     ) -> None:
         if all(embedder is None for embedder in (surface, postag, character)):
             raise ValueError("At least one embedder must be provided for AnalyzedTextEmbedder.")
@@ -228,7 +228,7 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
 
     def __call__(self, inputs: IAnalyzedTextBatch) -> EmbedderOutput:
         embeddings: list[jax.Array] = []
-        mask: Optional[jax.Array] = None
+        mask: jax.Array | None = None
 
         for embedder, ids in (
             (self._surface, inputs.surfaces),

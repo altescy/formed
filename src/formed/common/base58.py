@@ -19,12 +19,12 @@ Example:
 
 """
 
-from typing import Final, Union
+from typing import Final
 
 _ALPHABET: Final[bytes] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 
-def b58encode(s: Union[str, bytes]) -> bytes:
+def b58encode(s: str | bytes) -> bytes:
     """Encode bytes or string to Base58.
 
     Args:
@@ -53,7 +53,7 @@ def b58encode(s: Union[str, bytes]) -> bytes:
     return _ALPHABET[0:1] * (original_length - stripped_length) + bytes(reversed(res))
 
 
-def b58decode(v: Union[str, bytes]) -> bytes:
+def b58decode(v: str | bytes) -> bytes:
     """Decode Base58-encoded data back to bytes.
 
     Args:

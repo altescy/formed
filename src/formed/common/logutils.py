@@ -1,7 +1,7 @@
 import json
 import logging
 from types import TracebackType
-from typing import Generic, Literal, Optional, TextIO, Type, TypeVar, Union
+from typing import Generic, Literal, TextIO, TypeVar
 
 T_TextIO = TypeVar("T_TextIO", bound=TextIO)
 
@@ -21,8 +21,8 @@ class LogCapture(Generic[T_TextIO]):
     def __init__(
         self,
         file: T_TextIO,
-        logger: Optional[Union[str, logging.Logger]] = None,
-        formatter: Optional[logging.Formatter] = None,
+        logger: str | logging.Logger | None = None,
+        formatter: logging.Formatter | None = None,
     ) -> None:
         formatter = formatter or JsonFormatter()
         logger = logging.getLogger(logger) if isinstance(logger, str) else (logger or logging.getLogger())
@@ -30,7 +30,7 @@ class LogCapture(Generic[T_TextIO]):
         self._file = file
         self._logger = logger
         self._formatter = formatter
-        self._stream_handler: Optional[logging.StreamHandler] = None
+        self._stream_handler: logging.StreamHandler | None = None
 
     @property
     def stream(self) -> T_TextIO:
@@ -52,9 +52,9 @@ class LogCapture(Generic[T_TextIO]):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> Literal[False]:
         self.stop()
         return False

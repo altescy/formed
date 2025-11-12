@@ -2,7 +2,7 @@ from collections.abc import Callable, Mapping
 from contextlib import suppress
 from os import PathLike
 from pathlib import Path
-from typing import Any, Generic, Optional, Union, cast
+from typing import Any, Generic, cast
 
 import datasets
 import minato
@@ -34,7 +34,7 @@ class SentenceTransformerFormat(Generic[SentenceTransformerT], Format[SentenceTr
 
 @step("sentence_transformers::load_pretrained_model", cacheable=False)
 def load_pretrained_model(
-    model_name_or_path: Union[str, PathLike],
+    model_name_or_path: str | PathLike,
     **kwargs: Any,
 ) -> SentenceTransformer:
     with suppress(Exception):
@@ -45,36 +45,34 @@ def load_pretrained_model(
 @step("sentence_transformers::train", format=SentenceTransformerFormat())
 def train_sentence_transformer(
     model: SentenceTransformer,
-    loss: Union[Mapping[str, Lazy[torch.nn.Module]], Lazy[torch.nn.Module]],
+    loss: Mapping[str, Lazy[torch.nn.Module]] | Lazy[torch.nn.Module],
     args: Lazy[SentenceTransformerTrainingArguments],
-    dataset: Optional[
-        Union[
-            datasets.Dataset,
-            datasets.DatasetDict,
-            Mapping[
-                str,
-                Union[datasets.Dataset, datasets.DatasetDict],
-            ],
+    dataset: None
+    | (
+        datasets.Dataset
+        | datasets.DatasetDict
+        | Mapping[
+            str,
+            datasets.Dataset | datasets.DatasetDict,
         ]
-    ] = None,
-    loss_modifier: Optional[
-        Union[
-            Mapping[str, Union[list[Lazy[torch.nn.Module]], Lazy[torch.nn.Module]]],
-            list[Lazy[torch.nn.Module]],
-            Lazy[torch.nn.Module],
-        ]
-    ] = None,
-    data_collator: Optional[DataCollator] = None,  # pyright: ignore[reportInvalidTypeForm]
-    tokenizer: Optional[PreTrainedTokenizerBase] = None,
-    evaluator: Optional[Union[SentenceEvaluator, list[SentenceEvaluator]]] = None,
-    callbacks: Optional[list[TrainerCallback]] = None,
-    model_init: Optional[Callable[[], SentenceTransformer]] = None,
-    compute_metrics: Optional[Callable[[EvalPrediction], dict]] = None,
+    ) = None,
+    loss_modifier: None
+    | (
+        Mapping[str, list[Lazy[torch.nn.Module]] | Lazy[torch.nn.Module]]
+        | list[Lazy[torch.nn.Module]]
+        | Lazy[torch.nn.Module]
+    ) = None,
+    data_collator: DataCollator | None = None,  # pyright: ignore[reportInvalidTypeForm]
+    tokenizer: PreTrainedTokenizerBase | None = None,
+    evaluator: SentenceEvaluator | list[SentenceEvaluator] | None = None,
+    callbacks: list[TrainerCallback] | None = None,
+    model_init: Callable[[], SentenceTransformer] | None = None,
+    compute_metrics: Callable[[EvalPrediction], dict] | None = None,
     optimizers: tuple[
-        Optional[Lazy[torch.optim.Optimizer]],
-        Optional[Lazy[torch.optim.lr_scheduler.LambdaLR]],
+        Lazy[torch.optim.Optimizer] | None,
+        Lazy[torch.optim.lr_scheduler.LambdaLR] | None,
     ] = (None, None),
-    preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
+    preprocess_logits_for_metrics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
     train_dataset_key: str = "train",
     eval_dataset_key: str = "validation",
 ) -> SentenceTransformer:
@@ -89,7 +87,7 @@ def train_sentence_transformer(
         train_dataset = dataset.get(train_dataset_key) if dataset and args_.do_train else None
         eval_dataset = dataset.get(eval_dataset_key) if dataset and args_.do_eval else None
 
-    loss_: Union[torch.nn.Module, dict[str, torch.nn.Module]]
+    loss_: torch.nn.Module | dict[str, torch.nn.Module]
     if isinstance(loss, Mapping):
         loss_ = {k: ll.construct(model=model) for k, ll in loss.items()}
     else:

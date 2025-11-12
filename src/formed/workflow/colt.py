@@ -2,7 +2,7 @@ import datetime
 import typing
 from collections import defaultdict
 from collections.abc import Callable, Mapping
-from typing import Any, Final, Generic, Optional, TypeVar, Union, cast
+from typing import Any, Final, Generic, TypeVar, cast
 
 from colt import (
     ColtContext,
@@ -37,10 +37,10 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
     def __init__(
         self,
         annotation: _T,
-        path: tuple[Union[int, str], ...],
+        path: tuple[int | str, ...],
         step_name: str,
         config: Any,
-        field_name: Optional[str] = None,
+        field_name: str | None = None,
     ) -> None:
         super().__init__(annotation)
         self._path = path
@@ -49,7 +49,7 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
         self._field_name = field_name
 
     @property
-    def path(self) -> tuple[Union[int, str], ...]:
+    def path(self) -> tuple[int | str, ...]:
         return self._path
 
     @property
@@ -61,7 +61,7 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
         return self._config
 
     @property
-    def field_name(self) -> Optional[str]:
+    def field_name(self) -> str | None:
         return self._field_name
 
     def match_type_hint(self, annotation: Any) -> bool:
@@ -70,9 +70,9 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
         return super().match_type_hint(annotation)
 
     @staticmethod
-    def _parse_ref(ref: str) -> tuple[str, Optional[str]]:
+    def _parse_ref(ref: str) -> tuple[str, str | None]:
         step_name: str = ref
-        field_name: Optional[str] = None
+        field_name: str | None = None
         if "." in ref:
             step_name, field_name = ref.split(".", 1)
         return step_name, field_name
@@ -119,7 +119,7 @@ class RefCallback(ColtCallback):
             step_name_to_type[step_name] = step
 
     def _find_step_type(
-        self, path: tuple[Union[int, str], ...], step_name: str, context: ColtContext
+        self, path: tuple[int | str, ...], step_name: str, context: ColtContext
     ) -> type[WorkflowStep[Any]]:
         registry: dict[ParamPath, dict[str, type[WorkflowStep[Any]]]] = context.state[self._STEP_NAME_TO_TYPE_KEY]
         graph_path = path
@@ -140,7 +140,7 @@ class RefCallback(ColtCallback):
         config: Any,
         builder: ColtBuilder,
         context: ColtContext,
-        annotation: Optional[Union[type[_T], Callable[..., _T]]] = None,
+        annotation: type[_T] | Callable[..., _T] | None = None,
     ) -> Any:
         from .graph import WorkflowGraph
 
@@ -178,7 +178,7 @@ class DatetimeCallback(ColtCallback):
         config: Any,
         builder: ColtBuilder,
         context: ColtContext,
-        annotation: Optional[Union[type[_T], Callable[..., _T]]] = None,
+        annotation: type[_T] | Callable[..., _T] | None = None,
     ) -> Any:
         del path, builder, context
         if isinstance(config, str) and annotation is datetime.datetime:

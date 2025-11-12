@@ -19,12 +19,12 @@ Type Variables:
 """
 
 from collections.abc import Iterator, Sequence
-from typing import Any, Optional, Protocol, Union, runtime_checkable
+from typing import Any, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
 import jax
 import numpy
 import optax
-from typing_extensions import TypeAlias, TypeVar
+from typing_extensions import TypeVar
 
 
 @runtime_checkable

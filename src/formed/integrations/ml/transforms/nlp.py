@@ -39,7 +39,7 @@ import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from functools import cached_property
 from logging import getLogger
-from typing import Any, Generic, Optional, Union, cast
+from typing import Any, Generic, Union, cast
 
 import numpy
 from typing_extensions import TypeVar
@@ -127,12 +127,12 @@ class TokenSequenceIndexer(
 
     vocab: Mapping[str, int] = dataclasses.field(default_factory=dict)
     pad_token: str = "<PAD>"
-    unk_token: Optional[str] = None
-    bos_token: Optional[str] = None
-    eos_token: Optional[str] = None
-    min_df: Union[int, float] = 1
-    max_df: Union[int, float] = 1.0
-    max_vocab_size: Optional[int] = None
+    unk_token: str | None = None
+    bos_token: str | None = None
+    eos_token: str | None = None
+    min_df: int | float = 1
+    max_df: int | float = 1.0
+    max_vocab_size: int | None = None
     freeze: bool = False
 
     _token_counts: dict[str, int] = dataclasses.field(default_factory=dict, init=False, repr=False)
@@ -186,19 +186,19 @@ class TokenSequenceIndexer(
         return self.vocab[self.pad_token]
 
     @property
-    def unk_index(self) -> Optional[int]:
+    def unk_index(self) -> int | None:
         if self.unk_token is not None:
             return self.vocab[self.unk_token]
         return None
 
     @property
-    def bos_index(self) -> Optional[int]:
+    def bos_index(self) -> int | None:
         if self.bos_token is not None:
             return self.vocab[self.bos_token]
         return None
 
     @property
-    def eos_index(self) -> Optional[int]:
+    def eos_index(self) -> int | None:
         if self.eos_token is not None:
             return self.vocab[self.eos_token]
         return None
@@ -331,7 +331,7 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
 
     min_characters: int = 1
 
-    def _get_input_value(self, data: _S) -> Optional[Sequence[str]]:
+    def _get_input_value(self, data: _S) -> Sequence[str] | None:
         if isinstance(data, AnalyzedText) and self.accessor is None:
             return data.surfaces
         return super()._get_input_value(data)
@@ -447,17 +447,15 @@ class Tokenizer(
     postags: Extra[TokenSequenceIndexer] = Extra.default(None)
     characters: Extra[TokenCharactersIndexer] = Extra.default(None)
 
-    analyzer: Param[Optional[Callable[[Union[str, Sequence[str], AnalyzedText]], AnalyzedText]]] = Param.default(None)
+    analyzer: Param[Callable[[str | Sequence[str] | AnalyzedText], AnalyzedText] | None] = Param.default(None)
 
     @staticmethod
-    def _default_analyzer(text: Union[str, Sequence[str], AnalyzedText]) -> AnalyzedText:
+    def _default_analyzer(text: str | Sequence[str] | AnalyzedText) -> AnalyzedText:
         if isinstance(text, AnalyzedText):
             return text
         surfaces = punkt_tokenize(text) if isinstance(text, str) else text
         return AnalyzedText(surfaces=surfaces)
 
-    def instance(
-        self: "Tokenizer[AsConverter]", x: Union[str, Sequence[str], AnalyzedText], /
-    ) -> "Tokenizer[AsInstance]":
+    def instance(self: "Tokenizer[AsConverter]", x: str | Sequence[str] | AnalyzedText, /) -> "Tokenizer[AsInstance]":
         analyzer = self.analyzer or self._default_analyzer
         return cast(DataModule[AsConverter], super()).instance(analyzer(x))

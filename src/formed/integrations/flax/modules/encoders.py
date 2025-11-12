@@ -55,7 +55,7 @@ Example:
 import abc
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Optional, Union, cast
+from typing import cast
 
 import jax
 import numpy
@@ -149,7 +149,7 @@ class LearnablePositionEncoder(BasePositionEncoder):
         features: int,
         *,
         max_length: int = 512,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
         self.embed = nnx.Embed(max_length, features, rngs=rngs)
@@ -173,7 +173,7 @@ class BaseSequenceEncoder(nnx.Module, Registrable, abc.ABC):
         self,
         inputs: jax.Array,
         *,
-        mask: Optional[jax.Array] = None,
+        mask: jax.Array | None = None,
     ) -> jax.Array:
         """Encode a sequence.
 
@@ -231,7 +231,7 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
     class _RNNBlock(nnx.Module):
         def __init__(
             self,
-            rnn: Union[nnx.RNN, nnx.Bidirectional],
+            rnn: nnx.RNN | nnx.Bidirectional,
             feedforward_layers: int,
             dropout: float,
             rngs: nnx.Rngs,
@@ -253,7 +253,7 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
                 in_features = int(getattr(cell, "in_features"))
                 out_features = int(getattr(cell, "hidden_features"))
 
-            feedforward: Optional[FeedForward] = None
+            feedforward: FeedForward | None = None
             if feedforward_layers is not None and feedforward_layers > 0:
                 feedforward = FeedForward(
                     features=out_features,
@@ -268,9 +268,9 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
             self,
             inputs: jax.Array,
             *,
-            seq_lengths: Optional[jax.Array] = None,
-            deterministic: Optional[bool] = None,
-            rngs: Optional[nnx.Rngs] = None,
+            seq_lengths: jax.Array | None = None,
+            deterministic: bool | None = None,
+            rngs: nnx.Rngs | None = None,
         ) -> jax.Array:
             h = cast(jax.Array, self.rnn(inputs, seq_lengths=seq_lengths, rngs=rngs))
             if self.feedforward is not None:
@@ -284,15 +284,15 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
-        feedforward_layers: Optional[int] = None,
+        feedforward_layers: int | None = None,
         dropout: float = 0.0,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
 
         @nnx.vmap(in_axes=0, out_axes=0)
         def create_block(rngs: nnx.Rngs) -> RNNSequenceEncoder._RNNBlock:
-            rnn: Union[nnx.RNN, nnx.Bidirectional]
+            rnn: nnx.RNN | nnx.Bidirectional
             if bidirectional:
                 forward_cell = cell_factory(rngs)
                 backward_cell = cell_factory(rngs)
@@ -319,10 +319,10 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         self,
         inputs: jax.Array,
         *,
-        mask: Optional[jax.Array] = None,
-        deterministic: Optional[bool] = None,
+        mask: jax.Array | None = None,
+        deterministic: bool | None = None,
     ) -> jax.Array:
-        seq_lengths: Optional[jax.Array] = None
+        seq_lengths: jax.Array | None = None
         if mask is not None:
             seq_lengths = jax.numpy.sum(mask.astype(jax.numpy.int32), axis=-1)
 
@@ -370,9 +370,9 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
-        feedforward_layers: Optional[int] = None,
+        feedforward_layers: int | None = None,
         dropout: float = 0.0,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
         super().__init__(
@@ -406,9 +406,9 @@ class OptimizedLSTMSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
-        feedforward_layers: Optional[int] = None,
+        feedforward_layers: int | None = None,
         dropout: float = 0.0,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.OptimizedLSTMCell(features, features, rngs=rngs),
@@ -447,9 +447,9 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
         features: int,
         num_layers: int = 1,
         bidirectional: bool = False,
-        feedforward_layers: Optional[int] = None,
+        feedforward_layers: int | None = None,
         dropout: float = 0.0,
-        rngs: Optional[nnx.Rngs] = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         super().__init__(
             cell_factory=lambda rngs: nnx.GRUCell(features, features, rngs=rngs),
@@ -512,7 +512,7 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
             dropout: float,
             feedworward_features: int,
             activation: Callable[[jax.Array], jax.Array],
-            rngs: Optional[nnx.Rngs] = None,
+            rngs: nnx.Rngs | None = None,
         ) -> None:
             rngs = rngs or require_rngs()
             self.mha = nnx.MultiHeadAttention(num_heads, features, features, decode=False, rngs=rngs)
@@ -529,9 +529,9 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
             self,
             inputs: jax.Array,
             *,
-            mask: Optional[jax.Array] = None,
-            deterministic: Optional[bool] = None,
-            rngs: Optional[nnx.Rngs] = None,
+            mask: jax.Array | None = None,
+            deterministic: bool | None = None,
+            rngs: nnx.Rngs | None = None,
         ) -> jax.Array:
             output = self.norm1(self.mha(inputs, deterministic=deterministic, rngs=rngs) + inputs)
             output = self.norm2(self.feedworward(inputs) + output)
@@ -546,10 +546,10 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         num_layers: int = 1,
         dropout: float = 0.0,
         epsilon: float = 1e-6,
-        feedworward_features: Optional[int] = None,
+        feedworward_features: int | None = None,
         activation: Callable[[jax.Array], jax.Array] = jax.nn.gelu,
-        position_encoder: Optional[BasePositionEncoder] = None,
-        rngs: Optional[nnx.Rngs] = None,
+        position_encoder: BasePositionEncoder | None = None,
+        rngs: nnx.Rngs | None = None,
     ) -> None:
         rngs = rngs or require_rngs()
 
@@ -574,17 +574,17 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         self,
         inputs: jax.Array,
         *,
-        mask: Optional[jax.Array] = None,
-        deterministic: Optional[bool] = None,
-        rngs: Optional[nnx.Rngs] = None,
+        mask: jax.Array | None = None,
+        deterministic: bool | None = None,
+        rngs: nnx.Rngs | None = None,
     ) -> jax.Array:
         if mask is not None and mask.ndim == 2:
             mask = mask[..., None]
 
         def forward(
-            inputs: tuple[jax.Array, Optional[jax.Array], Optional[nnx.Rngs]],
+            inputs: tuple[jax.Array, jax.Array | None, nnx.Rngs | None],
             block: TransformerSequenceEncoder._TransformerBlock,
-        ) -> tuple[tuple[jax.Array, Optional[jax.Array], Optional[nnx.Rngs]], None]:
+        ) -> tuple[tuple[jax.Array, jax.Array | None, nnx.Rngs | None], None]:
             x, mask, rngs = inputs
             if mask is not None:
                 x = x * mask

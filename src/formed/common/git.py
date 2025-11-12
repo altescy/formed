@@ -30,7 +30,6 @@ import os
 import subprocess
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Union
 
 
 @dataclasses.dataclass(frozen=True)
@@ -89,7 +88,7 @@ class GitClient:
             == 0
         )
 
-    def __init__(self, directory: Union[str, PathLike]) -> None:
+    def __init__(self, directory: str | PathLike) -> None:
         """Initialize Git client for a directory.
 
         Args:
@@ -123,8 +122,8 @@ class GitClient:
 
     def show(
         self,
-        commit: Optional[str] = None,
-        format: Optional[str] = None,
+        commit: str | None = None,
+        format: str | None = None,
         no_patch: bool = False,
     ) -> str:
         command = f"git -C {self._directory} show"
@@ -148,7 +147,7 @@ class GitClient:
         return GitInfo(commit, branch)
 
 
-def get_git_info(directory: Optional[Union[str, PathLike]] = None) -> Optional[GitInfo]:
+def get_git_info(directory: str | PathLike | None = None) -> GitInfo | None:
     """Get Git repository information for a directory.
 
     Convenience function to extract Git metadata (commit hash and branch name)

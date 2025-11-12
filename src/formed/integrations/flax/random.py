@@ -1,6 +1,6 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator, Optional
 
 from flax import nnx
 
@@ -8,7 +8,7 @@ _NNX_RNGS = ContextVar[nnx.Rngs]("nnx_rngs", default=nnx.Rngs())
 
 
 @contextmanager
-def use_rngs(default: Optional[int] = None) -> Iterator[nnx.Rngs]:
+def use_rngs(default: int | None = None) -> Iterator[nnx.Rngs]:
     """Context manager to set and restore nnx RNGs.
 
     This context manager allows temporarily setting the nnx RNGs

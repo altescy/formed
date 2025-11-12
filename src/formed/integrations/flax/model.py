@@ -25,7 +25,7 @@ Example:
 
 """
 
-from typing import Generic, Optional
+from typing import Generic
 
 from colt import Registrable
 from flax import nnx
@@ -55,7 +55,7 @@ class BaseFlaxModel(
 
     """
 
-    def __call__(self, inputs: ModelInputT, params: Optional[ModelParamsT] = None) -> ModelOutputT:
+    def __call__(self, inputs: ModelInputT, params: ModelParamsT | None = None) -> ModelOutputT:
         """Forward pass of the model.
 
         Args:
