@@ -1,7 +1,7 @@
-from collections.abc import Callable, Iterable, Sized
+from collections.abc import Callable, Iterable, Iterator, Sized
 from contextlib import contextmanager
 from functools import partial
-from typing import Iterator, Optional, TypeVar
+from typing import TypeVar
 
 from rich.live import Live
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
@@ -11,10 +11,10 @@ T = TypeVar("T")
 
 
 @contextmanager
-def progress(iterable: Iterable[T], desc: Optional[str] = None) -> Iterator[Iterator[T]]:
+def progress(iterable: Iterable[T], desc: str | None = None) -> Iterator[Iterator[T]]:
     desc = desc or "Processing...."
 
-    def _iterator(callback: Optional[Callable[[], None]] = None) -> Iterator[T]:
+    def _iterator(callback: Callable[[], None] | None = None) -> Iterator[T]:
         for item in iterable:
             yield item
             if callback:

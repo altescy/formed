@@ -31,7 +31,7 @@ Example:
 import abc
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, Generic, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, cast
 
 import jax
 from colt import Registrable
@@ -145,7 +145,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
 
     """
 
-    def __init__(self, loss: Union[str, Callable[[ModelOutputT], jax.Array]] = "loss") -> None:
+    def __init__(self, loss: str | Callable[[ModelOutputT], jax.Array] = "loss") -> None:
         super().__init__()
         self._loss = partial(xgetattr, name=loss) if isinstance(loss, str) else loss
 

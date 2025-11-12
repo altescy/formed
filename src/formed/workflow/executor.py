@@ -40,7 +40,7 @@ from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
 from types import TracebackType
-from typing import Any, NewType, Optional, TypeVar, Union
+from typing import Any, NewType, TypeVar
 
 from colt import Registrable
 
@@ -65,7 +65,7 @@ logger = getLogger(__name__)
 T = TypeVar("T")
 T_WorkflowExecutor = TypeVar("T_WorkflowExecutor", bound="WorkflowExecutor")
 
-_EXECUTION_CONTEXT = contextvars.ContextVar[Optional["WorkflowExecutionContext"]]("_EXECUTION_CONTEXT", default=None)
+_EXECUTION_CONTEXT = contextvars.ContextVar["WorkflowExecutionContext | None"]("_EXECUTION_CONTEXT", default=None)
 
 
 WorkflowExecutionID = NewType("WorkflowExecutionID", str)
@@ -81,16 +81,16 @@ class WorkflowExecutionStatus(str, Enum):
 
 @dataclasses.dataclass
 class WorkflowExecutionState:
-    execution_id: Optional[WorkflowExecutionID] = None
+    execution_id: WorkflowExecutionID | None = None
     status: WorkflowExecutionStatus = WorkflowExecutionStatus.PENDING
-    started_at: Optional[datetime.datetime] = None
-    finished_at: Optional[datetime.datetime] = None
+    started_at: datetime.datetime | None = None
+    finished_at: datetime.datetime | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowExecutionMetadata:
     version: str = version("formed")
-    git: Optional[GitInfo] = dataclasses.field(default_factory=get_git_info)
+    git: GitInfo | None = dataclasses.field(default_factory=get_git_info)
     environment: Mapping[str, str] = dataclasses.field(default_factory=dict)
     required_modules: Sequence[str] = dataclasses.field(default_factory=list)
     dependent_packages: Sequence[PackageInfo] = dataclasses.field(default_factory=get_installed_packages)
@@ -100,7 +100,7 @@ class WorkflowExecutionMetadata:
 class WorkflowExecutionInfo:
     graph: WorkflowGraph
 
-    id: Optional[WorkflowExecutionID] = None
+    id: WorkflowExecutionID | None = None
     metadata: WorkflowExecutionMetadata = dataclasses.field(default_factory=WorkflowExecutionMetadata)
 
 
@@ -132,10 +132,10 @@ class WorkflowExecutor(Registrable):
 
     def __call__(
         self,
-        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
+        graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
         *,
-        cache: Optional[WorkflowCache] = None,
-        callback: Optional[WorkflowCallback] = None,
+        cache: WorkflowCache | None = None,
+        callback: WorkflowCallback | None = None,
     ) -> WorkflowExecutionContext:
         """Execute a workflow.
 
@@ -155,9 +155,9 @@ class WorkflowExecutor(Registrable):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         pass
 
@@ -205,10 +205,10 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
     def __call__(
         self,
-        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
+        graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
         *,
-        cache: Optional[WorkflowCache] = None,
-        callback: Optional[WorkflowCallback] = None,
+        cache: WorkflowCache | None = None,
+        callback: WorkflowCallback | None = None,
     ) -> WorkflowExecutionContext:
         cache = cache if cache is not None else EmptyWorkflowCache()
         callback = callback if callback is not None else EmptyWorkflowCallback()
@@ -256,7 +256,7 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             else:
                 try:
                     callback.on_step_start(step_context, execution_context)
-                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = {
+                    dependencies: Mapping[int | str | Sequence[int | str], Any] = {
                         path: _run_step(dep) for path, dep in step_info.dependencies
                     }
                     if set(dependencies.keys()) != set(path for path, _ in step_info.dependencies):
@@ -324,5 +324,5 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
         return dataclasses.replace(execution_context, state=execution_state)
 
 
-def use_execution_context() -> Optional[WorkflowExecutionContext]:
+def use_execution_context() -> WorkflowExecutionContext | None:
     return _EXECUTION_CONTEXT.get()

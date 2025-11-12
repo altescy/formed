@@ -102,7 +102,7 @@ filterwarnings = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 
 [tool.ruff]
 line-length = 120

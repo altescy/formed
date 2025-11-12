@@ -2,7 +2,7 @@ from collections.abc import Callable, Mapping
 from contextlib import suppress
 from os import PathLike
 from pathlib import Path
-from typing import Any, Generic, Literal, Optional, TypeVar, Union, cast
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, cast
 
 import datasets
 import minato
@@ -16,7 +16,6 @@ from transformers.models.auto.auto_factory import _BaseAutoModelClass
 from transformers.processing_utils import ProcessorMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
-from typing_extensions import TypeAlias
 
 from formed.integrations.datasets.workflow import DatasetFormat
 from formed.workflow import Format, step, use_step_workdir
@@ -42,14 +41,14 @@ class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[Pretra
     format=DatasetFormat(),
 )
 def tokenize_dataset(
-    dataset: Union[datasets.Dataset, datasets.DatasetDict],
+    dataset: datasets.Dataset | datasets.DatasetDict,
     tokenizer: PreTrainedTokenizerBase,
     text_column: str = "text",
-    padding: Union[bool, Literal["max_length", "longest", "do_not_pad"]] = False,
-    truncation: Union[bool, Literal["only_first", "only_second", "longest_first", "do_not_truncate"]] = False,
+    padding: bool | Literal["max_length", "longest", "do_not_pad"] = False,
+    truncation: bool | Literal["only_first", "only_second", "longest_first", "do_not_truncate"] = False,
     return_special_tokens_mask: bool = False,
-    max_length: Optional[int] = None,
-) -> Union[datasets.Dataset, datasets.DatasetDict]:
+    max_length: int | None = None,
+) -> datasets.Dataset | datasets.DatasetDict:
     def tokenize_function(examples: Mapping[str, Any]) -> Any:
         return tokenizer(
             examples[text_column],
@@ -68,9 +67,9 @@ def tokenize_dataset(
 
 @step("transformers::load_pretrained_model", cacheable=False)
 def load_pretrained_model(
-    model_name_or_path: Union[str, PathLike],
-    auto_class: Union[str, type[_BaseAutoModelClass]] = transformers.AutoModel,
-    submodule: Optional[str] = None,
+    model_name_or_path: str | PathLike,
+    auto_class: str | type[_BaseAutoModelClass] = transformers.AutoModel,
+    submodule: str | None = None,
     **kwargs: Any,
 ) -> transformers.PreTrainedModel:
     if isinstance(auto_class, str):
@@ -86,8 +85,8 @@ def load_pretrained_model(
 
 @step("transformers::load_pretrained_tokenizer", cacheable=False)
 def load_pretrained_tokenizer(
-    pretrained_model_name_or_path: Union[str, PathLike],
-    submodule: Optional[str] = None,
+    pretrained_model_name_or_path: str | PathLike,
+    submodule: str | None = None,
     **kwargs: Any,
 ) -> PreTrainedTokenizerBase:
     with suppress(FileNotFoundError):
@@ -107,32 +106,21 @@ def load_pretrained_tokenizer(
 def finetune_model(
     model: PreTrainedModel,
     args: Lazy[TrainingArguments],
-    data_collator: Optional[DataCollator] = None,  # pyright: ignore[reportInvalidTypeForm]
-    dataset: Optional[
-        Union[
-            datasets.Dataset,
-            datasets.DatasetDict,
-            Mapping[str, Union[datasets.Dataset, datasets.DatasetDict]],
-        ]
-    ] = None,
-    processing_class: Optional[
-        Union[
-            PreTrainedTokenizerBase,
-            BaseImageProcessor,
-            FeatureExtractionMixin,
-            ProcessorMixin,
-        ]
-    ] = None,
-    model_init: Optional[Callable[[], PreTrainedModel]] = None,
-    compute_loss_func: Optional[Callable] = None,
-    compute_metrics: Optional[Callable[[EvalPrediction], dict]] = None,
-    callbacks: Optional[list[TrainerCallback]] = None,
+    data_collator: DataCollator | None = None,  # pyright: ignore[reportInvalidTypeForm]
+    dataset: None
+    | (datasets.Dataset | datasets.DatasetDict | Mapping[str, datasets.Dataset | datasets.DatasetDict]) = None,
+    processing_class: None
+    | (PreTrainedTokenizerBase | BaseImageProcessor | FeatureExtractionMixin | ProcessorMixin) = None,
+    model_init: Callable[[], PreTrainedModel] | None = None,
+    compute_loss_func: Callable | None = None,
+    compute_metrics: Callable[[EvalPrediction], dict] | None = None,
+    callbacks: list[TrainerCallback] | None = None,
     optimizers: tuple[
-        Optional[Lazy[torch.optim.Optimizer]],
-        Optional[Lazy[torch.optim.lr_scheduler.LambdaLR]],
+        Lazy[torch.optim.Optimizer] | None,
+        Lazy[torch.optim.lr_scheduler.LambdaLR] | None,
     ] = (None, None),
-    optimizer_cls_and_kwargs: Optional[tuple[type[torch.optim.Optimizer], dict[str, Any]]] = None,
-    preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
+    optimizer_cls_and_kwargs: tuple[type[torch.optim.Optimizer], dict[str, Any]] | None = None,
+    preprocess_logits_for_metrics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
     train_dataset_key: str = "train",
     eval_dataset_key: str = "validation",
 ) -> PreTrainedModel:
@@ -140,8 +128,8 @@ def finetune_model(
 
     args_ = args.construct(output_dir=str(workdir))
 
-    train_dataset: Optional[Union[datasets.Dataset, datasets.DatasetDict]] = None
-    eval_dataset: Optional[Union[datasets.Dataset, datasets.DatasetDict]] = None
+    train_dataset: datasets.Dataset | datasets.DatasetDict | None = None
+    eval_dataset: datasets.Dataset | datasets.DatasetDict | None = None
     if isinstance(dataset, datasets.Dataset):
         train_dataset = dataset
         eval_dataset = None

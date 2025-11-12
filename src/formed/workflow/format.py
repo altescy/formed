@@ -36,7 +36,7 @@ import importlib
 import json
 from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import IO, Any, ClassVar, Generic, Optional, TypeVar, Union, cast
+from typing import IO, Any, ClassVar, Generic, TypeVar, Union, cast
 
 import cloudpickle
 import colt
@@ -136,7 +136,7 @@ class PickleFormat(Format[_T], Generic[_T]):
 
     class _IteratorWrapper(Generic[_S]):
         def __init__(self, path: Path) -> None:
-            self._file: Optional[IO[Any]] = path.open("rb")
+            self._file: IO[Any] | None = path.open("rb")
             assert cloudpickle.load(self._file)  # Check if it is an iterator
 
         def __iter__(self) -> Iterator[_S]:
@@ -210,7 +210,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     """
 
     class _IteratorWrapper(Generic[_S]):
-        def __init__(self, path: Path, artifact_class: Optional[type[_S]]) -> None:
+        def __init__(self, path: Path, artifact_class: type[_S] | None) -> None:
             self._file = path.open("r")
             self._artifact_class = artifact_class
 
@@ -239,7 +239,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
             directory: Directory to write to.
 
         """
-        artifact_class: Optional[type[_JsonFormattableT]] = None
+        artifact_class: type[_JsonFormattableT] | None = None
         if isinstance(artifact, Iterator):
             artifact_path = directory / "artifact.jsonl"
             with open(artifact_path, "w") as f:
@@ -278,9 +278,9 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
 
         """
         metadata_path = directory / "metadata.json"
-        artifact_class: Optional[type[_JsonFormattableT]] = None
+        artifact_class: type[_JsonFormattableT] | None = None
         if metadata_path.exists():
-            with open(metadata_path, "r") as f:
+            with open(metadata_path) as f:
                 metadata = json.load(f, cls=WorkflowJSONDecoder)
             module = importlib.import_module(metadata["module"])
             artifact_class = getattr(module, metadata["class"])
@@ -291,7 +291,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
             return cast(_JsonFormattableT, self._IteratorWrapper(artifact_path, artifact_class))
 
         artifact_path = directory / "artifact.json"
-        with open(artifact_path, "r") as f:
+        with open(artifact_path) as f:
             data = json.load(f, cls=WorkflowJSONDecoder)
             if artifact_class is not None:
                 return colt.build(data, artifact_class)

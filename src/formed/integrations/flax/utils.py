@@ -1,9 +1,8 @@
 from collections.abc import Callable, Mapping, Sequence
 from itertools import starmap
-from typing import Literal, TypeVar, Union, cast, overload
+from typing import Literal, TypeAlias, TypeVar, cast, overload
 
 import jax
-from typing_extensions import TypeAlias
 
 from .types import ArrayCompatible
 
@@ -126,9 +125,9 @@ def sequence_distribute(
 
 
 def sequence_distribute(
-    inputs: Union[jax.Array, _MappingT],
+    inputs: jax.Array | _MappingT,
     ignore: Sequence[str] = (),
-) -> tuple[Union[jax.Array, _MappingT], tuple[int, int]]:
+) -> tuple[jax.Array | _MappingT, tuple[int, int]]:
     if isinstance(inputs, jax.Array):
         if inputs.ndim < 2:
             return inputs, (-1, -1)
@@ -157,10 +156,10 @@ def sequence_undistribute(
 
 
 def sequence_undistribute(
-    inputs: Union[jax.Array, _MappingT],
+    inputs: jax.Array | _MappingT,
     shape: tuple[int, int],
     ignore: Sequence[str] = (),
-) -> Union[jax.Array, _MappingT]:
+) -> jax.Array | _MappingT:
     if isinstance(inputs, jax.Array):
         return inputs.reshape((shape[0], shape[1], *inputs.shape[1:]))
     return cast(

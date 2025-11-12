@@ -31,7 +31,6 @@ Example:
 
 import abc
 from collections.abc import Callable, Sequence
-from typing import Optional
 
 import jax
 from colt import Registrable
@@ -53,7 +52,7 @@ class BaseSequenceVectorizer(nnx.Module, Registrable, abc.ABC):
         self,
         inputs: jax.Array,
         *,
-        mask: Optional[jax.Array] = None,
+        mask: jax.Array | None = None,
     ) -> jax.Array:
         """Vectorize a sequence into a fixed-size vector.
 
@@ -68,7 +67,7 @@ class BaseSequenceVectorizer(nnx.Module, Registrable, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_input_dim(self) -> Optional[int]:
+    def get_input_dim(self) -> int | None:
         """Get the expected input dimension.
 
         Returns:
@@ -136,7 +135,7 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         self,
         pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
         normalize: bool = False,
-        window_size: Optional[int] = None,
+        window_size: int | None = None,
     ) -> None:
         self._pooling: PoolingMethod | Sequence[PoolingMethod] = pooling
         self._normalize = normalize
@@ -146,7 +145,7 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         self,
         inputs: jax.Array,
         *,
-        mask: Optional[jax.Array] = None,
+        mask: jax.Array | None = None,
     ) -> jax.Array:
         return masked_pool(
             inputs,

@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from transformers import (
@@ -16,7 +16,7 @@ class MlflowTrainerCallback(TrainerCallback):  # type: ignore[misc]
     def __init__(self) -> None:
         from formed.integrations.mlflow.workflow import MlflowLogger
 
-        self._mlflow_logger: Optional[MlflowLogger] = None
+        self._mlflow_logger: MlflowLogger | None = None
 
     def on_train_begin(
         self,
@@ -38,7 +38,7 @@ class MlflowTrainerCallback(TrainerCallback):  # type: ignore[misc]
         state: TrainerState,
         control: TrainerControl,
         logs: Mapping[str, Any],
-        model: Optional[torch.nn.Module] = None,
+        model: torch.nn.Module | None = None,
         **kwargs: Any,
     ) -> None:
         if self._mlflow_logger is None:
@@ -50,7 +50,7 @@ class MlflowTrainerCallback(TrainerCallback):  # type: ignore[misc]
             return
 
         for key, value in logs.items():
-            numerical_value: Union[int, float]
+            numerical_value: int | float
             if isinstance(value, (int, float)):
                 numerical_value = value
             elif isinstance(value, torch.Tensor) and value.numel() == 1:

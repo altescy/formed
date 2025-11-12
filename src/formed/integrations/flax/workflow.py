@@ -23,7 +23,7 @@ Example:
 """
 
 from collections.abc import Sequence
-from typing import Annotated, Optional
+from typing import Annotated
 
 from colt import Lazy
 from flax import nnx
@@ -42,7 +42,7 @@ def train_flax_model(
     model: Lazy[BaseFlaxModel],
     trainer: FlaxTrainer,
     train_dataset: Sequence[ItemT],
-    val_dataset: Optional[Sequence[ItemT]] = None,
+    val_dataset: Sequence[ItemT] | None = None,
     random_seed: int = 0,
 ) -> BaseFlaxModel:
     """Train a Flax model using the provided trainer.
@@ -85,7 +85,7 @@ def evaluate_flax_model(
     dataset: list[ItemT],
     dataloader: IDataLoader[ItemT, ModelInputT],
     params: ModelParamsT | None = None,
-    random_seed: Optional[int] = None,
+    random_seed: int | None = None,
 ) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
     """Evaluate a Flax model on a dataset using the provided evaluator.
 

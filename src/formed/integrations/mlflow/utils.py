@@ -6,7 +6,7 @@ from collections.abc import Iterator, Mapping
 from enum import Enum
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 from urllib.parse import urlparse
 
 import mlflow
@@ -136,10 +136,10 @@ def flatten_params(d: Mapping[str, JsonValue]) -> MlflowParams:
 
 
 def build_filter_string(
-    run_type: Optional[WorkflowRunType] = None,
-    step_info: Optional[Union[str, WorkflowStepInfo]] = None,
-    execution_info: Optional[Union[str, WorkflowExecutionInfo]] = None,
-    additional_filters: Optional[str] = None,
+    run_type: WorkflowRunType | None = None,
+    step_info: str | WorkflowStepInfo | None = None,
+    execution_info: str | WorkflowExecutionInfo | None = None,
+    additional_filters: str | None = None,
 ) -> str:
     conditions: list[str] = []
     if run_type is not None:
@@ -156,7 +156,7 @@ def build_filter_string(
 
 
 def is_mlflow_using_local_artifact_storage(
-    mlflow_run: Union[str, MlflowRun],
+    mlflow_run: str | MlflowRun,
 ) -> bool:
     mlflow_run_id = mlflow_run.info.run_id if isinstance(mlflow_run, MlflowRun) else mlflow_run
     mlflow_artifact_uri = urlparse(artifact_utils.get_artifact_uri(run_id=mlflow_run_id))  # type: ignore[no-untyped-call]
@@ -164,8 +164,8 @@ def is_mlflow_using_local_artifact_storage(
 
 
 def get_mlflow_local_artifact_storage_path(
-    mlflow_run: Union[str, MlflowRun],
-) -> Optional[Path]:
+    mlflow_run: str | MlflowRun,
+) -> Path | None:
     mlflow_run_id = mlflow_run.info.run_id if isinstance(mlflow_run, MlflowRun) else mlflow_run
     mlflow_artifact_uri = urlparse(artifact_utils.get_artifact_uri(run_id=mlflow_run_id))  # type: ignore[no-untyped-call]
     if mlflow_artifact_uri.scheme == "file":
@@ -175,12 +175,12 @@ def get_mlflow_local_artifact_storage_path(
 
 def fetch_child_mlflow_runs(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    mlflow_run: Union[str, MlflowRun],
+    experiment: str | MlflowExperiment,
+    mlflow_run: str | MlflowRun,
 ) -> Iterator[MlflowRun]:
     experiment = get_mlflow_experiment(experiment)
     mlflow_run_id = mlflow_run.info.run_id if isinstance(mlflow_run, MlflowRun) else mlflow_run
-    page_token: Optional[str] = None
+    page_token: str | None = None
     while True:
         runs = client.search_runs(
             experiment_ids=[experiment.experiment_id],
@@ -195,7 +195,7 @@ def fetch_child_mlflow_runs(
 
 def update_mlflow_tags(
     client: MlflowClient,
-    run: Union[str, MlflowRun],
+    run: str | MlflowRun,
     tags: dict[MlflowTag, str],
 ) -> None:
     run_id = run.info.run_id if isinstance(run, MlflowRun) else run
@@ -205,16 +205,16 @@ def update_mlflow_tags(
 
 def fetch_mlflow_runs(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
+    experiment: str | MlflowExperiment,
     *,
-    run_type: Optional[WorkflowRunType] = None,
-    step_info: Optional[Union[str, WorkflowStepInfo]] = None,
-    execution_info: Optional[Union[str, WorkflowExecutionInfo]] = None,
+    run_type: WorkflowRunType | None = None,
+    step_info: str | WorkflowStepInfo | None = None,
+    execution_info: str | WorkflowExecutionInfo | None = None,
     with_children: bool = False,
 ) -> Iterator[MlflowRun]:
     experiment = get_mlflow_experiment(experiment)
 
-    page_token: Optional[str] = None
+    page_token: str | None = None
     filter_string = build_filter_string(run_type, step_info, execution_info)
     while True:
         runs = client.search_runs(
@@ -233,12 +233,12 @@ def fetch_mlflow_runs(
 
 def fetch_mlflow_run(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
+    experiment: str | MlflowExperiment,
     *,
-    run_type: Optional[WorkflowRunType] = None,
-    step_info: Optional[Union[str, WorkflowStepInfo]] = None,
-    execution_info: Optional[Union[str, WorkflowExecutionInfo]] = None,
-) -> Optional[MlflowRun]:
+    run_type: WorkflowRunType | None = None,
+    step_info: str | WorkflowStepInfo | None = None,
+    execution_info: str | WorkflowExecutionInfo | None = None,
+) -> MlflowRun | None:
     return next(
         fetch_mlflow_runs(
             client,
@@ -251,7 +251,7 @@ def fetch_mlflow_run(
     )
 
 
-def generate_new_execution_id(client: MlflowClient, experiment: Union[str, MlflowExperiment]) -> WorkflowExecutionID:
+def generate_new_execution_id(client: MlflowClient, experiment: str | MlflowExperiment) -> WorkflowExecutionID:
     experiment = get_mlflow_experiment(experiment)
     while True:
         execution_id = uuid.uuid4().hex[:8]
@@ -261,9 +261,9 @@ def generate_new_execution_id(client: MlflowClient, experiment: Union[str, Mlflo
 
 def add_mlflow_run(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    step_or_execution_info: Union[WorkflowStepInfo, WorkflowExecutionInfo],
-    parent_run_id: Optional[str] = None,
+    experiment: str | MlflowExperiment,
+    step_or_execution_info: WorkflowStepInfo | WorkflowExecutionInfo,
+    parent_run_id: str | None = None,
 ) -> MlflowRun:
     experiment = get_mlflow_experiment(experiment)
 
@@ -299,10 +299,10 @@ def add_mlflow_run(
 
 def download_mlflow_artifacts(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    step_or_execution_info: Union[WorkflowStepInfo, WorkflowExecutionInfo],
-    directory: Union[str, PathLike],
-    artifact_path: Optional[str] = None,
+    experiment: str | MlflowExperiment,
+    step_or_execution_info: WorkflowStepInfo | WorkflowExecutionInfo,
+    directory: str | PathLike,
+    artifact_path: str | None = None,
 ) -> None:
     run_type = (
         WorkflowRunType.STEP if isinstance(step_or_execution_info, WorkflowStepInfo) else WorkflowRunType.EXECUTION
@@ -335,10 +335,10 @@ def download_mlflow_artifacts(
 
 def upload_mlflow_artifacts(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    step_or_execution_info: Union[WorkflowStepInfo, WorkflowExecutionInfo],
-    directory: Union[str, PathLike],
-    artifact_path: Optional[str] = None,
+    experiment: str | MlflowExperiment,
+    step_or_execution_info: WorkflowStepInfo | WorkflowExecutionInfo,
+    directory: str | PathLike,
+    artifact_path: str | None = None,
 ) -> None:
     run = fetch_mlflow_run(
         client,
@@ -357,13 +357,13 @@ def upload_mlflow_artifacts(
 
 def terminate_mlflow_run(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    step_or_execution_state: Union[WorkflowStepState, WorkflowExecutionState],
+    experiment: str | MlflowExperiment,
+    step_or_execution_state: WorkflowStepState | WorkflowExecutionState,
 ) -> None:
-    step_info: Optional[str] = None
-    execution_info: Optional[str] = None
+    step_info: str | None = None
+    execution_info: str | None = None
     run_status: MlflowRunStatus
-    end_time: Optional[int] = None
+    end_time: int | None = None
     if isinstance(step_or_execution_state, WorkflowStepState):
         if step_or_execution_state.status not in (
             WorkflowStepStatus.COMPLETED,
@@ -406,8 +406,8 @@ def terminate_mlflow_run(
 
 def remove_mlflow_run(
     client: MlflowClient,
-    experiment: Union[str, MlflowExperiment],
-    step_or_execution_info: Union[WorkflowStepInfo, WorkflowExecutionInfo],
+    experiment: str | MlflowExperiment,
+    step_or_execution_info: WorkflowStepInfo | WorkflowExecutionInfo,
 ) -> None:
     run = fetch_mlflow_run(
         client,
@@ -420,7 +420,7 @@ def remove_mlflow_run(
     client.delete_run(run.info.run_id)
 
 
-def get_mlflow_experiment(experiment: Union[str, MlflowExperiment]) -> MlflowExperiment:
+def get_mlflow_experiment(experiment: str | MlflowExperiment) -> MlflowExperiment:
     if isinstance(experiment, str):
         client = MlflowClient()
         experiment_or_none = client.get_experiment_by_name(experiment)

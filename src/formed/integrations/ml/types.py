@@ -1,6 +1,6 @@
 import dataclasses
 import enum
-from collections.abc import Hashable, Sized
+from collections.abc import Hashable, Sequence, Sized
 from contextlib import suppress
 from typing import (
     TYPE_CHECKING,
@@ -8,14 +8,13 @@ from typing import (
     Generic,
     Literal,
     NamedTuple,
-    Optional,
     Protocol,
-    Sequence,
+    TypeAlias,
     Union,
     runtime_checkable,
 )
 
-from typing_extensions import TypeAlias, TypeVar
+from typing_extensions import TypeVar
 
 if TYPE_CHECKING:
     with suppress(ImportError):
@@ -83,4 +82,4 @@ class IIDSequenceBatch(Protocol[TensorT]):
 
 class AnalyzedText(NamedTuple):
     surfaces: Sequence[str]
-    postags: Optional[Sequence[str]] = None
+    postags: Sequence[str] | None = None

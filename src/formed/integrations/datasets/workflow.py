@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from contextlib import suppress
 from os import PathLike
 from pathlib import Path
-from typing import Any, Generic, Union, cast
+from typing import Any, Generic, cast
 
 import datasets
 import minato
@@ -32,7 +32,7 @@ class DatasetFormat(Generic[DatasetOrMappingT], Format[DatasetOrMappingT]):
 
 @step("datasets::load_dataset", cacheable=False, format=DatasetFormat())
 def load_dataset(
-    path: Union[str, PathLike],
+    path: str | PathLike,
     **kwargs: Any,
 ) -> Dataset:
     with suppress(FileNotFoundError):

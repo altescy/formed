@@ -77,8 +77,8 @@ class MlflowWorkflowCache(WorkflowCache):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        directory: Optional[Union[str, PathLike]] = None,
-        mlflow_client: Optional[MlflowClient] = None,
+        directory: str | PathLike | None = None,
+        mlflow_client: MlflowClient | None = None,
     ) -> None:
         self._client = mlflow_client or MlflowClient()
         self._experiment_name = experiment_name
@@ -201,13 +201,13 @@ class MlflowWorkflowCallback(WorkflowCallback):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        mlflow_client: Optional[MlflowClient] = None,
+        mlflow_client: MlflowClient | None = None,
         log_execution_metrics: bool = False,
     ) -> None:
         self._client = mlflow_client or MlflowClient()
         self._experiment_name = experiment_name
-        self._execution_run: Optional[MlflowRun] = None
-        self._execution_log: Optional[LogCapture[StringIO]] = None
+        self._execution_run: MlflowRun | None = None
+        self._execution_log: LogCapture[StringIO] | None = None
         self._step_log: dict[WorkflowStepInfo, LogCapture[StringIO]] = {}
         self._log_execution_metrics = log_execution_metrics
 
@@ -319,9 +319,9 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        cache: Optional[WorkflowCache] = None,
-        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
-        log_execution_metrics: Optional[bool] = None,
+        cache: WorkflowCache | None = None,
+        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
+        log_execution_metrics: bool | None = None,
     ) -> None:
         self._client = MlflowClient()
         self._experiment_name = experiment_name
@@ -352,7 +352,7 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
     def run(
         self,
         executor: WorkflowExecutor,
-        execution: Union[WorkflowGraph, WorkflowExecutionInfo],
+        execution: WorkflowGraph | WorkflowExecutionInfo,
     ) -> WorkflowExecutionContext:
         cxt = contextvars.copy_context()
 
@@ -365,7 +365,7 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
 
         return cxt.run(_run)
 
-    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
+    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
         run = mlflow_utils.fetch_mlflow_run(
             self._client,
             self._experiment_name,
@@ -414,7 +414,7 @@ class MlflowLogger:
     @overload
     def _get_artifact_path(self, artifact_path: str) -> str: ...
 
-    def _get_artifact_path(self, artifact_path: Optional[str]) -> Optional[str]:
+    def _get_artifact_path(self, artifact_path: str | None) -> str | None:
         if artifact_path is None:
             return None
         return os.path.join(self._ARTIFACT_PATH, artifact_path)
@@ -427,8 +427,8 @@ class MlflowLogger:
         self,
         key: str,
         value: float,
-        timestamp: Optional[int] = None,
-        step: Optional[int] = None,
+        timestamp: int | None = None,
+        step: int | None = None,
     ) -> None:
         self.mlflow_client.log_metric(
             run_id=self.run.info.run_id,
@@ -444,7 +444,7 @@ class MlflowLogger:
 
     def log_table(
         self,
-        data: Union[dict[str, Sequence[Union[str, bool, int, float]]], "PandasDataFrame"],
+        data: Union[dict[str, Sequence[str | bool | int | float]], "PandasDataFrame"],
         artifact_path: str,
     ) -> None:
         self.mlflow_client.log_table(
@@ -489,7 +489,7 @@ class MlflowLogger:
     def log_image(
         self,
         image: Union["NumpyArray", "PILImage", "MlflowImage"],
-        artifact_path: Optional[str] = None,
+        artifact_path: str | None = None,
     ) -> None:
         self.mlflow_client.log_image(
             run_id=self.run.info.run_id,
@@ -499,8 +499,8 @@ class MlflowLogger:
 
     def log_artifact(
         self,
-        local_path: Union[str, PathLike],
-        artifact_path: Optional[str] = None,
+        local_path: str | PathLike,
+        artifact_path: str | None = None,
     ) -> None:
         self.mlflow_client.log_artifact(
             run_id=self.run.info.run_id,
@@ -509,11 +509,11 @@ class MlflowLogger:
         )
 
 
-def use_mlflow_experiment() -> Optional[MlflowExperiment]:
+def use_mlflow_experiment() -> MlflowExperiment | None:
     return _MLFLOW_EXPERIMENT.get()
 
 
-def use_mlflow_logger() -> Optional[MlflowLogger]:
+def use_mlflow_logger() -> MlflowLogger | None:
     if (experiment := use_mlflow_experiment()) is None:
         return None
 

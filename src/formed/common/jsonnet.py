@@ -32,7 +32,7 @@ import json
 import os
 from collections.abc import Iterable, Mapping
 from os import PathLike
-from typing import Any, ClassVar, Optional, TypeVar, Union, cast
+from typing import Any, ClassVar, TypeVar, cast
 
 from colt.builder import ColtBuilder
 from rjsonnet import evaluate_file, evaluate_snippet
@@ -48,7 +48,7 @@ def _environment_variables() -> dict[str, str]:
     return {key: value for key, value in os.environ.items() if _is_encodable(value)}
 
 
-def _parse_overrides(serialized_overrides: str, ext_vars: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _parse_overrides(serialized_overrides: str, ext_vars: dict[str, Any] | None = None) -> dict[str, Any]:
     if serialized_overrides:
         ext_vars = {**_environment_variables(), **(ext_vars or {})}
         output = json.loads(evaluate_snippet("", serialized_overrides, ext_vars=ext_vars))
@@ -59,7 +59,7 @@ def _parse_overrides(serialized_overrides: str, ext_vars: Optional[dict[str, Any
 
 def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "") -> T:
     merged: T
-    keys: Union[Iterable[str], Iterable[int]]
+    keys: Iterable[str] | Iterable[int]
     if isinstance(original, list):
         merged = [None] * len(original)
         keys = cast(Iterable[int], range(len(original)))
@@ -104,9 +104,9 @@ def _with_overrides(original: T, overrides_dict: dict[str, Any], prefix: str = "
 
 
 def load_jsonnet(
-    filename: Union[str, PathLike],
-    ext_vars: Optional[Mapping[str, Any]] = None,
-    overrides: Optional[str] = None,
+    filename: str | PathLike,
+    ext_vars: Mapping[str, Any] | None = None,
+    overrides: str | None = None,
 ) -> Any:
     """Load and evaluate a Jsonnet configuration file.
 
@@ -193,9 +193,9 @@ class FromJsonnet:
     @classmethod
     def from_jsonnet(
         cls: type[_T_FromJsonnet],
-        filename: Union[str, PathLike],
-        ext_vars: Optional[Mapping[str, Any]] = None,
-        overrides: Optional[str] = None,
+        filename: str | PathLike,
+        ext_vars: Mapping[str, Any] | None = None,
+        overrides: str | None = None,
     ) -> _T_FromJsonnet:
         """Load an instance from a Jsonnet configuration file.
 

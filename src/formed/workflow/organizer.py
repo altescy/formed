@@ -41,7 +41,7 @@ from collections.abc import Sequence
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
-from typing import ClassVar, Optional, TypeVar, Union
+from typing import ClassVar, TypeVar
 
 from colt import Registrable
 from filelock import FileLock
@@ -84,7 +84,7 @@ class WorkflowOrganizer(Registrable):
     def __init__(
         self,
         cache: "WorkflowCache",
-        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]],
+        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None,
     ) -> None:
         if isinstance(callbacks, WorkflowCallback):
             callbacks = [callbacks]
@@ -95,7 +95,7 @@ class WorkflowOrganizer(Registrable):
     def run(
         self,
         executor: "WorkflowExecutor",
-        execution: Union[WorkflowGraph, WorkflowExecutionInfo],
+        execution: WorkflowGraph | WorkflowExecutionInfo,
     ) -> WorkflowExecutionContext:
         """Run a workflow execution.
 
@@ -114,7 +114,7 @@ class WorkflowOrganizer(Registrable):
                 callback=self.callback,
             )
 
-    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
+    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
         """Retrieve a previous execution by ID.
 
         Args:
@@ -166,7 +166,7 @@ class MemoryWorkflowOrganizer(WorkflowOrganizer):
 
     def __init__(
         self,
-        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
+        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
     ) -> None:
         super().__init__(MemoryWorkflowCache(), callbacks)
 
@@ -221,7 +221,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
         def __init__(self, organizer: "FilesystemWorkflowOrganizer") -> None:
             self._organizer = organizer
-            self._execution_log: Optional[LogCapture] = None
+            self._execution_log: LogCapture | None = None
             self._step_log: dict[WorkflowStepInfo, LogCapture] = {}
 
         def _generate_new_execution_id(self) -> WorkflowExecutionID:
@@ -360,8 +360,8 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
     def __init__(
         self,
-        directory: Optional[Union[str, PathLike]] = None,
-        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
+        directory: str | PathLike | None = None,
+        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
     ) -> None:
         self._directory = Path(directory or self._DEFAULT_DIRECTORY).expanduser().resolve().absolute()
 
@@ -383,7 +383,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
     def executions_directory(self) -> Path:
         return self._directory / self._EXECUTIONS_DIRNAME
 
-    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
+    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
         execution_directory = self.executions_directory / execution_id
         if not execution_directory.exists():
             return None
@@ -392,12 +392,12 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
         if not execution_path.exists():
             return None
 
-        with open(execution_path, "r") as jsonfile:
+        with open(execution_path) as jsonfile:
             execution_info = COLT_BUILDER(json.load(jsonfile), WorkflowExecutionInfo)
 
         state_path = execution_directory / self._Callback._STATE_FILENAME
         if state_path.exists():
-            with open(state_path, "r") as jsonfile:
+            with open(state_path) as jsonfile:
                 execution_state = COLT_BUILDER(json.load(jsonfile), WorkflowExecutionState)
         else:
             logger.warning(f"State file not found for execution {execution_id}")

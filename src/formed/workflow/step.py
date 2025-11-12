@@ -48,9 +48,7 @@ from typing import (
     Any,
     ClassVar,
     Generic,
-    Optional,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -69,7 +67,7 @@ OutputT = TypeVar("OutputT")
 StepFunctionT = TypeVar("StepFunctionT", bound=Callable[..., Any])
 WorkflowStepT = TypeVar("WorkflowStepT", bound="WorkflowStep")
 
-_STEP_CONTEXT = contextvars.ContextVar[Optional["WorkflowStepContext"]]("_STEP_CONTEXT", default=None)
+_STEP_CONTEXT = contextvars.ContextVar["WorkflowStepContext | None"]("_STEP_CONTEXT", default=None)
 
 
 class WorkflowStepArgFlag(str, Enum):
@@ -124,8 +122,8 @@ class WorkflowStepState:
 
     fingerprint: str
     status: WorkflowStepStatus = WorkflowStepStatus.PENDING
-    started_at: Optional[datetime.datetime] = None
-    finished_at: Optional[datetime.datetime] = None
+    started_at: datetime.datetime | None = None
+    finished_at: datetime.datetime | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -190,9 +188,9 @@ class WorkflowStep(Generic[OutputT], Registrable):
 
     """
 
-    VERSION: ClassVar[Optional[str]] = None
+    VERSION: ClassVar[str | None] = None
     DETERMINISTIC: ClassVar[bool] = True
-    CACHEABLE: ClassVar[Optional[bool]] = None
+    CACHEABLE: ClassVar[bool | None] = None
     FORMAT: Format[OutputT]
     FUNCTION: Callable[..., OutputT]
 
@@ -200,7 +198,7 @@ class WorkflowStep(Generic[OutputT], Registrable):
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self, context: Optional["WorkflowStepContext"]) -> OutputT:
+    def __call__(self, context: "WorkflowStepContext | None") -> OutputT:
         """Execute the step function with optional context.
 
         Args:
@@ -225,7 +223,7 @@ class WorkflowStep(Generic[OutputT], Registrable):
         return ctx.run(run)
 
     @classmethod
-    def get_output_type(cls, field: Optional[str] = None) -> type[OutputT]:
+    def get_output_type(cls, field: str | None = None) -> type[OutputT]:
         return_annotation = cls.FUNCTION.__annotations__["return"]
         if field is not None:
             return_annotation = typing.get_type_hints(return_annotation).get(field, Any)
@@ -240,10 +238,10 @@ class WorkflowStep(Generic[OutputT], Registrable):
         cls,
         func: Callable[..., OutputT],
         *,
-        version: Optional[str] = None,
+        version: str | None = None,
         deterministic: bool = True,
-        cacheable: Optional[bool] = None,
-        format: Optional[Union[str, Format[OutputT]]] = None,
+        cacheable: bool | None = None,
+        format: str | Format[OutputT] | None = None,
     ) -> type["WorkflowStep[OutputT]"]:
         if isinstance(format, str):
             format = cast(type[Format[OutputT]], Format.by_name(format))()
@@ -350,7 +348,7 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
         return self.step_class.DETERMINISTIC
 
     @property
-    def cacheable(self) -> Optional[bool]:
+    def cacheable(self) -> bool | None:
         """Check if caching is explicitly enabled/disabled (None = auto)."""
         return self.step_class.CACHEABLE
 
@@ -415,7 +413,7 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowStepRef(Generic[WorkflowStepT], WorkflowStepInfo[WorkflowStepT]):
-    fieldref: Optional[str] = None
+    fieldref: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
@@ -428,11 +426,11 @@ class WorkflowStepRef(Generic[WorkflowStepT], WorkflowStepInfo[WorkflowStepT]):
 def step(
     name: str,
     *,
-    version: Optional[str] = ...,
+    version: str | None = ...,
     deterministic: bool = ...,
-    cacheable: Optional[bool] = ...,
+    cacheable: bool | None = ...,
     exist_ok: bool = ...,
-    format: Optional[Union[str, Format]] = ...,
+    format: str | Format | None = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
 
 
@@ -440,34 +438,34 @@ def step(
 def step(
     name: StepFunctionT,
     *,
-    version: Optional[str] = ...,
+    version: str | None = ...,
     deterministic: bool = ...,
-    cacheable: Optional[bool] = ...,
+    cacheable: bool | None = ...,
     exist_ok: bool = ...,
-    format: Optional[Union[str, Format]] = ...,
+    format: str | Format | None = ...,
 ) -> StepFunctionT: ...
 
 
 @overload
 def step(
     *,
-    version: Optional[str] = ...,
+    version: str | None = ...,
     deterministic: bool = ...,
-    cacheable: Optional[bool] = ...,
+    cacheable: bool | None = ...,
     exist_ok: bool = ...,
-    format: Optional[Union[str, Format]] = ...,
+    format: str | Format | None = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
 
 
 def step(
-    name: Optional[Union[str, StepFunctionT]] = None,
+    name: str | StepFunctionT | None = None,
     *,
-    version: Optional[str] = None,
+    version: str | None = None,
     deterministic: bool = True,
-    cacheable: Optional[bool] = None,
+    cacheable: bool | None = None,
     exist_ok: bool = False,
-    format: Optional[Union[str, Format]] = None,
-) -> Union[StepFunctionT, Callable[[StepFunctionT], StepFunctionT]]:
+    format: str | Format | None = None,
+) -> StepFunctionT | Callable[[StepFunctionT], StepFunctionT]:
     """Decorator to convert a function into a workflow step.
 
     This is the primary API for defining workflow steps. It wraps a function
@@ -563,7 +561,7 @@ def step(
     return decorator
 
 
-def use_step_context() -> Optional[WorkflowStepContext]:
+def use_step_context() -> WorkflowStepContext | None:
     """Get the current step's execution context.
 
     This function accesses the context variable set during step execution,
@@ -592,14 +590,14 @@ def use_step_context() -> Optional[WorkflowStepContext]:
 
 
 @overload
-def use_step_logger(default: Union[str, Logger]) -> Logger: ...
+def use_step_logger(default: str | Logger) -> Logger: ...
 
 
 @overload
-def use_step_logger(default: None = ...) -> Optional[Logger]: ...
+def use_step_logger(default: None = ...) -> Logger | None: ...
 
 
-def use_step_logger(default: Optional[Union[str, Logger]] = None) -> Optional[Logger]:
+def use_step_logger(default: str | Logger | None = None) -> Logger | None:
     context = use_step_context()
     if context is not None:
         return get_step_logger_from_info(context.info)

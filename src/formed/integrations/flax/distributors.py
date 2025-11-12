@@ -32,13 +32,12 @@ Example:
 
 import abc
 from collections.abc import Callable, Sequence
-from typing import Generic, Literal, Optional, TypeVar, cast
+from typing import Generic, Literal, TypeAlias, TypeVar, cast
 
 import flax.jax_utils
 import jax
 from colt import Registrable
 from flax import nnx
-from typing_extensions import TypeAlias
 
 from .types import ModelInputT
 
@@ -200,7 +199,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
     def __init__(
         self,
         axis_name: str = "batch",
-        num_devices: Optional[int] = None,
+        num_devices: int | None = None,
     ) -> None:
         self._axis_name = axis_name
         self._num_devices = num_devices or jax.local_device_count()

@@ -29,7 +29,7 @@ Example:
 
 import sys
 from collections.abc import Iterator, Mapping
-from typing import Any, Optional, TextIO, TypedDict
+from typing import Any, TextIO, TypedDict
 
 from colt import ConfigurationError, Lazy
 
@@ -122,8 +122,8 @@ class WorkflowGraph(FromJsonnet):
 
         builder = next(iter(steps.values()))._builder
 
-        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str, Optional[str]]]:
-            refs: set[tuple[StrictParamPath, str, Optional[str]]] = set()
+        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str, str | None]]:
+            refs: set[tuple[StrictParamPath, str, str | None]] = set()
             if WorkflowRef.is_ref(builder, obj):
                 step_name, field_name = WorkflowRef._parse_ref(str(obj[WORKFLOW_REFKEY]))
                 refs |= {(path, step_name, field_name)}
@@ -158,7 +158,7 @@ class WorkflowGraph(FromJsonnet):
         def make_dependency_step(
             path: StrictParamPath,
             step_info: WorkflowStepInfo,
-            field_name: Optional[str],
+            field_name: str | None,
         ) -> tuple[StrictParamPath, WorkflowStepInfo]:
             if field_name:
                 return (

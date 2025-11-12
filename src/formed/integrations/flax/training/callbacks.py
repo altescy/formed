@@ -40,7 +40,7 @@ Example:
 """
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Generic, Optional, cast
+from typing import TYPE_CHECKING, Generic, cast
 
 import cloudpickle
 from colt import Registrable
@@ -312,7 +312,7 @@ class MlflowCallback(FlaxTrainingCallback):
     def __init__(self) -> None:
         from formed.integrations.mlflow.workflow import MlflowLogger
 
-        self._mlflow_logger: Optional[MlflowLogger] = None
+        self._mlflow_logger: MlflowLogger | None = None
 
     def on_training_start(
         self,
