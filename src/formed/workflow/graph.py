@@ -1,3 +1,32 @@
+"""Workflow graph construction and dependency resolution.
+
+This module provides the WorkflowGraph class which parses workflow configurations
+and builds directed acyclic graphs (DAGs) of workflow steps with dependency tracking.
+
+Key Features:
+    - Parse Jsonnet workflow configurations
+    - Automatic dependency detection via references
+    - Topological sorting for execution order
+    - Cycle detection in dependencies
+    - DAG-based workflow representation
+
+Example:
+    >>> from formed.workflow import WorkflowGraph
+    >>>
+    >>> # Load workflow from Jsonnet config
+    >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
+    >>>
+    >>> # Access steps in topological order
+    >>> for step_info in graph:
+    ...     print(f"Step: {step_info.name}")
+    ...     print(f"Dependencies: {step_info.dependencies}")
+    >>>
+    >>> # Get specific step
+    >>> preprocess_step = graph["preprocess"]
+    >>> print(preprocess_step.fingerprint)
+
+"""
+
 import sys
 from collections.abc import Iterator, Mapping
 from typing import Any, Optional, TextIO, TypedDict
@@ -15,10 +44,72 @@ from .types import StrictParamPath
 
 
 class WorkflowGraphConfig(TypedDict):
+    """Type definition for workflow configuration.
+
+    Attributes:
+        steps: Dictionary mapping step names to their configurations.
+
+    """
+
     steps: dict[str, JsonValue]
 
 
 class WorkflowGraph(FromJsonnet):
+    """Directed acyclic graph of workflow steps with dependency tracking.
+
+    WorkflowGraph parses workflow configurations (typically from Jsonnet),
+    resolves step dependencies, and provides topological ordering for execution.
+    It detects cycles, validates configurations, and builds a DAG representation.
+
+    Attributes:
+        _steps: Mapping of step names to WorkflowStepInfo metadata.
+        _dag: Directed acyclic graph representation of step dependencies.
+
+    Example:
+        >>> # Define workflow configuration as a dictionary
+        >>> config = {
+        ...     "steps": {
+        ...         "load_data": {
+        ...             "type": "load_csv",
+        ...             "path": "data.csv"
+        ...         },
+        ...         "preprocess": {
+        ...             "type": "preprocess",
+        ...             "data": {"type": "ref", "ref": "load_data"}
+        ...         },
+        ...         "train": {
+        ...             "type": "train_model",
+        ...             "data": {"type": "ref", "ref": "preprocess"}
+        ...         }
+        ...     }
+        ... }
+        >>>
+        >>> # Build graph from config dict
+        >>> graph = WorkflowGraph.from_config(config)
+        >>>
+        >>> # Or load from Jsonnet file
+        >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
+        >>>
+        >>> # Iterate in topological order (load_data -> preprocess -> train)
+        >>> for step_info in graph:
+        ...     print(step_info.name)
+        >>>
+        >>> # Access specific steps
+        >>> train_step = graph["train"]
+        >>> print(train_step.dependencies)  # Shows dependency on preprocess
+        >>>
+        >>> # Visualize graph
+        >>> graph.visualize(sys.stdout)
+
+    Note:
+        - Steps reference each other using {type: "ref", ref: "step_name"}
+        - Field-level refs: {type: "ref", ref: "step_name.field"}
+        - Dependencies are automatically detected from configuration
+        - Cycles in dependencies raise ConfigurationError
+        - Topological order ensures dependencies execute before dependents
+
+    """
+
     __COLT_BUILDER__ = COLT_BUILDER
 
     @classmethod

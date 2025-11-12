@@ -1,3 +1,37 @@
+"""Workflow execution engine and context management.
+
+This module provides the execution engine for workflows, coordinating step execution,
+caching, callbacks, and state management.
+
+Key Components:
+    - WorkflowExecutor: Abstract base for execution engines
+    - DefaultWorkflowExecutor: Default sequential execution implementation
+    - WorkflowExecutionContext: Runtime context for workflow execution
+    - WorkflowExecutionInfo: Metadata about workflow execution
+
+Features:
+    - Sequential step execution with dependency resolution
+    - Cache integration for step results
+    - Callback hooks for monitoring and logging
+    - Execution state tracking
+    - Git and environment metadata capture
+
+Example:
+    >>> from formed.workflow import WorkflowGraph, DefaultWorkflowExecutor
+    >>> from formed.workflow.cache import FilesystemWorkflowCache
+    >>>
+    >>> # Load workflow and create executor
+    >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
+    >>> executor = DefaultWorkflowExecutor()
+    >>> cache = FilesystemWorkflowCache(".formed/cache")
+    >>>
+    >>> # Execute workflow
+    >>> with executor:
+    ...     context = executor(graph, cache=cache)
+    >>> print(context.state.status)  # "completed"
+
+"""
+
 import contextvars
 import dataclasses
 import datetime
@@ -79,6 +113,23 @@ class WorkflowExecutionContext:
 
 
 class WorkflowExecutor(Registrable):
+    """Abstract base class for workflow execution engines.
+
+    WorkflowExecutor defines the interface for executing workflows. Subclasses
+    implement different execution strategies (sequential, parallel, distributed, etc.).
+
+    The executor can be used as a context manager for resource cleanup.
+
+    Example:
+        >>> executor = DefaultWorkflowExecutor()
+        >>> with executor:
+        ...     context = executor(graph, cache=cache)
+
+    Note:
+        Executors are registered and can be instantiated by name via colt.
+
+    """
+
     def __call__(
         self,
         graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
@@ -86,6 +137,17 @@ class WorkflowExecutor(Registrable):
         cache: Optional[WorkflowCache] = None,
         callback: Optional[WorkflowCallback] = None,
     ) -> WorkflowExecutionContext:
+        """Execute a workflow.
+
+        Args:
+            graph_or_execution: Workflow graph or execution info to execute.
+            cache: Optional cache for step results. Defaults to EmptyWorkflowCache.
+            callback: Optional callback for monitoring execution. Defaults to EmptyWorkflowCallback.
+
+        Returns:
+            Execution context containing state and results.
+
+        """
         raise NotImplementedError
 
     def __enter__(self: T_WorkflowExecutor) -> T_WorkflowExecutor:
@@ -102,6 +164,45 @@ class WorkflowExecutor(Registrable):
 
 @WorkflowExecutor.register("default")
 class DefaultWorkflowExecutor(WorkflowExecutor):
+    """Default sequential workflow executor.
+
+    DefaultWorkflowExecutor executes workflow steps sequentially in topological order,
+    respecting dependencies. It integrates caching and callbacks, handles errors,
+    and tracks execution state.
+
+    Features:
+        - Sequential execution with dependency resolution
+        - Automatic cache management
+        - Callback integration for monitoring
+        - Error handling with state tracking
+        - Temporary cache for non-cacheable steps
+
+    Example:
+        >>> from formed.workflow import WorkflowGraph, DefaultWorkflowExecutor
+        >>> from formed.workflow.cache import FilesystemWorkflowCache
+        >>> from formed.workflow.callback import LoggingWorkflowCallback
+        >>>
+        >>> executor = DefaultWorkflowExecutor()
+        >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
+        >>> cache = FilesystemWorkflowCache(".formed/cache")
+        >>> callback = LoggingWorkflowCallback()
+        >>>
+        >>> with executor:
+        ...     context = executor(graph, cache=cache, callback=callback)
+        >>>
+        >>> # Check execution status
+        >>> print(context.state.status)  # "completed" or "failure"
+        >>> print(context.state.execution_id)  # Unique execution ID
+
+    Note:
+        - Steps are executed in topological order
+        - Cached results are used when fingerprints match
+        - Non-deterministic steps always re-execute
+        - Steps ending with "!" force re-execution (no temp cache)
+        - Callbacks receive step_start/step_finish notifications
+
+    """
+
     def __call__(
         self,
         graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],

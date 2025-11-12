@@ -12,5 +12,6 @@ def punkt_tokenize(text: str) -> list[str]:
 
     Returns:
         list[str]: A list of tokens extracted from the input text.
+
     """
     return list(filter(bool, _PUNKT_SPLIT_PATTERN.split(text)))

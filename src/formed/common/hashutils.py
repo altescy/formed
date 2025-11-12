@@ -1,3 +1,26 @@
+"""Object hashing utilities for content-based fingerprinting.
+
+This module provides utilities for hashing arbitrary Python objects using
+serialization and cryptographic hash functions. It's used for cache keys
+and fingerprinting in workflow systems.
+
+Key Features:
+    - Hash arbitrary Python objects using dill serialization
+    - BLAKE2b hashing for cryptographic strength
+    - MurmurHash3 for string hashing (non-cryptographic)
+
+Example:
+    >>> from formed.common.hashutils import hash_object, murmurhash3
+    >>>
+    >>> # Hash complex objects
+    >>> config = {"model": "bert", "epochs": 10, "layers": [1, 2, 3]}
+    >>> fingerprint = hash_object(config)
+    >>>
+    >>> # Fast string hashing
+    >>> hash_val = murmurhash3("my_key", seed=42)
+
+"""
+
 import hashlib
 import io
 from typing import Any
@@ -6,6 +29,25 @@ import dill
 
 
 def hash_object_bytes(o: Any) -> bytes:
+    """Hash a Python object to bytes using BLAKE2b.
+
+    Serializes the object using dill and computes a BLAKE2b hash digest.
+    This provides a stable, cryptographically strong fingerprint for
+    arbitrary Python objects.
+
+    Args:
+        o: The object to hash (any dill-serializable object).
+
+    Returns:
+        The BLAKE2b hash digest as bytes.
+
+    Example:
+        >>> obj = {"key": "value", "nested": [1, 2, 3]}
+        >>> hash_bytes = hash_object_bytes(obj)
+        >>> len(hash_bytes)  # BLAKE2b produces 64 bytes
+        64
+
+    """
     m = hashlib.blake2b()
     with io.BytesIO() as buffer:
         dill.dump(o, buffer)
@@ -14,10 +56,56 @@ def hash_object_bytes(o: Any) -> bytes:
 
 
 def hash_object(o: Any) -> int:
+    """Hash a Python object to an integer using BLAKE2b.
+
+    Convenience wrapper around hash_object_bytes() that converts the
+    digest to an integer representation.
+
+    Args:
+        o: The object to hash (any dill-serializable object).
+
+    Returns:
+        The hash as a large integer.
+
+    Example:
+        >>> config1 = {"model": "bert"}
+        >>> config2 = {"model": "gpt"}
+        >>> hash_object(config1) != hash_object(config2)
+        True
+
+    """
     return int.from_bytes(hash_object_bytes(o), "big")
 
 
 def murmurhash3(key: str, seed: int = 0) -> int:
+    """Compute MurmurHash3 hash of a string.
+
+    MurmurHash3 is a fast, non-cryptographic hash function suitable for
+    hash tables and other applications where speed is more important than
+    cryptographic strength.
+
+    Args:
+        key: The string to hash.
+        seed: Hash seed for generating different hash values. Defaults to 0.
+
+    Returns:
+        A 32-bit unsigned integer hash value.
+
+    Example:
+        >>> # Hash strings quickly
+        >>> murmurhash3("token")
+        123456789  # Example value
+        >>>
+        >>> # Use different seeds for different hash spaces
+        >>> murmurhash3("token", seed=0) != murmurhash3("token", seed=1)
+        True
+
+    Note:
+        - This is NOT cryptographically secure
+        - Used for vocabulary hashing, feature hashing, etc.
+        - Produces 32-bit output (0 to 4294967295)
+
+    """
     length = len(key)
 
     remainder = length & 3

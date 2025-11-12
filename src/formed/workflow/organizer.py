@@ -1,3 +1,39 @@
+"""Workflow organizers for managing execution state and artifacts.
+
+This module provides organizers that coordinate workflow execution,
+managing caches, callbacks, and persistent storage of execution state.
+
+Key Components:
+    - WorkflowOrganizer: Abstract base class for organizers
+    - MemoryWorkflowOrganizer: In-memory organizer for testing
+    - FilesystemWorkflowOrganizer: Persistent filesystem-based organizer
+
+Features:
+    - Execution lifecycle management
+    - Integration with caches and callbacks
+    - Persistent storage of execution metadata and results
+    - Thread-safe execution with file locking
+    - Automatic log capture and organization
+
+Example:
+    >>> from formed.workflow import FilesystemWorkflowOrganizer, DefaultWorkflowExecutor
+    >>>
+    >>> # Create filesystem organizer
+    >>> organizer = FilesystemWorkflowOrganizer(
+    ...     directory=".formed",
+    ...     callbacks=[my_callback]
+    ... )
+    >>>
+    >>> # Run workflow
+    >>> executor = DefaultWorkflowExecutor()
+    >>> context = organizer.run(executor, workflow_graph)
+    >>>
+    >>> # Access results
+    >>> print(context.state)
+    >>> print(context.results)
+
+"""
+
 import json
 import shutil
 import uuid
@@ -33,6 +69,18 @@ T_WorkflowOrganizer = TypeVar("T_WorkflowOrganizer", bound="WorkflowOrganizer")
 
 
 class WorkflowOrganizer(Registrable):
+    """Abstract base class for workflow organizers.
+
+    Organizers coordinate workflow execution by managing caches, callbacks,
+    and execution state. They provide the high-level interface for running
+    workflows and accessing execution results.
+
+    Args:
+        cache: Cache for storing step results.
+        callbacks: Optional callback or sequence of callbacks.
+
+    """
+
     def __init__(
         self,
         cache: "WorkflowCache",
@@ -49,6 +97,16 @@ class WorkflowOrganizer(Registrable):
         executor: "WorkflowExecutor",
         execution: Union[WorkflowGraph, WorkflowExecutionInfo],
     ) -> WorkflowExecutionContext:
+        """Run a workflow execution.
+
+        Args:
+            executor: Executor to use for running the workflow.
+            execution: Workflow graph or execution info to run.
+
+        Returns:
+            Execution context containing results and metadata.
+
+        """
         with executor:
             return executor(
                 execution,
@@ -57,17 +115,55 @@ class WorkflowOrganizer(Registrable):
             )
 
     def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
+        """Retrieve a previous execution by ID.
+
+        Args:
+            execution_id: Unique execution identifier.
+
+        Returns:
+            Execution context if found, None otherwise.
+
+        """
         return None
 
     def exists(self, execution_id: WorkflowExecutionID) -> bool:
+        """Check if an execution exists.
+
+        Args:
+            execution_id: Unique execution identifier.
+
+        Returns:
+            True if execution exists.
+
+        """
         return self.get(execution_id) is not None
 
     def remove(self, execution_id: WorkflowExecutionID) -> None:
+        """Remove an execution.
+
+        Args:
+            execution_id: Unique execution identifier.
+
+        """
         pass
 
 
 @WorkflowOrganizer.register("memory")
 class MemoryWorkflowOrganizer(WorkflowOrganizer):
+    """In-memory workflow organizer for testing and development.
+
+    This organizer stores everything in memory and doesn't persist
+    any state to disk. Useful for testing and rapid iteration.
+
+    Args:
+        callbacks: Optional callback or sequence of callbacks.
+
+    Example:
+        >>> organizer = MemoryWorkflowOrganizer()
+        >>> context = organizer.run(executor, graph)
+
+    """
+
     def __init__(
         self,
         callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
@@ -77,6 +173,39 @@ class MemoryWorkflowOrganizer(WorkflowOrganizer):
 
 @WorkflowOrganizer.register("filesystem")
 class FilesystemWorkflowOrganizer(WorkflowOrganizer):
+    """Filesystem-based workflow organizer with persistent storage.
+
+    This organizer stores all execution state, logs, and artifacts to
+    the filesystem. It provides persistent storage of workflow results
+    and metadata, with thread-safe execution using file locks.
+
+    Directory structure:
+        {directory}/
+            cache/              # Step result cache
+            executions/         # Execution records
+                {exec_id}/
+                    out.log         # Execution log
+                    execution.json  # Execution metadata
+                    state.json      # Final state
+                    steps/          # Step artifacts
+                        {step_name}/
+                            result      # Step result
+                            step.json   # Step metadata
+                            out.log     # Step log
+
+    Args:
+        directory: Base directory for workflow storage.
+        callbacks: Optional callback or sequence of callbacks.
+
+    Example:
+        >>> organizer = FilesystemWorkflowOrganizer(".formed")
+        >>> context = organizer.run(executor, graph)
+        >>>
+        >>> # Access previous execution
+        >>> old_context = organizer.get(execution_id)
+
+    """
+
     _CACHE_DIRNAME: ClassVar[str] = "cache"
     _EXECUTIONS_DIRNAME: ClassVar[str] = "executions"
     _DEFAULT_DIRECTORY: ClassVar[Path] = WORKFLOW_DEFAULT_DIRECTORY

@@ -1,3 +1,24 @@
+"""Directed Acyclic Graph (DAG) utilities for dependency management and visualization.
+
+This module provides the DAG class for representing and manipulating directed acyclic
+graphs. It's used primarily for workflow dependency visualization and analysis.
+
+Example:
+    >>> # Create a simple DAG
+    >>> dag = DAG({
+    ...     "train": {"preprocess", "load_data"},
+    ...     "evaluate": {"train"},
+    ...     "preprocess": {"load_data"},
+    ...     "load_data": set()
+    ... })
+    >>>
+    >>> # Visualize the graph
+    >>> dag.visualize()
+    >>> # Get successors
+    >>> print(dag.successors("load_data"))  # {"preprocess", "train"}
+
+"""
+
 import sys
 from collections.abc import Callable, Hashable
 from typing import Generic, TextIO, TypeVar
@@ -6,6 +27,44 @@ T_Node = TypeVar("T_Node", bound=Hashable)
 
 
 class DAG(Generic[T_Node]):
+    """Directed acyclic graph with dependency tracking and visualization.
+
+    DAG represents a directed acyclic graph where each node can have dependencies
+    (edges pointing to other nodes). It provides methods for analyzing graph structure,
+    computing weakly connected components, and visualizing the graph structure.
+
+    Type Parameters:
+        T_Node: Node type, must be hashable.
+
+    Attributes:
+        _dependencies: Mapping from each node to its set of dependency nodes.
+
+    Example:
+        >>> # Define workflow dependencies
+        >>> dag = DAG({
+        ...     "step3": {"step1", "step2"},
+        ...     "step2": {"step1"},
+        ...     "step1": set()
+        ... })
+        >>>
+        >>> # Query graph properties
+        >>> print(dag.nodes)  # {"step1", "step2", "step3"}
+        >>> print(dag.in_degree("step3"))  # 2
+        >>> print(dag.successors("step1"))  # {"step2", "step3"}
+        >>>
+        >>> # Visualize dependencies
+        >>> dag.visualize()
+        • step1
+        ├─• step2
+        ╰─• step3
+
+    Note:
+        - All nodes referenced in dependencies are automatically included in the graph
+        - Nodes can be any hashable type (strings, tuples, etc.)
+        - The graph does not validate acyclicity on construction
+
+    """
+
     def __init__(self, dependencies: dict[T_Node, set[T_Node]]) -> None:
         nodes = set(dependencies.keys() | set(node for deps in dependencies.values() for node in deps))
         empty_dependencies: dict[T_Node, set[T_Node]] = {node: set() for node in nodes}
@@ -28,15 +87,64 @@ class DAG(Generic[T_Node]):
         return set(self._dependencies.keys())
 
     def subgraph(self, nodes: set[T_Node]) -> "DAG":
+        """Create a subgraph containing only the specified nodes.
+
+        Args:
+            nodes: Set of nodes to include in the subgraph.
+
+        Returns:
+            A new DAG containing only the specified nodes and their dependencies
+            that are also in the node set.
+
+        """
         return DAG({node: nodes & deps for node, deps in self._dependencies.items() if node in nodes})
 
     def in_degree(self, node: T_Node) -> int:
+        """Get the number of dependencies for a node.
+
+        Args:
+            node: The node to query.
+
+        Returns:
+            The number of nodes that this node depends on.
+
+        """
         return len(self._dependencies[node])
 
     def successors(self, node: T_Node) -> set[T_Node]:
+        """Get all nodes that depend on the specified node.
+
+        Args:
+            node: The node to find successors for.
+
+        Returns:
+            Set of nodes that have this node as a dependency.
+
+        """
         return {successor for successor, deps in self._dependencies.items() if node in deps}
 
     def weekly_connected_components(self) -> set["DAG"]:
+        """Compute weakly connected components of the graph.
+
+        A weakly connected component is a maximal subgraph where every pair of nodes
+        is connected by some path (ignoring edge direction).
+
+        Returns:
+            Set of DAG objects, each representing one weakly connected component.
+
+        Example:
+            >>> # Graph with two disconnected components
+            >>> dag = DAG({
+            ...     "a": {"b"},
+            ...     "b": set(),
+            ...     "c": {"d"},
+            ...     "d": set()
+            ... })
+            >>> components = dag.weekly_connected_components()
+            >>> len(components)  # 2 components
+            2
+
+        """
         groups: list[set[T_Node]] = []
 
         for node, deps in self._dependencies.items():
@@ -65,6 +173,28 @@ class DAG(Generic[T_Node]):
         output: TextIO = sys.stdout,
         rename: Callable[[T_Node], str] = str,
     ) -> None:
+        """Visualize the DAG structure as ASCII art.
+
+        Renders the dependency graph using box-drawing characters, showing the
+        relationships between nodes in a tree-like format.
+
+        Args:
+            indent: Number of spaces to indent each level. Defaults to 2.
+            output: Text stream to write visualization to. Defaults to stdout.
+            rename: Function to convert nodes to display strings. Defaults to str().
+
+        Example:
+            >>> dag = DAG({
+            ...     "train": {"preprocess"},
+            ...     "preprocess": {"load"},
+            ...     "load": set()
+            ... })
+            >>> dag.visualize()
+            • load
+            ╰─• preprocess
+              ╰─• train
+
+        """
         locations: dict[T_Node, tuple[int, int]] = {}
 
         def _process_dag(dag: DAG, level: int) -> None:

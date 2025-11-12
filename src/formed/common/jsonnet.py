@@ -1,3 +1,31 @@
+"""Jsonnet configuration loading and processing utilities.
+
+This module provides utilities for loading Jsonnet configuration files with support
+for external variables and configuration overrides. It enables flexible configuration
+management through Jsonnet's template language.
+
+Key Features:
+    - Load Jsonnet files with external variable substitution
+    - Apply runtime configuration overrides
+    - Automatic environment variable access
+    - FromJsonnet mixin for easy Jsonnet-based object construction
+
+Example:
+    >>> # Load a Jsonnet configuration file
+    >>> config = load_jsonnet(
+    ...     "workflow.jsonnet",
+    ...     ext_vars={"dataset": "train"},
+    ...     overrides="steps.preprocess.batch_size=64"
+    ... )
+    >>>
+    >>> # Use FromJsonnet mixin in your class
+    >>> class MyWorkflow(FromJsonnet):
+    ...     pass
+    >>>
+    >>> workflow = MyWorkflow.from_jsonnet("config.jsonnet")
+
+"""
+
 import copy
 import itertools
 import json
@@ -80,6 +108,44 @@ def load_jsonnet(
     ext_vars: Optional[Mapping[str, Any]] = None,
     overrides: Optional[str] = None,
 ) -> Any:
+    """Load and evaluate a Jsonnet configuration file.
+
+    This function loads a Jsonnet file, evaluates it with optional external variables,
+    and applies runtime configuration overrides. Environment variables are automatically
+    made available to the Jsonnet template.
+
+    Args:
+        filename: Path to the Jsonnet configuration file.
+        ext_vars: External variables to pass to Jsonnet. These are accessible
+            in the template as `std.extVar("key")`.
+        overrides: Jsonnet expression for runtime overrides. Must evaluate to
+            an object with keys like "path.to.field=value".
+
+    Returns:
+        The evaluated configuration (typically a dict or list).
+
+    Example:
+        >>> # Basic usage
+        >>> config = load_jsonnet("config.jsonnet")
+        >>>
+        >>> # With external variables
+        >>> config = load_jsonnet(
+        ...     "workflow.jsonnet",
+        ...     ext_vars={"mode": "train", "epochs": 10}
+        ... )
+        >>>
+        >>> # With overrides
+        >>> config = load_jsonnet(
+        ...     "workflow.jsonnet",
+        ...     overrides="{\"steps.train.epochs\": 20}"
+        ... )
+
+    Note:
+        - Environment variables are automatically available in ext_vars
+        - Overrides are applied after Jsonnet evaluation
+        - Overrides use dot-separated paths (e.g., "steps.train.batch_size")
+
+    """
     ext_vars = {**_environment_variables(), **(ext_vars or {})}
     output = json.loads(evaluate_file(str(filename), ext_vars=ext_vars))
     if overrides:
@@ -91,6 +157,37 @@ _T_FromJsonnet = TypeVar("_T_FromJsonnet", bound="FromJsonnet")
 
 
 class FromJsonnet:
+    """Mixin class for loading objects from Jsonnet configuration files.
+
+    FromJsonnet provides a class method `from_jsonnet()` that loads a Jsonnet
+    configuration file and constructs an instance using the colt builder pattern.
+    Classes that inherit from this mixin can be instantiated from Jsonnet configs.
+
+    Class Attributes:
+        __COLT_BUILDER__: The colt builder instance used for object construction.
+            Defaults to ColtBuilder with "type" as the type key.
+
+    Example:
+        >>> from formed.common.jsonnet import FromJsonnet
+        >>> from colt import Registrable
+        >>>
+        >>> class MyModel(FromJsonnet, Registrable):
+        ...     def __init__(self, learning_rate: float):
+        ...         self.learning_rate = learning_rate
+        >>>
+        >>> # Load from Jsonnet file
+        >>> model = MyModel.from_jsonnet("config.jsonnet")
+        >>>
+        >>> # Access the original config
+        >>> print(model.to_dict())
+
+    Note:
+        - Inheriting classes should be compatible with colt's builder pattern
+        - The loaded config is stored in the instance as `__config__` attribute
+        - Override `__pre_init__()` to modify config before object construction
+
+    """
+
     __COLT_BUILDER__: ClassVar = ColtBuilder(typekey="type")
 
     @classmethod
@@ -100,6 +197,24 @@ class FromJsonnet:
         ext_vars: Optional[Mapping[str, Any]] = None,
         overrides: Optional[str] = None,
     ) -> _T_FromJsonnet:
+        """Load an instance from a Jsonnet configuration file.
+
+        Args:
+            filename: Path to the Jsonnet configuration file.
+            ext_vars: External variables to pass to Jsonnet.
+            overrides: Runtime configuration overrides.
+
+        Returns:
+            An instance of the class constructed from the Jsonnet config.
+
+        Example:
+            >>> class Workflow(FromJsonnet):
+            ...     def __init__(self, steps: dict):
+            ...         self.steps = steps
+            >>>
+            >>> workflow = Workflow.from_jsonnet("workflow.jsonnet")
+
+        """
         config = load_jsonnet(filename, ext_vars=ext_vars, overrides=overrides)
         config = cls.__pre_init__(config)
         obj: _T_FromJsonnet = cls.__COLT_BUILDER__(config, cls)

@@ -4,7 +4,7 @@ from functools import partial
 from typing import Iterator, Optional, TypeVar
 
 from rich.live import Live
-from rich.progress import Progress
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 from rich.spinner import Spinner
 
 T = TypeVar("T")
@@ -21,7 +21,13 @@ def progress(iterable: Iterable[T], desc: Optional[str] = None) -> Iterator[Iter
                 callback()
 
     if isinstance(iterable, Sized):
-        with Progress() as progress:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+        ) as progress:
             task = progress.add_task(desc, total=len(iterable))
             yield _iterator(partial(progress.update, task, advance=1))
     else:

@@ -1,3 +1,40 @@
+"""NLP-specific data transformations for text processing.
+
+This module provides transformations for natural language processing tasks,
+including tokenization, vocabulary building, and sequence indexing with special
+tokens (PAD, UNK, BOS, EOS).
+
+Available Transforms:
+    - TokenSequenceIndexer: Convert token sequences to integer indices with vocab building
+    - TokenCharactersIndexer: Character-level indexing for tokens
+    - Tokenizer: Complete tokenization pipeline with surfaces, postags, and characters
+
+Features:
+    - Dynamic vocabulary building with min_df/max_df filtering
+    - Document frequency tracking
+    - Special token handling (PAD, UNK, BOS, EOS)
+    - Automatic padding and masking
+    - Reconstruction support (indices -> tokens)
+
+Example:
+    >>> from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+    >>>
+    >>> # Simple tokenization
+    >>> tokenizer = Tokenizer(surfaces=TokenSequenceIndexer(
+    ...     unk_token="<UNK>", pad_token="<PAD>"
+    ... ))
+    >>>
+    >>> with tokenizer.train():
+    ...     instance = tokenizer.instance("Hello world!")
+    >>> batch = tokenizer.batch([instance1, instance2, instance3])
+    >>> print(batch.surfaces.ids.shape)  # (3, max_length)
+    >>> print(batch.surfaces.mask.shape)  # (3, max_length)
+    >>>
+    >>> # Reconstruct tokens from indices
+    >>> tokens = tokenizer.surfaces.reconstruct(batch.surfaces)
+
+"""
+
 import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from functools import cached_property
@@ -10,8 +47,7 @@ from typing_extensions import TypeVar
 from formed.common.nlputils import punkt_tokenize
 
 from ..types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleModeT, IDSequenceBatch  # noqa: F401
-from .base import BaseTransform, Extra, Param
-from .datamodule import DataModule
+from .base import BaseTransform, DataModule, Extra, Param
 
 logger = getLogger(__name__)
 
@@ -24,6 +60,71 @@ class TokenSequenceIndexer(
     BaseTransform[_S, Sequence[str], Sequence[str], IDSequenceBatch],
     Generic[_S],
 ):
+    """Convert token sequences to integer indices with vocabulary building and filtering.
+
+    TokenSequenceIndexer builds and maintains a vocabulary, converting tokens to indices.
+    It supports vocabulary filtering by document frequency (min_df/max_df), vocabulary
+    size limits, and special tokens (PAD, UNK, BOS, EOS). During batching, sequences
+    are padded to the same length and a mask is generated.
+
+    Type Parameters:
+        _S: Source data type before accessor
+
+    Attributes:
+        vocab: Pre-defined or built vocabulary mapping tokens to indices.
+        pad_token: Padding token (required).
+        unk_token: Unknown token for out-of-vocabulary tokens (optional).
+        bos_token: Beginning-of-sequence token (optional).
+        eos_token: End-of-sequence token (optional).
+        min_df: Minimum document frequency (int or fraction) to include token.
+        max_df: Maximum document frequency (int or fraction) to include token.
+        max_vocab_size: Maximum vocabulary size (excluding special tokens).
+        freeze: If True, prevent vocabulary updates.
+
+    Properties:
+        vocab_size: Total number of tokens in vocabulary.
+        pad_index: Index of the padding token.
+        unk_index: Index of the unknown token (if set).
+        bos_index: Index of BOS token (if set).
+        eos_index: Index of EOS token (if set).
+
+    Example:
+        >>> # Build vocabulary with filtering
+        >>> indexer = TokenSequenceIndexer(
+        ...     unk_token="<UNK>",
+        ...     min_df=2,  # Tokens must appear in at least 2 documents
+        ...     max_vocab_size=10000
+        ... )
+        >>>
+        >>> with indexer.train():
+        ...     tokens1 = indexer.instance(["hello", "world"])
+        ...     tokens2 = indexer.instance(["hello", "there"])
+        >>> # Vocabulary: {"<PAD>": 0, "<UNK>": 1, "hello": 2, "world": 3, "there": 4}
+        >>>
+        >>> # Create batch with padding
+        >>> batch = indexer.batch([
+        ...     ["hello", "world"],
+        ...     ["hello", "there", "friend"]
+        ... ])
+        >>> print(batch.ids.shape)  # (2, 3) - padded to max length
+        >>> print(batch.mask.shape)  # (2, 3) - True for real tokens
+        >>>
+        >>> # Reconstruct original tokens
+        >>> tokens = indexer.reconstruct(batch)
+        >>> print(tokens)  # [["hello", "world"], ["hello", "there", "friend"]]
+
+    Note:
+        - Special tokens are always added first and never filtered
+        - min_df/max_df require unk_token to handle filtered tokens
+        - Document frequency counts unique tokens per document
+        - BOS/EOS tokens are added during batching if specified
+        - Reconstruction removes special tokens and padding
+
+    Raises:
+        ValueError: If configuration is invalid (e.g., min_df>1 without unk_token).
+
+    """
+
     vocab: Mapping[str, int] = dataclasses.field(default_factory=dict)
     pad_token: str = "<PAD>"
     unk_token: Optional[str] = None
@@ -193,6 +294,41 @@ class TokenSequenceIndexer(
 
 @BaseTransform.register("token_characters")
 class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
+    """Character-level indexing for token sequences.
+
+    TokenCharactersIndexer extends TokenSequenceIndexer to index individual characters
+    within tokens. This is useful for character-level models or handling rare words.
+    The batch output is a 3D tensor: (batch_size, num_tokens, max_characters).
+
+    Type Parameters:
+        _S: Source data type before accessor
+
+    Attributes:
+        min_characters: Minimum character length per token (for padding).
+        (inherits all attributes from TokenSequenceIndexer)
+
+    Example:
+        >>> indexer = TokenCharactersIndexer(
+        ...     unk_token="<UNK>",
+        ...     bos_token="<BOS>",
+        ...     eos_token="<EOS>"
+        ... )
+        >>>
+        >>> with indexer.train():
+        ...     tokens = indexer.instance(["hello", "world"])
+        >>>
+        >>> batch = indexer.batch([["hello", "world"], ["hi"]])
+        >>> print(batch.ids.shape)  # (2, 2, 7) - batch x tokens x chars
+        >>> print(batch.mask.shape)  # (2, 2, 7)
+
+    Note:
+        - Each token is converted to a sequence of character indices
+        - BOS/EOS are added per token, not per sequence
+        - Vocabulary contains individual characters, not tokens
+        - Useful for morphologically rich languages or rare word handling
+
+    """
+
     min_characters: int = 1
 
     def _get_input_value(self, data: _S) -> Optional[Sequence[str]]:
@@ -253,6 +389,60 @@ class Tokenizer(
     ],
     Generic[DataModuleModeT],
 ):
+    """Complete tokenization pipeline with multiple representation options.
+
+    Tokenizer is a DataModule that provides a unified interface for text tokenization
+    with support for surface forms, part-of-speech tags, and character-level representations.
+    It accepts raw text, pre-tokenized sequences, or analyzed text and converts them
+    to indexed representations suitable for neural models.
+
+    Type Parameters:
+        DataModuleModeT: Current mode (AsConverter, AsInstance, or AsBatch)
+
+    Fields:
+        surfaces: Required token sequence indexer for surface forms (words).
+        postags: Optional indexer for part-of-speech tags.
+        characters: Optional character-level indexer for tokens.
+        analyzer: Optional custom text analyzer/tokenizer function.
+
+    Example:
+        >>> # Basic tokenization
+        >>> tokenizer = Tokenizer(
+        ...     surfaces=TokenSequenceIndexer(unk_token="<UNK>")
+        ... )
+        >>>
+        >>> with tokenizer.train():
+        ...     instance1 = tokenizer.instance("Hello world!")
+        ...     instance2 = tokenizer.instance(["Hello", "world", "!"])
+        >>>
+        >>> batch = tokenizer.batch([instance1, instance2])
+        >>> print(batch.surfaces.ids.shape)  # (2, max_tokens)
+        >>> print(batch.surfaces.mask.shape)  # (2, max_tokens)
+        >>>
+        >>> # With POS tags and characters
+        >>> tokenizer = Tokenizer(
+        ...     surfaces=TokenSequenceIndexer(unk_token="<UNK>"),
+        ...     postags=TokenSequenceIndexer(unk_token="<UNK-POS>"),
+        ...     characters=TokenCharactersIndexer()
+        ... )
+        >>>
+        >>> analyzed = AnalyzedText(
+        ...     surfaces=["Hello", "world"],
+        ...     postags=["INTJ", "NOUN"]
+        ... )
+        >>> instance = tokenizer.instance(analyzed)
+        >>> print(instance.surfaces)  # Indexed tokens
+        >>> print(instance.postags)  # Indexed POS tags
+        >>> print(instance.characters)  # Character indices
+
+    Note:
+        - Default analyzer uses punkt tokenization for raw strings
+        - Accepts string, token list, or AnalyzedText as input
+        - Extra fields (postags, characters) can be None
+        - All indexers share the same training context
+
+    """
+
     surfaces: TokenSequenceIndexer = dataclasses.field(default_factory=TokenSequenceIndexer)
     postags: Extra[TokenSequenceIndexer] = Extra.default(None)
     characters: Extra[TokenCharactersIndexer] = Extra.default(None)

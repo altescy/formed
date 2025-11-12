@@ -28,6 +28,8 @@ T_co = TypeVar("T_co", covariant=True)
 
 Label: TypeAlias = Hashable
 LabelT = TypeVar("LabelT", bound=Label, default=Any)
+BinaryLabel: TypeAlias = Union[bool, Literal[0, 1]]
+BinaryLabelT = TypeVar("BinaryLabelT", bound=BinaryLabel, default=BinaryLabel)
 
 Batch: TypeAlias = Sized
 BatchT = TypeVar("BatchT", bound=Batch, default=Any)

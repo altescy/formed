@@ -1,5 +1,6 @@
+import dataclasses
 from pathlib import Path
-from typing import Any, Generic, Iterable, Iterator, NamedTuple
+from typing import Any, Generic, Iterable, Iterator
 
 from typing_extensions import TypeVar
 
@@ -15,7 +16,8 @@ InstanceT = TypeVar("InstanceT", bound=DataModule[AsInstance], default=Any)
 DataModuleT = TypeVar("DataModuleT", bound=DataModule[AsConverter], default=Any)
 
 
-class DataModuleAndInstances(NamedTuple, Generic[InputT, InstanceT]):
+@dataclasses.dataclass(frozen=True)
+class DataModuleAndInstances(Generic[InputT, InstanceT]):
     datamodule: DataModule[AsConverter, InputT, InstanceT]
     instances: Iterable[InstanceT]
 

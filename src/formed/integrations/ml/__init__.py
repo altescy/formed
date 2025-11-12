@@ -1,3 +1,24 @@
+from .dataloader import BaseBatchSampler, BasicBatchSampler, DataLoader
+from .metrics import (
+    NDCG,
+    Average,
+    BaseMetric,
+    BinaryAccuracy,
+    BinaryClassificationMetric,
+    BinaryFBeta,
+    EmptyMetric,
+    MeanAbsoluteError,
+    MeanAveragePrecision,
+    MeanSquaredError,
+    MulticlassAccuracy,
+    MulticlassClassificationMetric,
+    MulticlassFBeta,
+    MultilabelAccuracy,
+    MultilabelClassificationMetric,
+    MultilabelFBeta,
+    RankingMetric,
+    RegressionMetric,
+)
 from .transforms import (
     BaseTransform,
     DataModule,
@@ -5,13 +26,39 @@ from .transforms import (
     LabelIndexer,
     MetadataTransform,
     Param,
+    ScalarTransform,
+    TensorTransform,
     TokenCharactersIndexer,
     Tokenizer,
     TokenSequenceIndexer,
+    register_dataclass,
 )
 from .types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleMode, DataModuleModeT, IDSequenceBatch
 
 __all__ = [
+    # dataloader
+    "BaseBatchSampler",
+    "BasicBatchSampler",
+    "DataLoader",
+    # metrics
+    "NDCG",
+    "Average",
+    "BaseMetric",
+    "BinaryAccuracy",
+    "BinaryClassificationMetric",
+    "BinaryFBeta",
+    "EmptyMetric",
+    "MeanAbsoluteError",
+    "MeanAveragePrecision",
+    "MeanSquaredError",
+    "MulticlassAccuracy",
+    "MulticlassClassificationMetric",
+    "MulticlassFBeta",
+    "MultilabelAccuracy",
+    "MultilabelClassificationMetric",
+    "MultilabelFBeta",
+    "RankingMetric",
+    "RegressionMetric",
     # transforms
     "BaseTransform",
     "DataModule",
@@ -19,9 +66,12 @@ __all__ = [
     "LabelIndexer",
     "MetadataTransform",
     "Param",
+    "ScalarTransform",
+    "TensorTransform",
     "Tokenizer",
     "TokenCharactersIndexer",
     "TokenSequenceIndexer",
+    "register_dataclass",
     # types
     "AnalyzedText",
     "AsBatch",
@@ -31,3 +81,12 @@ __all__ = [
     "DataModuleModeT",
     "IDSequenceBatch",
 ]
+
+
+def _setup() -> None:
+    from .types import IDSequenceBatch
+
+    register_dataclass(IDSequenceBatch)
+
+
+_setup()
