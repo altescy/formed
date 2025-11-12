@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "cloudpickle>=3.1.1",
     "colt>=0.17.2",
@@ -39,7 +39,7 @@ formed = "formed.__main__:run"
 
 [project.optional-dependencies]
 flax = [
-    "flax>=0.9",
+    "flax>=0.10",
 ]
 mlflow = [
     "mlflow>=2.0",
@@ -64,7 +64,7 @@ sentence-transformers = [
 ]
 all = [
     "datasets>=2.0",
-    "flax>=0.9",
+    "flax>=0.10",
     "mlflow>=2.0",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
