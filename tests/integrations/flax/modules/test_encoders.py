@@ -1,4 +1,5 @@
 import jax
+import pytest
 from flax import nnx
 
 from formed.integrations.flax.modules.encoders import (
@@ -88,11 +89,15 @@ class TestLearnablePositionEncoder:
             assert output.shape == (2, 10, features)
 
 
-class TestLSTMSequenceEncoder:
-    def test_single_layer(self) -> None:
-        """Test LSTM encoder with single layer."""
+RNNSequenceEncoder = LSTMSequenceEncoder | GRUSequenceEncoder | OptimizedLSTMSequenceEncoder
+
+
+class TestRNNSequenceEncoder:
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_single_layer(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with single layer."""
         rngs = nnx.Rngs(0)
-        encoder = LSTMSequenceEncoder(features=64, num_layers=1, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=1, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
@@ -101,45 +106,49 @@ class TestLSTMSequenceEncoder:
         assert encoder.get_input_dim() == 64
         assert encoder.get_output_dim() == 64
 
-    def test_multiple_layers(self) -> None:
-        """Test LSTM encoder with multiple layers."""
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_multiple_layers(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with multiple layers."""
         rngs = nnx.Rngs(0)
-        encoder = LSTMSequenceEncoder(features=128, num_layers=3, rngs=rngs)
+        encoder = encoder_class(features=128, num_layers=3, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 128))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 128)
 
-    def test_bidirectional(self) -> None:
-        """Test bidirectional LSTM encoder."""
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_bidirectional(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test bidirectional encoder."""
         rngs = nnx.Rngs(0)
-        encoder = LSTMSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=2, bidirectional=True, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
         output = encoder(inputs)
 
         assert output.shape == (2, 10, 64)
 
-    def test_with_dropout(self) -> None:
-        """Test LSTM encoder with dropout."""
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_with_dropout(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with dropout."""
         rngs = nnx.Rngs(0)
-        encoder = LSTMSequenceEncoder(features=64, num_layers=2, dropout=0.5, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=2, dropout=0.5, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
 
         # Training mode
-        output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
+        output_train = encoder(inputs, deterministic=False)
         # Eval mode
         output_eval = encoder(inputs, deterministic=True)
 
         assert output_train.shape == (2, 10, 64)
         assert output_eval.shape == (2, 10, 64)
 
-    def test_with_mask(self) -> None:
-        """Test LSTM encoder with mask."""
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_with_mask(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with mask."""
         rngs = nnx.Rngs(0)
-        encoder = LSTMSequenceEncoder(features=64, num_layers=2, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=2, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
         mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
@@ -148,86 +157,27 @@ class TestLSTMSequenceEncoder:
 
         assert output.shape == (2, 10, 64)
 
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_with_jit(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with JIT compilation."""
 
-class TestOptimizedLSTMSequenceEncoder:
-    def test_basic_forward(self) -> None:
-        """Test optimized LSTM encoder."""
         rngs = nnx.Rngs(0)
-        encoder = OptimizedLSTMSequenceEncoder(features=64, num_layers=2, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=2, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
-        output = encoder(inputs)
+        output = jax.jit(encoder)(inputs)
 
         assert output.shape == (2, 10, 64)
 
-    def test_bidirectional(self) -> None:
-        """Test bidirectional optimized LSTM encoder."""
+    @pytest.mark.parametrize("encoder_class", [LSTMSequenceEncoder, GRUSequenceEncoder, OptimizedLSTMSequenceEncoder])
+    def test_bidirectional_with_jit(self, encoder_class: type[RNNSequenceEncoder]) -> None:
+        """Test encoder with JIT compilation."""
+
         rngs = nnx.Rngs(0)
-        encoder = OptimizedLSTMSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
+        encoder = encoder_class(features=64, num_layers=2, bidirectional=True, rngs=rngs)
 
         inputs = jax.numpy.ones((2, 10, 64))
-        output = encoder(inputs)
-
-        assert output.shape == (2, 10, 64)
-
-
-class TestGRUSequenceEncoder:
-    def test_single_layer(self) -> None:
-        """Test GRU encoder with single layer."""
-        rngs = nnx.Rngs(0)
-        encoder = GRUSequenceEncoder(features=64, num_layers=1, rngs=rngs)
-
-        inputs = jax.numpy.ones((2, 10, 64))
-        output = encoder(inputs)
-
-        assert output.shape == (2, 10, 64)
-        assert encoder.get_input_dim() == 64
-        assert encoder.get_output_dim() == 64
-
-    def test_multiple_layers(self) -> None:
-        """Test GRU encoder with multiple layers."""
-        rngs = nnx.Rngs(0)
-        encoder = GRUSequenceEncoder(features=128, num_layers=3, rngs=rngs)
-
-        inputs = jax.numpy.ones((2, 10, 128))
-        output = encoder(inputs)
-
-        assert output.shape == (2, 10, 128)
-
-    def test_bidirectional(self) -> None:
-        """Test bidirectional GRU encoder."""
-        rngs = nnx.Rngs(0)
-        encoder = GRUSequenceEncoder(features=64, num_layers=2, bidirectional=True, rngs=rngs)
-
-        inputs = jax.numpy.ones((2, 10, 64))
-        output = encoder(inputs)
-
-        assert output.shape == (2, 10, 64)
-
-    def test_with_dropout(self) -> None:
-        """Test GRU encoder with dropout."""
-        rngs = nnx.Rngs(0)
-        encoder = GRUSequenceEncoder(features=64, num_layers=2, dropout=0.5, rngs=rngs)
-
-        inputs = jax.numpy.ones((2, 10, 64))
-
-        # Training mode
-        output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
-        # Eval mode
-        output_eval = encoder(inputs, deterministic=True)
-
-        assert output_train.shape == (2, 10, 64)
-        assert output_eval.shape == (2, 10, 64)
-
-    def test_with_mask(self) -> None:
-        """Test GRU encoder with mask."""
-        rngs = nnx.Rngs(0)
-        encoder = GRUSequenceEncoder(features=64, num_layers=2, rngs=rngs)
-
-        inputs = jax.numpy.ones((2, 10, 64))
-        mask = jax.numpy.array([[True] * 7 + [False] * 3, [True] * 5 + [False] * 5])
-
-        output = encoder(inputs, mask=mask)
+        output = jax.jit(encoder)(inputs)
 
         assert output.shape == (2, 10, 64)
 
@@ -273,7 +223,7 @@ class TestTransformerSequenceEncoder:
         inputs = jax.numpy.ones((2, 10, 128))
 
         # Training mode
-        output_train = encoder(inputs, deterministic=False, rngs=nnx.Rngs(1))
+        output_train = encoder(inputs, deterministic=False)
         # Eval mode
         output_eval = encoder(inputs, deterministic=True)
 
@@ -360,3 +310,14 @@ class TestTransformerSequenceEncoder:
             output = encoder(inputs)
 
             assert output.shape == (2, 10, 128)
+
+    def test_with_jit(self) -> None:
+        """Test transformer encoder with JIT compilation."""
+
+        rngs = nnx.Rngs(0)
+        encoder = TransformerSequenceEncoder(features=128, num_heads=8, num_layers=2, rngs=rngs)
+
+        inputs = jax.numpy.ones((2, 10, 128))
+        output = jax.jit(encoder)(inputs)
+
+        assert output.shape == (2, 10, 128)

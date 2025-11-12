@@ -155,14 +155,13 @@ class FeedForward(nnx.Module):
     ) -> None:
         rngs = rngs or require_rngs()
 
-        @nnx.split_rngs(splits=num_layers)
-        @nnx.vmap(in_axes=(0,), out_axes=0)
+        @nnx.vmap(in_axes=0, out_axes=0)
         def create_block(rngs: nnx.Rngs) -> Block:
             return Block(features, features, dropout, layer_norm_eps, activation, rngs=rngs)
 
         self.features = features
         self.num_layers = num_layers
-        self.blocks = create_block(rngs)
+        self.blocks = create_block(rngs.fork(split=num_layers))
         self.residual_connection = residual_connection
 
     def get_input_dim(self) -> int:
@@ -176,24 +175,22 @@ class FeedForward(nnx.Module):
         x: jax.Array,
         *,
         deterministic: Optional[bool] = None,
-        rngs: Optional[nnx.Rngs] = None,
     ) -> jax.Array:
-        @nnx.split_rngs(splits=self.num_layers)
-        @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
+        prev = jax.numpy.zeros_like(x) if self.residual_connection == "dense" else None
+
         def forward(
-            inputs: tuple[jax.Array, Optional[jax.Array]], block: Block, rngs: Optional[nnx.Rngs]
-        ) -> tuple[jax.Array, Optional[jax.Array]]:
+            inputs: tuple[jax.Array, Optional[jax.Array]], block: Block
+        ) -> tuple[tuple[jax.Array, Optional[jax.Array]], None]:
             x, r = inputs
-            output = block(x, r, deterministic=deterministic, rngs=rngs)
+            output = block(x, r, deterministic=deterministic)
             if self.residual_connection == "dense" and r is not None:
                 r = r + x
-            return output, r
+            return (output, r), None
 
-        return forward(
-            (
-                x,
-                jax.numpy.zeros_like(x) if self.residual_connection == "dense" else None,
-            ),
+        (output, _), _ = jax.lax.scan(
+            forward,
+            (x, prev),
             self.blocks,
-            rngs,
-        )[0]
+        )
+
+        return output

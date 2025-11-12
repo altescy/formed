@@ -228,50 +228,14 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
 
     """
 
-    class _BidirectionalProjection(nnx.Module):
-        def __init__(
-            self,
-            forward_cell: nnx.RNNCellBase,
-            backward_cell: nnx.RNNCellBase,
-            feedforward_layers: Optional[int] = None,
-            rngs: Optional[nnx.Rngs] = None,
-        ) -> None:
-            rngs = rngs or require_rngs()
-            in_features = int(getattr(forward_cell, "in_features"))
-            forward_features = int(getattr(forward_cell, "hidden_features"))
-            backward_features = int(getattr(backward_cell, "hidden_features"))
-            concat_features = forward_features + backward_features
-
-            feedforward: Optional[FeedForward] = None
-            if feedforward_layers is not None and feedforward_layers > 0:
-                feedforward = FeedForward(
-                    features=concat_features,
-                    num_layers=feedforward_layers,
-                    rngs=rngs,
-                )
-
-            self.feedforward = feedforward
-            self.projection = nnx.Linear(
-                concat_features if feedforward is None else feedforward.get_output_dim(),
-                in_features,
-                rngs=rngs,
-            )
-
-        def __call__(self, a: jax.Array, b: jax.Array) -> jax.Array:
-            h = jax.numpy.concatenate([a, b], axis=-1)
-            if self.feedforward is not None:
-                h = self.feedforward(h) + h
-            return self.projection(h)
-
     class _RNNBlock(nnx.Module):
         def __init__(
             self,
             rnn: Union[nnx.RNN, nnx.Bidirectional],
             feedforward_layers: int,
             dropout: float,
-            rngs: Optional[nnx.Rngs] = None,
+            rngs: nnx.Rngs,
         ) -> None:
-            rngs = rngs or require_rngs()
             self.rnn = rnn
             self.dropout = nnx.Dropout(dropout, rngs=rngs)
 
@@ -326,7 +290,6 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
     ) -> None:
         rngs = rngs or require_rngs()
 
-        @nnx.split_rngs(splits=num_layers)
         @nnx.vmap(in_axes=0, out_axes=0)
         def create_block(rngs: nnx.Rngs) -> RNNSequenceEncoder._RNNBlock:
             rnn: Union[nnx.RNN, nnx.Bidirectional]
@@ -347,8 +310,8 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
                 rngs=rngs,
             )
 
+        self.blocks = create_block(rngs.fork(split=num_layers))
         self.num_layers = num_layers
-        self.blocks = create_block(rngs)
         self.bidirectional = bidirectional
         self.features = features
 
@@ -358,22 +321,19 @@ class RNNSequenceEncoder(BaseSequenceEncoder):
         *,
         mask: Optional[jax.Array] = None,
         deterministic: Optional[bool] = None,
-        rngs: Optional[nnx.Rngs] = None,
     ) -> jax.Array:
         seq_lengths: Optional[jax.Array] = None
         if mask is not None:
             seq_lengths = jax.numpy.sum(mask.astype(jax.numpy.int32), axis=-1)
 
-        @nnx.split_rngs(splits=self.num_layers)
-        @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
         def forward(
             x: jax.Array,
             block: RNNSequenceEncoder._RNNBlock,
-            rngs: Optional[nnx.Rngs],
-        ) -> jax.Array:
-            return block(x, seq_lengths=seq_lengths, deterministic=deterministic, rngs=rngs)
+        ) -> tuple[jax.Array, None]:
+            return block(x, seq_lengths=seq_lengths, deterministic=deterministic), None
 
-        return forward(inputs, self.blocks, rngs)
+        output, _ = jax.lax.scan(forward, inputs, self.blocks)
+        return output
 
     def get_input_dim(self) -> int:
         return self.features
@@ -593,7 +553,6 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
     ) -> None:
         rngs = rngs or require_rngs()
 
-        @nnx.split_rngs(splits=num_layers)
         @nnx.vmap(in_axes=0, out_axes=0)
         def create_block(rngs: nnx.Rngs) -> TransformerSequenceEncoder._TransformerBlock:
             return self._TransformerBlock(
@@ -607,7 +566,7 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
             )
 
         self.num_layers = num_layers
-        self.blocks = create_block(rngs)
+        self.blocks = create_block(rngs.fork(split=num_layers))
         self.position_encoder = position_encoder
         self.features = features
 
@@ -622,22 +581,19 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         if mask is not None and mask.ndim == 2:
             mask = mask[..., None]
 
-        @nnx.split_rngs(splits=self.num_layers)
-        @nnx.scan(in_axes=(nnx.Carry, 0, 0), out_axes=nnx.Carry)
         def forward(
-            inputs: tuple[jax.Array, Optional[jax.Array]],
+            inputs: tuple[jax.Array, Optional[jax.Array], Optional[nnx.Rngs]],
             block: TransformerSequenceEncoder._TransformerBlock,
-            rngs: Optional[nnx.Rngs],
-        ) -> tuple[jax.Array, Optional[jax.Array]]:
-            x, mask = inputs
+        ) -> tuple[tuple[jax.Array, Optional[jax.Array], Optional[nnx.Rngs]], None]:
+            x, mask, rngs = inputs
             if mask is not None:
                 x = x * mask
-            return block(x, mask=mask, deterministic=deterministic, rngs=rngs), mask
+            return (block(x, mask=mask, deterministic=deterministic), mask, rngs), None
 
         if self.position_encoder is not None:
             inputs = self.position_encoder(inputs)
 
-        output, mask = forward((inputs, mask), self.blocks, rngs)
+        (output, mask, _), _ = jax.lax.scan(forward, (inputs, mask, rngs), self.blocks)
         if mask is not None:
             output = output * mask
         return output

@@ -174,17 +174,26 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
         trainer: "FlaxTrainer[Any, ModelInputT, ModelOutputT, ModelParamsT]",
     ) -> tuple[TrainState, ModelOutputT]:
         def step(state: TrainState, inputs: ModelInputT) -> tuple[TrainState, ModelOutputT]:
-            def loss_fn(params: Any) -> tuple[jax.Array, ModelOutputT]:
-                model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT] = nnx.merge(
-                    state.graphdef, params, *state.additional_states
-                )
-                model.train()
+            model = nnx.merge(state.graphdef, state.params, *state.additional_states)
+            model.train()
+
+            def loss_fn(
+                model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
+            ) -> tuple[jax.Array, ModelOutputT]:
                 output = model(inputs)
                 loss = self._loss(output)
                 return loss, output
 
-            grads, output = jax.grad(loss_fn, has_aux=True)(state.params)
+            (_, output), grads = nnx.value_and_grad(loss_fn, has_aux=True)(model)
+
+            graphdef, params, *additional_states = nnx.split(model, nnx.Param, nnx.BatchStat, nnx.RngState)
+
             grads = trainer.distributor.reduce(grads)
+            state = state.replace(
+                graphdef=graphdef,
+                params=params,
+                additional_states=tuple(additional_states),
+            )
             state = state.apply_gradients(grads=grads)
             return state, output
 

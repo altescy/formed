@@ -156,3 +156,90 @@ def generate_sort_detection_dataset(
             tokens.sort()
         examples.append(ClassificationExample(id=str(len(examples)), text=tokens, label=label))
     return examples
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epochs", type=int, default=5)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--dropout", type=float, default=0.1)
+    args = parser.parse_args()
+
+    train_data = generate_sort_detection_dataset(num_examples=1000, random_seed=123)
+    val_data = generate_sort_detection_dataset(num_examples=200, random_seed=456)
+    test_data = generate_sort_detection_dataset(num_examples=200, random_seed=789)
+
+    datamodule = TextClassificationDataModule(
+        id=ml.MetadataTransform(),
+        text=ml.Tokenizer(surfaces=ml.TokenSequenceIndexer()),
+        label=ml.LabelIndexer(),
+    )
+
+    with datamodule.train():
+        train_instances = [datamodule.instance(ex) for ex in train_data]
+    val_instances = [datamodule.instance(ex) for ex in val_data]
+    test_instances = [datamodule.instance(ex) for ex in test_data]
+
+    evaluator = ClassificationEvaluator(metrics=[ml.MulticlassAccuracy()])
+
+    trainer = fl.FlaxTrainer(
+        train_dataloader=ml.DataLoader(
+            sampler=ml.BasicBatchSampler(batch_size=args.batch_size, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        ),
+        val_dataloader=ml.DataLoader(
+            sampler=ml.BasicBatchSampler(batch_size=args.batch_size, shuffle=False, drop_last=False),
+            collator=datamodule.batch,
+        ),
+        callbacks=[
+            fl.EvaluationCallback(evaluator),
+        ],
+        max_epochs=args.epochs,
+    )
+
+    with fl.use_rngs(0):
+        model = TextClassifier(
+            num_classes=datamodule.label.num_labels,
+            embedder=flm.AnalyzedTextEmbedder(
+                surface=flm.TokenEmbedder(
+                    vocab_size=datamodule.text.surfaces.vocab_size,
+                    embedding_dim=32,
+                ),
+            ),
+            encoder=flm.LSTMSequenceEncoder(
+                features=32,
+                num_layers=1,
+            ),
+            vectorizer=flm.BagOfEmbeddingsSequenceVectorizer(pooling="last"),
+            dropout=args.dropout,
+        )
+        state = trainer.train(model, train_instances, val_instances)
+
+    model = nnx.merge(state.graphdef, state.params, *state.additional_states)
+
+    model.eval()
+    evaluator.reset()
+
+    test_dataloader = ml.DataLoader(
+        sampler=ml.BasicBatchSampler(batch_size=args.batch_size, shuffle=False, drop_last=False),
+        collator=datamodule.batch,
+    )
+
+    for batch in test_dataloader(test_instances):
+        output = model(batch)
+        evaluator.update(batch, output)
+
+    metrics = evaluator.compute()
+    print("Test Metrics:", metrics)
+
+
+if __name__ == "__main__":
+    import logging
+
+    from rich.logging import RichHandler
+
+    logging.basicConfig(level=logging.INFO, handlers=[RichHandler()])
+
+    main()

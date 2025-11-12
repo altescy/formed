@@ -96,7 +96,7 @@ class TestFeedForward:
         x = jnp.ones((2, 128))
 
         # Training mode
-        output_train = ffn(x, deterministic=False, rngs=nnx.Rngs(1))
+        output_train = ffn(x, deterministic=False)
         # Eval mode
         output_eval = ffn(x, deterministic=True)
 
@@ -177,6 +177,6 @@ class TestFeedForward:
         )
 
         x = jnp.ones((2, 128))
-        output = ffn(x, deterministic=False, rngs=nnx.Rngs(1))
+        output = ffn(x, deterministic=False)
 
         assert output.shape == (2, 128)

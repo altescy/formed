@@ -85,6 +85,7 @@ def evaluate_flax_model(
     dataset: list[ItemT],
     dataloader: IDataLoader[ItemT, ModelInputT],
     params: ModelParamsT | None = None,
+    random_seed: Optional[int] = None,
 ) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
     """Evaluate a Flax model on a dataset using the provided evaluator.
 
@@ -101,6 +102,7 @@ def evaluate_flax_model(
 
     logger = use_step_logger(__name__)
 
+    model.eval()
     evaluator.reset()
 
     with progress(dataloader(dataset), desc="Evaluating model") as iterator:
