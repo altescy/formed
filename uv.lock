@@ -858,6 +858,7 @@ all = [
     { name = "pyarrow" },
     { name = "scipy" },
     { name = "sentence-transformers" },
+    { name = "torch" },
     { name = "transformers", extra = ["torch"] },
 ]
 flax = [
@@ -874,6 +875,9 @@ sentence-transformers = [
     { name = "datasets" },
     { name = "sentence-transformers" },
     { name = "transformers", extra = ["torch"] },
+]
+torch = [
+    { name = "torch" },
 ]
 transformers = [
     { name = "datasets" },
@@ -932,12 +936,14 @@ requires-dist = [
     { name = "scipy", marker = "python_full_version < '3.12' and extra == 'mlflow'", specifier = ">=1.13" },
     { name = "sentence-transformers", marker = "extra == 'all'", specifier = ">=3.0" },
     { name = "sentence-transformers", marker = "extra == 'sentence-transformers'", specifier = ">=3.0" },
+    { name = "torch", marker = "extra == 'all'", specifier = ">=2.0" },
+    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.0" },
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.0" },
     { name = "transformers", extras = ["torch"], marker = "extra == 'all'", specifier = ">=4.0" },
     { name = "transformers", extras = ["torch"], marker = "extra == 'sentence-transformers'", specifier = ">=4.0" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
-provides-extras = ["flax", "mlflow", "transformers", "sentence-transformers", "all"]
+provides-extras = ["flax", "mlflow", "torch", "transformers", "sentence-transformers", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3753,10 +3759,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/0e/c38f079f3933cc284aab53d52976f6cb4f1ad43bb6a704ac27e0b710f176/tensorstore-0.1.79-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:847982652273fb7b2d694b789205747aaf3e50ae64738c5cb7b5eb03d86a9947", size = 18949282, upload-time = "2025-11-11T22:05:07.562Z" },
     { url = "https://files.pythonhosted.org/packages/6f/99/03479deea5bfd27a0d8a8c75d5f1d85417a7bbc9c6c7a90fb85b4a4e347a/tensorstore-0.1.79-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7af9422269c2bfcdecf9dd55309060665ab9c2d7f6c892377ed32c032400feea", size = 20931601, upload-time = "2025-11-11T22:05:10.098Z" },
     { url = "https://files.pythonhosted.org/packages/26/36/2617edf6c6d6fc73b3ff96d9d0b97332adf0d0c56fa2014a226bf4f7dfa6/tensorstore-0.1.79-cp314-cp314-win_amd64.whl", hash = "sha256:bbd8c1ab7d2e3c03ded3d40bb373ee9a67668e33a564484927865ce43b210386", size = 13599766, upload-time = "2025-11-11T22:05:12.265Z" },
-    { url = "https://files.pythonhosted.org/packages/2b/c3/8ca0dbced6b5578bf0acc9f9f52b7ba35b24be783aa4be60d374719e2e45/tensorstore-0.1.79-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:9bdfb7f422eae1b976bee20e8c758c22910b0610e0c59eb9f6fe748330c1f8e5", size = 16565957, upload-time = "2025-11-11T22:05:14.206Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/a7/68b5e7b08ef4ddf11efcc1f90b626636ee7ff786634840e657c920c467e7/tensorstore-0.1.79-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:e100001a9e1b452650ab489ae6a75f4a7e85e127fbe3e33969c1e0157b66f8a6", size = 14593418, upload-time = "2025-11-11T22:05:16.278Z" },
-    { url = "https://files.pythonhosted.org/packages/db/34/12fd39faf4aff50440949f91dc97bd90cd4a8dd0c95d9021682ea10e87f5/tensorstore-0.1.79-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8e0044d15b574506645061efdb204f00a85b2fda95c097049a67cfee135bcf74", size = 18959327, upload-time = "2025-11-11T22:05:18.7Z" },
-    { url = "https://files.pythonhosted.org/packages/e4/d6/99f83285ae873d03db5f1189ed7173ba96c216d3dc2521e0b8f513aa0514/tensorstore-0.1.79-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fa4bfbd6718126669ba83e37e401fa84832772124862c3c7ec8a6bce90931492", size = 20938781, upload-time = "2025-11-11T22:05:21.309Z" },
 ]
 
 [[package]]
