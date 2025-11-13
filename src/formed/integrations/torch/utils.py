@@ -1,5 +1,7 @@
 """Utility functions for PyTorch integration."""
 
+from collections.abc import Callable
+
 import torch
 
 from .context import get_device
@@ -86,3 +88,18 @@ def ensure_torch_tensor(
     if device is not None:
         tensor = tensor.to(device)
     return tensor
+
+
+def determine_ndim(
+    first: int,
+    *args: int | Callable[[int], int] | None,
+) -> int:
+    output_dim = first
+    for arg in args:
+        if arg is None:
+            continue
+        if callable(arg):
+            output_dim = arg(output_dim)
+        else:
+            output_dim = arg
+    return output_dim

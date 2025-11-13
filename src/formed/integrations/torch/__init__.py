@@ -40,7 +40,7 @@ from .training import (
     TorchTrainingEngine,
     TrainState,
 )
-from .utils import ensure_torch_tensor
+from .utils import determine_ndim, ensure_torch_tensor
 from .workflow import evaluate_torch_model, train_torch_model
 
 __all__ = [
@@ -98,6 +98,7 @@ __all__ = [
     # model
     "BaseTorchModel",
     # utils
+    "determine_ndim",
     "ensure_torch_tensor",
     # workflow
     "evaluate_torch_model",
