@@ -612,7 +612,9 @@ def use_step_workdir() -> Path:
     context = use_step_context()
     if context is None:
         raise RuntimeError("No step context found")
-    return WORKFLOW_WORKSPACE_DIRECTORY / context.info.fingerprint
+    workdir = WORKFLOW_WORKSPACE_DIRECTORY / context.info.fingerprint
+    workdir.mkdir(parents=True, exist_ok=True)
+    return workdir
 
 
 def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
