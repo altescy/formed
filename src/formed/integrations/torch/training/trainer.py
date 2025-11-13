@@ -274,8 +274,9 @@ class TorchTrainer(
 
         def move_to_device(inputs: ModelInputT) -> ModelInputT:
             """Move inputs to the appropriate device."""
-            import numpy as np
             from typing import Any
+
+            import numpy as np
 
             visited: set[int] = set()
 

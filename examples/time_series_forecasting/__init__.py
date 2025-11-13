@@ -1,8 +1,8 @@
 """Time series forecasting example using PyTorch and formed workflow."""
 
 from .time_series import (
-    ForecastOutput,
     ForecastingEvaluator,
+    ForecastOutput,
     TimeSeriesDataModule,
     TimeSeriesExample,
     TimeSeriesForecaster,

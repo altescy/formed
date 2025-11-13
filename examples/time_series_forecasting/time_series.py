@@ -22,9 +22,9 @@ from typing_extensions import TypeVar
 from formed import workflow
 from formed.integrations import ml
 from formed.integrations import torch as ft
+from formed.integrations.ml import types as mlt
 from formed.integrations.torch import modules as ftm
 from formed.integrations.torch import types as ftt
-from formed.integrations.ml import types as mlt
 
 InputT = TypeVar(
     "InputT",
@@ -189,8 +189,6 @@ def generate_sinusoid_dataset(
         examples.append(TimeSeriesExample(id=f"example_{i}", sequence=sequence, target=target))
 
     return examples
-
-
 
 
 def main():

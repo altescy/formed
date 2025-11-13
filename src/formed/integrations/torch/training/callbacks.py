@@ -258,9 +258,10 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         state: TrainState,
         metrics: Mapping[str, float],
     ) -> None:
+        from pathlib import Path
+
         import torch
         import torch.distributed as dist
-        from pathlib import Path
 
         logger = use_step_logger(__name__)
         try:
@@ -315,8 +316,9 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
     ) -> TrainState:
-        import torch.distributed as dist
         from pathlib import Path
+
+        import torch.distributed as dist
 
         logger = use_step_logger(__name__)
         try:

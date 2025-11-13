@@ -187,9 +187,7 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         if nested:
             if self._vectorizer is None:
                 # Average pooling over character dimension
-                embeddings = (embeddings * mask.unsqueeze(-1)).sum(dim=-2) / mask.sum(dim=-1, keepdim=True).clamp(
-                    min=1
-                )
+                embeddings = (embeddings * mask.unsqueeze(-1)).sum(dim=-2) / mask.sum(dim=-1, keepdim=True).clamp(min=1)
                 mask = mask.any(dim=-1)
             else:
                 # Flatten batch and sequence dimensions for vectorizer

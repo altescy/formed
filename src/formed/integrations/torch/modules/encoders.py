@@ -134,9 +134,7 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         if mask is not None:
             # Pack padded sequence for efficiency
             lengths = mask.sum(dim=1).cpu()
-            packed = nn.utils.rnn.pack_padded_sequence(
-                inputs, lengths, batch_first=True, enforce_sorted=False
-            )
+            packed = nn.utils.rnn.pack_padded_sequence(inputs, lengths, batch_first=True, enforce_sorted=False)
             output, _ = self.lstm(packed)
             output, _ = nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
         else:
@@ -215,9 +213,7 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         if mask is not None:
             # Pack padded sequence for efficiency
             lengths = mask.sum(dim=1).cpu()
-            packed = nn.utils.rnn.pack_padded_sequence(
-                inputs, lengths, batch_first=True, enforce_sorted=False
-            )
+            packed = nn.utils.rnn.pack_padded_sequence(inputs, lengths, batch_first=True, enforce_sorted=False)
             output, _ = self.gru(packed)
             output, _ = nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
         else:
