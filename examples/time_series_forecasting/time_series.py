@@ -97,10 +97,10 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
         # Convert inputs to tensors
         if inputs.sequence is None:
             raise ValueError("inputs.sequence must not be None")
-        sequence = ft.ensure_torch_tensor(inputs.sequence, dtype=torch.float32)
+        sequence = ft.ensure_torch_tensor(inputs.sequence)
         if sequence.ndim == 2:
             # Add feature dimension: (batch_size, sequence_length) -> (batch_size, sequence_length, 1)
-            sequence = sequence.unsqueeze(-1)
+            sequence = sequence[:, :, None]
 
         # LSTM forward
         lstm_out, _ = self.lstm(sequence)

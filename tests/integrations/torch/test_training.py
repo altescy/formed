@@ -17,7 +17,17 @@ from formed.integrations.ml import (
 )
 from formed.integrations.ml.metrics import Average, MeanSquaredError, MulticlassAccuracy
 from formed.integrations.ml.types import AsBatch, AsInstance, DataModuleModeT  # noqa: F401
-from formed.integrations.torch import BaseTorchModel, EvaluationCallback, TorchTrainer
+from formed.integrations.torch import (
+    AnalyzedTextEmbedder,
+    BagOfEmbeddingsSequenceVectorizer,
+    BaseTorchModel,
+    CrossEntropyLoss,
+    EvaluationCallback,
+    MeanSquaredErrorLoss,
+    TokenEmbedder,
+    TorchTrainer,
+    ensure_torch_tensor,
+)
 
 
 @dataclasses.dataclass
@@ -57,7 +67,7 @@ class RegressionEvaluator:
             self._mse.update(
                 self._mse.Input(
                     predictions=output.predictions.detach().cpu().tolist(),
-                    targets=inputs.target.detach().cpu().tolist(),  # type: ignore[union-attr]
+                    targets=inputs.target.tolist(),
                 )
             )
 
@@ -92,13 +102,15 @@ class TestTrainingWithRegressor:
         def __init__(self, feature_dim: int) -> None:
             super().__init__()
             self.dense = nn.Linear(in_features=feature_dim, out_features=1)
+            self.loss = MeanSquaredErrorLoss()
 
         def forward(self, inputs: RegressionDataModule[AsBatch], params: None = None) -> RegressorOutput:
             del params
-            preds = self.dense(inputs.features).squeeze(-1)
+            features = ensure_torch_tensor(inputs.features)
+            preds = self.dense(features).squeeze(-1)
             loss: Optional[torch.Tensor] = None
             if inputs.target is not None:
-                loss = torch.mean((preds - inputs.target) ** 2)
+                loss = self.loss(preds, inputs.target)
             return RegressorOutput(predictions=preds, loss=loss)
 
     @staticmethod
@@ -177,7 +189,7 @@ class ClassificationEvaluator:
             self._accuracy.update(
                 self._accuracy.Input(
                     predictions=output.label.detach().cpu().tolist(),
-                    targets=inputs.label.detach().cpu().tolist(),  # type: ignore[union-attr]
+                    targets=inputs.label.tolist(),
                 )
             )
 
@@ -253,8 +265,12 @@ class TestTrainingWithTextClassifier:
         ) -> None:
             super().__init__()
             self._num_classes = num_classes
-            self._embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+            self._embedder = AnalyzedTextEmbedder(
+                surface=TokenEmbedder(vocab_size=vocab_size, embedding_dim=embedding_dim),
+            )
+            self._vectorizer = BagOfEmbeddingsSequenceVectorizer()
             self._classifier = nn.Linear(embedding_dim, num_classes)
+            self._loss = CrossEntropyLoss()
 
         def forward(
             self,
@@ -262,24 +278,17 @@ class TestTrainingWithTextClassifier:
             params: None = None,
         ) -> ClassifierOutput:
             # Simple bag-of-embeddings model
-            token_ids = inputs.text.surfaces.ids  # (batch_size, seq_len)
-            mask = inputs.text.surfaces.mask  # (batch_size, seq_len)
-
-            embeddings = self._embedding(token_ids)  # (batch_size, seq_len, embedding_dim)
+            embeddings, mask = self._embedder(inputs.text)  # (batch_size, seq_len, embedding_dim)
+            features = self._vectorizer(embeddings, mask=mask)  # (batch_size, embedding_dim)
 
             # Average pooling with mask
-            mask_expanded = mask.unsqueeze(-1).float()  # type: ignore[union-attr]
-            sum_embeddings = (embeddings * mask_expanded).sum(dim=1)
-            count = mask_expanded.sum(dim=1).clamp(min=1.0)
-            pooled = sum_embeddings / count
-
-            logits = self._classifier(pooled)
+            logits = self._classifier(features)
             probs = torch.softmax(logits, dim=-1)
             label = probs.argmax(dim=-1)
 
             loss: Optional[torch.Tensor] = None
             if inputs.label is not None:
-                loss = nn.functional.cross_entropy(logits, inputs.label)  # type: ignore[arg-type]
+                loss = self._loss(logits, inputs.label)
 
             return ClassifierOutput(probs=probs, label=label, loss=loss)
 

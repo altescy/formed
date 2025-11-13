@@ -69,6 +69,13 @@ class BaseSequenceEncoder(nn.Module, Registrable, abc.ABC):
         """Get the output dimension."""
         raise NotImplementedError
 
+    def __call__(
+        self,
+        inputs: torch.Tensor,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        return super().__call__(inputs, mask=mask)
+
 
 @BaseSequenceEncoder.register("lstm")
 class LSTMSequenceEncoder(BaseSequenceEncoder):

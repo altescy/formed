@@ -1,3 +1,4 @@
+from .context import get_device, use_device
 from .dataloader import DataLoader
 from .distributors import (
     BaseDistributor,
@@ -15,6 +16,7 @@ from .modules import (
     BaseEmbedder,
     BaseLabelSampler,
     BaseLabelWeighter,
+    BaseRegressionLoss,
     BaseSequenceEncoder,
     BaseSequenceVectorizer,
     CrossEntropyLoss,
@@ -22,6 +24,7 @@ from .modules import (
     FeedForward,
     GRUSequenceEncoder,
     LSTMSequenceEncoder,
+    MeanSquaredErrorLoss,
     MultinomialLabelSampler,
     StaticLabelWeighter,
     TokenEmbedder,
@@ -46,6 +49,9 @@ __all__ = [
     "EvaluationCallback",
     "MlflowCallback",
     "TorchTrainingCallback",
+    # context
+    "get_device",
+    "use_device",
     # dataloader
     "DataLoader",
     # distributors
@@ -71,7 +77,9 @@ __all__ = [
     "FeedForward",
     # modules - losses
     "BaseClassificationLoss",
+    "BaseRegressionLoss",
     "CrossEntropyLoss",
+    "MeanSquaredErrorLoss",
     # modules - samplers
     "ArgmaxLabelSampler",
     "BaseLabelSampler",

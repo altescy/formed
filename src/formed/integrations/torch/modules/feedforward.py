@@ -94,3 +94,6 @@ class FeedForward(nn.Module):
 
         """
         return self.layers(x)
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return super().__call__(x)

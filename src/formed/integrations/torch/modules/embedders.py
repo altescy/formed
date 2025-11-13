@@ -34,19 +34,22 @@ Example:
 """
 
 import abc
-from typing import Generic, NamedTuple, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, NamedTuple, Protocol, runtime_checkable
 
 import torch
 import torch.nn as nn
 from colt import Registrable
+from typing_extensions import TypeVar
 
+from ..types import TensorCompatibleT
+from ..utils import ensure_torch_tensor
 from .vectorizers import BaseSequenceVectorizer
 
 _TextBatchT = TypeVar("_TextBatchT")
 
 
 @runtime_checkable
-class IIDSequenceBatch(Protocol):
+class IIDSequenceBatch(Protocol[TensorCompatibleT]):
     """Protocol for token ID sequence batches.
 
     Attributes:
@@ -55,12 +58,19 @@ class IIDSequenceBatch(Protocol):
 
     """
 
-    ids: torch.Tensor
-    mask: torch.Tensor
+    ids: TensorCompatibleT
+    mask: TensorCompatibleT
+
+    def __len__(self) -> int: ...
+
+
+SurfaceBatchT = TypeVar("SurfaceBatchT", bound=IIDSequenceBatch, default=Any)
+PostagBatchT = TypeVar("PostagBatchT", bound=IIDSequenceBatch | None, default=Any)
+CharacterBatchT = TypeVar("CharacterBatchT", bound=IIDSequenceBatch | None, default=Any)
 
 
 @runtime_checkable
-class IAnalyzedTextBatch(Protocol):
+class IAnalyzedTextBatch(Protocol[SurfaceBatchT, PostagBatchT, CharacterBatchT]):
     """Protocol for analyzed text batches with multiple linguistic features.
 
     Attributes:
@@ -70,9 +80,9 @@ class IAnalyzedTextBatch(Protocol):
 
     """
 
-    surfaces: IIDSequenceBatch
-    postags: IIDSequenceBatch | None
-    characters: IIDSequenceBatch | None
+    surfaces: SurfaceBatchT
+    postags: PostagBatchT
+    characters: CharacterBatchT
 
 
 class EmbedderOutput(NamedTuple):
@@ -122,6 +132,9 @@ class BaseEmbedder(nn.Module, Registrable, Generic[_TextBatchT], abc.ABC):
         """
         raise NotImplementedError
 
+    def __call__(self, inputs: _TextBatchT) -> EmbedderOutput:
+        return super().__call__(inputs)
+
 
 @BaseEmbedder.register("token")
 class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
@@ -168,19 +181,17 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         self._vectorizer = vectorizer
 
     def forward(self, inputs: IIDSequenceBatch) -> EmbedderOutput:
+        token_ids = ensure_torch_tensor(inputs.ids)
+        mask = ensure_torch_tensor(inputs.mask).bool()
+
         nested = False
-        if inputs.ids.ndim > 2:
-            if inputs.ids.ndim != 3:
+        if token_ids.ndim > 2:
+            if token_ids.ndim != 3:
                 raise ValueError("Token ids must be of shape (batch_size, seq_len) or (batch_size, seq_len, char_len)")
             nested = True
 
-        if inputs.ids.shape != inputs.mask.shape:
-            raise ValueError(
-                f"Token ids and mask must have the same shape, got {inputs.ids.shape} and {inputs.mask.shape}"
-            )
-
-        token_ids = inputs.ids
-        mask = inputs.mask
+        if token_ids.shape != mask.shape:
+            raise ValueError(f"Token ids and mask must have the same shape, got {token_ids.shape} and {mask.shape}")
 
         embeddings = self._embedding(token_ids)
 

@@ -45,6 +45,7 @@ Example:
 
 """
 
+import logging
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Generic, Literal, cast
 
@@ -54,6 +55,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn
 
 from formed.workflow import use_step_logger
 
+from ..context import use_device
 from ..distributors import BaseDistributor, SingleDeviceDistributor
 from ..model import BaseTorchModel
 from ..types import IDataLoader, IEvaluator, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
@@ -184,6 +186,19 @@ class TorchTrainer(
 
         logger = use_step_logger(__name__)
 
+        # Set device context for ensure_torch_tensor
+        with use_device(self._distributor.device):
+            return self._train_impl(model, train_dataset, val_dataset, state, logger)
+
+    def _train_impl(
+        self,
+        model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
+        train_dataset: Sequence[ItemT],
+        val_dataset: Sequence[ItemT] | None,
+        state: TrainState | None,
+        logger: logging.Logger,
+    ) -> TrainState:
+        """Internal training implementation within device context."""
         # Move model to device and wrap if needed
         model = model.to(self._distributor.device)
         model = cast(
@@ -273,27 +288,23 @@ class TorchTrainer(
                 callback.on_log(self, model, state, metrics, prefix=prefix)
 
         def move_to_device(inputs: ModelInputT) -> ModelInputT:
-            """Move inputs to the appropriate device."""
-            from typing import Any
+            """Move tensor inputs to the appropriate device.
 
-            import numpy as np
+            This function only moves existing torch.Tensor objects to the target device.
+            Other types (numpy arrays, primitives, etc.) are left unchanged.
+            Users should explicitly convert numpy arrays to tensors in their model's
+            forward method using ensure_torch_tensor().
+            """
+            from typing import Any
 
             visited: set[int] = set()
 
             def _move(obj: Any) -> Any:
-                # Handle tensors
+                # Handle tensors - move to device
                 if isinstance(obj, torch.Tensor):
                     return obj.to(self._distributor.device)
 
-                # Handle numpy arrays - convert to tensor and move to device
-                if isinstance(obj, np.ndarray):
-                    tensor = torch.from_numpy(obj)
-                    # Convert to float32 if it's a floating point tensor
-                    if tensor.dtype == torch.float64:
-                        tensor = tensor.float()
-                    return tensor.to(self._distributor.device)
-
-                # Handle primitives and None
+                # Handle primitives and None - no conversion needed
                 if obj is None or isinstance(obj, (int, float, str, bool, type)):
                     return obj
 

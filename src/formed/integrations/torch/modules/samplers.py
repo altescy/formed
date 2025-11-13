@@ -24,7 +24,7 @@ Example:
 """
 
 import abc
-from typing import Generic, TypeVar
+from typing import Generic, TypedDict, TypeVar
 
 import torch
 import torch.nn as nn
@@ -45,7 +45,7 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
     """
 
     @abc.abstractmethod
-    def forward(self, logits: torch.Tensor, **kwargs) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
         """Sample labels from logits.
 
         Args:
@@ -57,6 +57,9 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
 
         """
         raise NotImplementedError
+
+    def __call__(self, logits: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
+        return super().__call__(logits, params=params)
 
 
 @BaseLabelSampler.register("argmax")
@@ -70,7 +73,7 @@ class ArgmaxLabelSampler(BaseLabelSampler[None]):
 
     """
 
-    def forward(self, logits: torch.Tensor, **kwargs) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, params: None = None) -> torch.Tensor:
         """Select the argmax label.
 
         Args:
@@ -84,8 +87,20 @@ class ArgmaxLabelSampler(BaseLabelSampler[None]):
         return logits.argmax(dim=-1)
 
 
+class MultinomialLabelSamplerParams(TypedDict, total=False):
+    """Parameters for MultinomialLabelSampler.
+
+    Attributes:
+        temperature: Sampling temperature to control randomness.
+            Higher temperature = more random, lower = more deterministic.
+
+    """
+
+    temperature: float
+
+
 @BaseLabelSampler.register("multinomial")
-class MultinomialLabelSampler(BaseLabelSampler[None]):
+class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
     """Label sampler that samples labels from a multinomial distribution.
 
     Example:
@@ -100,7 +115,7 @@ class MultinomialLabelSampler(BaseLabelSampler[None]):
 
     """
 
-    def forward(self, logits: torch.Tensor, temperature: float = 1.0, **kwargs) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, params: MultinomialLabelSamplerParams | None = None) -> torch.Tensor:
         """Sample labels from categorical distribution.
 
         Args:
@@ -113,6 +128,7 @@ class MultinomialLabelSampler(BaseLabelSampler[None]):
             Sampled labels of shape (...).
 
         """
+        temperature = params.get("temperature", 1.0) if params is not None else 1.0
         if temperature != 1.0:
             logits = logits / temperature
 
