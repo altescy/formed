@@ -14,9 +14,8 @@ import math
 import random
 from typing import Any, Generic
 
-import numpy as np
+import numpy
 import torch
-import torch.nn as nn
 from typing_extensions import TypeVar
 
 from formed import workflow
@@ -53,7 +52,7 @@ class TimeSeriesDataModule(
     """Data module for time series data."""
 
     id: ml.MetadataTransform[Any, str]
-    sequence: ml.Extra[ml.TensorTransform] = ml.Extra.default()
+    sequence: ml.TensorTransform
     target: ml.Extra[ml.ScalarTransform] = ml.Extra.default()
 
 
@@ -70,24 +69,21 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
 
     def __init__(
         self,
-        input_dim: int = 1,
-        hidden_dim: int = 64,
-        num_layers: int = 2,
+        encoder: ftm.BaseSequenceEncoder,
+        vectorizer: ftm.BaseSequenceVectorizer,
         dropout: float = 0.2,
     ):
         super().__init__()
-        self.hidden_dim = hidden_dim
 
-        self.lstm = nn.LSTM(
-            input_size=input_dim,
-            hidden_size=hidden_dim,
-            num_layers=num_layers,
-            dropout=dropout if num_layers > 1 else 0.0,
-            batch_first=True,
+        feature_dim = ft.determine_ndim(
+            encoder.get_output_dim(),
+            vectorizer.get_output_dim(),
         )
-        self.feedforward = ftm.FeedForward(
-            input_dim=hidden_dim, hidden_dim=hidden_dim // 2, output_dim=1, num_layers=2, dropout=dropout
-        )
+
+        self._encoder = encoder
+        self._vectorizer = vectorizer
+        self._predictor = torch.nn.Linear(feature_dim, 1)
+        self._loss = ft.MeanSquaredErrorLoss()
 
     def forward(
         self,
@@ -95,27 +91,24 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
         params: None = None,
     ) -> ForecastOutput:
         # Convert inputs to tensors
-        if inputs.sequence is None:
-            raise ValueError("inputs.sequence must not be None")
         sequence = ft.ensure_torch_tensor(inputs.sequence)
         if sequence.ndim == 2:
             # Add feature dimension: (batch_size, sequence_length) -> (batch_size, sequence_length, 1)
             sequence = sequence[:, :, None]
 
-        # LSTM forward
-        lstm_out, _ = self.lstm(sequence)
+        # Encode sequence
+        encodings = self._encoder(sequence)
 
-        # Take the last output
-        last_output = lstm_out[:, -1, :]  # (batch_size, hidden_dim)
+        # Vectorize encodings
+        features = self._vectorizer(encodings)
 
         # Predict next value
-        predictions = self.feedforward(last_output).squeeze(-1)  # (batch_size,)
+        predictions = self._predictor(features).squeeze(-1)
 
         # Calculate loss if target is provided
         loss: torch.Tensor | None = None
         if inputs.target is not None:
-            target = ft.ensure_torch_tensor(inputs.target, dtype=torch.float32)
-            loss = nn.functional.mse_loss(predictions, target)
+            loss = self._loss(predictions, inputs.target)
 
         return ForecastOutput(predictions=predictions, loss=loss)
 
@@ -124,25 +117,28 @@ class ForecastingEvaluator(ftt.IEvaluator[TimeSeriesDataModule[mlt.AsBatch], For
     """Evaluator for time series forecasting."""
 
     def __init__(self):
-        self._mse = ml.Average("mse")
-        self._mae = ml.Average("mae")
+        self._loss = ml.Average("loss")
+        self._mae = ml.MeanAbsoluteError()
 
     def update(self, inputs: TimeSeriesDataModule[mlt.AsBatch], output: ForecastOutput) -> None:
         if output.loss is not None:
-            self._mse.update([output.loss.item()])
+            self._loss.update([output.loss.item()])
         if inputs.target is not None:
-            predictions = output.predictions.detach().cpu().numpy()
-            targets = ft.ensure_torch_tensor(inputs.target, dtype=torch.float32).cpu().numpy()
-            mae = np.abs(predictions - targets).mean()
-            self._mae.update([mae])
+            self._mae.update(
+                self._mae.Input(
+                    predictions=output.predictions.detach().cpu().numpy().tolist(),
+                    targets=inputs.target.tolist(),
+                )
+            )
 
     def compute(self) -> dict[str, float]:
-        metrics = self._mse.compute()
-        metrics.update(self._mae.compute())
-        return metrics
+        return {
+            **self._loss.compute(),
+            **self._mae.compute(),
+        }
 
     def reset(self) -> None:
-        self._mse.reset()
+        self._loss.reset()
         self._mae.reset()
 
 
@@ -166,18 +162,18 @@ def generate_sinusoid_dataset(
     Returns:
         List of time series examples.
     """
-    rng = np.random.default_rng(random_seed)
+    rng = numpy.random.default_rng(random_seed)
     examples = []
 
     for i in range(num_examples):
         # Random frequency, phase, and amplitude
-        frequency = rng.choice(np.linspace(0.5, 3.0, num_frequencies))
+        frequency = rng.choice(numpy.linspace(0.5, 3.0, num_frequencies))
         phase = rng.uniform(0, 2 * math.pi)
         amplitude = rng.uniform(0.5, 2.0)
 
         # Generate sequence + 1 extra point for target
-        t = np.arange(sequence_length + 1)
-        values = amplitude * np.sin(2 * math.pi * frequency * t / sequence_length + phase)
+        t = numpy.arange(sequence_length + 1)
+        values = amplitude * numpy.sin(2 * math.pi * frequency * t / sequence_length + phase)
 
         # Add noise
         values += rng.normal(0, noise_level, size=len(values))
@@ -225,7 +221,14 @@ def main():
     # Create model
     print("Creating model...")
     model = TimeSeriesForecaster(
-        input_dim=1, hidden_dim=args.hidden_dim, num_layers=args.num_layers, dropout=args.dropout
+        encoder=ftm.LSTMSequenceEncoder(
+            input_dim=1,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+            dropout=args.dropout,
+            bidirectional=False,
+        ),
+        vectorizer=ftm.BagOfEmbeddingsSequenceVectorizer(pooling="last"),
     )
 
     # Create data loaders using DataModule's batch method
@@ -256,7 +259,7 @@ def main():
         logging_strategy="epoch",
         callbacks=[
             ft.EvaluationCallback(evaluator),
-            ft.EarlyStoppingCallback(patience=5, metric="-mse"),
+            ft.EarlyStoppingCallback(patience=5, metric="-mean_absolute_error"),
         ],
     )
 
