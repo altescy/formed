@@ -96,6 +96,11 @@ local evaluator = {
             evaluator: evaluator,
           },
           {
+            type: 'early_stopping',
+            patience: 5,
+            metric: 'accuracy',
+          },
+          {
             type: 'mlflow',
           },
         ],

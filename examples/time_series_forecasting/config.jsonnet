@@ -62,9 +62,17 @@ local evaluator = {
       type: 'torch::train',
       model: {
         type: 'time_series:TimeSeriesForecaster',
-        input_dim: 1,
-        hidden_dim: 64,
-        num_layers: 2,
+        encoder: {
+          type: 'lstm',
+          input_dim: 1,
+          hidden_dim: 64,
+          num_layers: 2,
+          bidirectional: true,
+        },
+        vectorizer: {
+          type: 'boe',
+          pooling: 'last',
+        },
         dropout: 0.2,
       },
       trainer: {
@@ -107,7 +115,7 @@ local evaluator = {
           {
             type: 'early_stopping',
             patience: 5,
-            metric: '-mse',
+            metric: '-loss',
           },
           {
             type: 'mlflow',
