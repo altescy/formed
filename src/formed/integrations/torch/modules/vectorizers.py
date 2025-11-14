@@ -9,9 +9,10 @@ Key Components:
     - BagOfEmbeddingsSequenceVectorizer: Pools sequence embeddings
 
 Features:
-    - Multiple pooling strategies (mean, max, min, sum, first, last)
+    - Multiple pooling strategies (mean, max, min, sum, first, last, hier)
     - Masked pooling to ignore padding tokens
     - Optional normalization before pooling
+    - Hierarchical pooling with sliding windows
 
 Example:
     >>> from formed.integrations.torch.modules import BagOfEmbeddingsSequenceVectorizer
@@ -102,7 +103,9 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
             - "sum": Sum pooling
             - "first": Take first token
             - "last": Take last non-padding token
+            - "hier": Hierarchical pooling with sliding window
         normalize: Whether to L2-normalize embeddings before pooling.
+        window_size: Window size for hierarchical pooling (required if pooling="hier").
 
     Example:
         >>> # Mean pooling
@@ -119,6 +122,12 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(
         ...     pooling=["mean", "max"]
         ... )
+        >>>
+        >>> # Hierarchical pooling
+        >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(
+        ...     pooling="hier",
+        ...     window_size=3
+        ... )
 
     Note:
         This vectorizer is dimension-agnostic - it preserves the embedding
@@ -130,10 +139,12 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         self,
         pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
         normalize: bool = False,
+        window_size: int | None = None,
     ) -> None:
         super().__init__()
         self._pooling: PoolingMethod | Sequence[PoolingMethod] = pooling
         self._normalize = normalize
+        self._window_size = window_size
 
     def forward(
         self,
@@ -146,6 +157,7 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
             mask=mask,
             pooling=self._pooling,
             normalize=self._normalize,
+            window_size=self._window_size,
         )
 
     def get_input_dim(self) -> None:
