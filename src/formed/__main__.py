@@ -4,6 +4,7 @@ import os
 from rich.logging import RichHandler
 
 from formed.commands import main
+from formed.common.rich import STDERR_CONSOLE
 
 if os.environ.get("FORMED_DEBUG"):
     LEVEL = logging.DEBUG
@@ -13,7 +14,9 @@ else:
 
 logging.basicConfig(
     level=LEVEL,
-    handlers=[RichHandler()],
+    handlers=[
+        RichHandler(console=STDERR_CONSOLE, rich_tracebacks=True),
+    ],
 )
 
 

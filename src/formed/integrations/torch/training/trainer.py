@@ -53,6 +53,7 @@ import torch
 from colt import Lazy
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
+from formed.common.rich import STDERR_CONSOLE
 from formed.workflow import use_step_logger
 
 from ..context import use_device
@@ -381,6 +382,7 @@ class TorchTrainer(
                 BarColumn(),
                 MofNCompleteColumn(),
                 TimeRemainingColumn(),
+                console=STDERR_CONSOLE,
             ) as progress:
                 task = progress.add_task("Training", total=get_total_training_steps())
                 for epoch in range(1, self._max_epochs + 1):
