@@ -10,12 +10,11 @@ from typing import Any, Final, cast
 
 import cloudpickle
 import colt
-from pydantic import BaseModel
 
 from formed.common.base58 import b58encode
 from formed.common.hashutils import hash_object_bytes
 from formed.common.typeutils import is_namedtuple
-from formed.types import IJsonSerializable, JsonValue
+from formed.types import IJsonSerializable, IPydanticModel, JsonValue
 
 _PYTHON_DATA_TYPE_KEY: Final = "__python_type__"
 _PYTHON_DATA_VALUE_KEY: Final = "__python_value__"
@@ -83,7 +82,7 @@ class WorkflowJSONEncoder(json.JSONEncoder):
                 },
                 _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
             }
-        if isinstance(o, BaseModel):
+        if isinstance(o, IPydanticModel):
             return {
                 _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
                 _PYTHON_DATA_VALUE_KEY: o.model_dump(mode="json"),
@@ -152,7 +151,7 @@ class WorkflowJSONDecoder(json.JSONDecoder):
                     elif field.default_factory is not dataclasses.MISSING:
                         setattr(output, field.name, field.default_factory())
                 return output
-            if issubclass(cls, BaseModel):
+            if hasattr(cls, "model_validate"):
                 return cls.model_validate(value)
             return colt.build(value, cls)
         if data_type == _JSONDataType.COUNTER:
