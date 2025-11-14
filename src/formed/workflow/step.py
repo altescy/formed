@@ -256,10 +256,22 @@ class WorkflowStep(Generic[OutputT], Registrable):
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__(*args, **kwargs)
 
+        signature = inspect.signature(func)
         annotations = typing.get_type_hints(func)
         init_annotations = {k: v for k, v in annotations.items() if k != "return"}
         setattr(WrapperStep, "__name__", func.__name__)
-        setattr(getattr(WrapperStep, "__init__"), "__annotations__", init_annotations)
+        setattr(WrapperStep, "__qualname__", func.__qualname__)
+        setattr(WrapperStep, "__doc__", func.__doc__)
+        setattr(
+            getattr(WrapperStep, "__init__"),
+            "__annotations__",
+            init_annotations,
+        )
+        setattr(
+            getattr(WrapperStep, "__init__"),
+            "__signature__",
+            signature.replace(return_annotation=annotations.get("return", inspect.Signature.empty)),
+        )
         return WrapperStep
 
     @classmethod
