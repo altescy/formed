@@ -22,22 +22,77 @@ Example:
 
 """
 
+import json
 from collections.abc import Sequence
-from typing import Annotated, cast
+from pathlib import Path
+from typing import Annotated, TypeVar, cast
 
+import cloudpickle
 import torch
+from colt import Lazy
 
 from formed.common.rich import progress
-from formed.workflow import WorkflowStepResultFlag, step, use_step_logger
+from formed.workflow import Format, WorkflowStepResultFlag, step, use_step_logger
+from formed.workflow.colt import COLT_BUILDER, COLT_TYPEKEY
+from formed.workflow.utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
 from .model import BaseTorchModel
 from .training import TorchTrainer
 from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from .utils import set_random_seed
+
+_ModelT = TypeVar("_ModelT", bound=BaseTorchModel)
 
 
-@step("torch::train", format="pickle")
+@Format.register("torch_model")
+class TorchModelFormat(Format[_ModelT]):
+    def _get_config_path(self, directory: Path) -> Path:
+        return directory / "config.json"
+
+    def _get_state_path(self, directory: Path) -> Path:
+        return directory / "state.pth"
+
+    def _get_pickle_path(self, directory: Path) -> Path:
+        return directory / "model.pkl"
+
+    def write(self, artifact: _ModelT, directory: Path) -> None:
+        if artifact.__model_config__ is not None:
+            config = dict(artifact.__model_config__)
+            config[COLT_TYPEKEY] = f"{artifact.__class__.__module__}:{artifact.__class__.__name__}"
+            self._get_config_path(directory).write_text(
+                json.dumps(
+                    artifact.__model_config__,
+                    indent=2,
+                    cls=WorkflowJSONEncoder,
+                )
+            )
+            torch.save(
+                artifact.state_dict(),
+                self._get_state_path(directory),
+            )
+        else:
+            with self._get_pickle_path(directory).open("wb") as f:
+                cloudpickle.dump(artifact, f)
+
+    def read(self, directory: Path) -> _ModelT:
+        if (pickle_path := self._get_pickle_path(directory)).exists():
+            with pickle_path.open("rb") as f:
+                model = cloudpickle.load(f)
+            return cast(_ModelT, model)
+
+        config = json.loads(
+            self._get_config_path(directory).read_text(),
+            cls=WorkflowJSONDecoder,
+        )
+        state_dict = torch.load(self._get_state_path(directory))
+        model = COLT_BUILDER(config)
+        model.load_state_dict(state_dict)
+        return model
+
+
+@step("torch::train", format=TorchModelFormat())
 def train_torch_model(
-    model: BaseTorchModel,
+    model: Lazy[BaseTorchModel],
     trainer: TorchTrainer,
     train_dataset: Sequence[ItemT],
     val_dataset: Sequence[ItemT] | None = None,
@@ -71,12 +126,16 @@ def train_torch_model(
 
     """
     # Set random seeds for reproducibility
-    torch.manual_seed(random_seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(random_seed)
+    set_random_seed(random_seed)
+
+    # Build model from Lazy
+    model_instance = model.construct()
+
+    # Set config for selialization
+    model_instance.__model_config__ = model.config
 
     # Train the model
-    state = trainer.train(model, train_dataset, val_dataset)
+    state = trainer.train(model_instance, train_dataset, val_dataset)
 
     # Return the trained model
     return cast(BaseTorchModel, state.model)

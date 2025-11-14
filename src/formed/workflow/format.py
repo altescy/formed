@@ -41,9 +41,8 @@ from typing import IO, Any, ClassVar, Generic, TypeVar, Union, cast
 import cloudpickle
 import colt
 from colt import Registrable
-from pydantic import BaseModel
 
-from formed.types import DataContainer, IDataclass, INamedTuple, JsonValue
+from formed.types import DataContainer, IDataclass, INamedTuple, IPydanticModel, JsonValue
 
 from .utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
@@ -321,7 +320,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
                 tuple,
                 IDataclass,
                 INamedTuple,
-                BaseModel,
+                IPydanticModel,
             ),
         )
 

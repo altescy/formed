@@ -25,7 +25,8 @@ Example:
 
 """
 
-from typing import Generic
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Generic
 
 from colt import Registrable
 from flax import nnx
@@ -54,6 +55,9 @@ class BaseFlaxModel(
         Models are automatically compatible with FlaxTrainer when registered.
 
     """
+
+    if TYPE_CHECKING:
+        __model_config__: Mapping[str, Any]
 
     def __call__(self, inputs: ModelInputT, params: ModelParamsT | None = None) -> ModelOutputT:
         """Forward pass of the model.

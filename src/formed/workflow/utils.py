@@ -10,12 +10,12 @@ from typing import Any, Final, cast
 
 import cloudpickle
 import colt
-from pydantic import BaseModel
+import numpy
 
 from formed.common.base58 import b58encode
 from formed.common.hashutils import hash_object_bytes
 from formed.common.typeutils import is_namedtuple
-from formed.types import IJsonSerializable, JsonValue
+from formed.types import IJsonSerializable, IPydanticModel, JsonValue
 
 _PYTHON_DATA_TYPE_KEY: Final = "__python_type__"
 _PYTHON_DATA_VALUE_KEY: Final = "__python_value__"
@@ -39,6 +39,7 @@ class _JSONDataType(str, enum.Enum):
     COUNTER = "counter"
     DATETIME = "datetime"
     PICKLE = "pickle"
+    NDARRAY = "ndarray"
 
 
 class WorkflowJSONEncoder(json.JSONEncoder):
@@ -83,7 +84,7 @@ class WorkflowJSONEncoder(json.JSONEncoder):
                 },
                 _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
             }
-        if isinstance(o, BaseModel):
+        if isinstance(o, IPydanticModel):
             return {
                 _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
                 _PYTHON_DATA_VALUE_KEY: o.model_dump(mode="json"),
@@ -98,6 +99,15 @@ class WorkflowJSONEncoder(json.JSONEncoder):
             return {
                 _PYTHON_DATA_TYPE_KEY: _JSONDataType.COUNTER,
                 _PYTHON_DATA_VALUE_KEY: dict(o),
+            }
+        if isinstance(o, numpy.ndarray):
+            return {
+                _PYTHON_DATA_TYPE_KEY: _JSONDataType.NDARRAY,
+                _PYTHON_DATA_VALUE_KEY: {
+                    "dtype": str(o.dtype),
+                    "shape": o.shape,
+                    "data": base64.b85encode(o.tobytes()).decode(),
+                },
             }
         if isinstance(o, list):
             return [self.default(i) for i in o]
@@ -152,7 +162,7 @@ class WorkflowJSONDecoder(json.JSONDecoder):
                     elif field.default_factory is not dataclasses.MISSING:
                         setattr(output, field.name, field.default_factory())
                 return output
-            if issubclass(cls, BaseModel):
+            if hasattr(cls, "model_validate"):
                 return cls.model_validate(value)
             return colt.build(value, cls)
         if data_type == _JSONDataType.COUNTER:
@@ -161,4 +171,8 @@ class WorkflowJSONDecoder(json.JSONDecoder):
             return datetime.datetime.fromisoformat(o[_PYTHON_DATA_VALUE_KEY])
         if data_type == _JSONDataType.PICKLE:
             return cloudpickle.loads(base64.b85decode(o[_PYTHON_DATA_VALUE_KEY].encode()))
+        if data_type == _JSONDataType.NDARRAY:
+            array_info = o[_PYTHON_DATA_VALUE_KEY]
+            data_bytes = base64.b85decode(array_info["data"].encode())
+            return numpy.frombuffer(data_bytes, dtype=array_info["dtype"]).reshape(array_info["shape"])
         raise ValueError(f"Unknown data type: {data_type}")

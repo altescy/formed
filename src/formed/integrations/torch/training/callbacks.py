@@ -40,9 +40,9 @@ Example:
 """
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING, Generic
 
-import cloudpickle
 from colt import Registrable
 
 from formed.workflow import use_step_logger, use_step_workdir
@@ -159,6 +159,7 @@ class TorchTrainingCallback(Registrable):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         pass
 
@@ -242,6 +243,14 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         self._best_metric = -float("inf")
         self._counter = 0
 
+    def _get_checkpoint_path(self) -> Path:
+        try:
+            workdir = use_step_workdir()
+        except RuntimeError:
+            # No workflow context, use current directory
+            workdir = Path(".")
+        return workdir / "best_state.pth"
+
     def on_training_start(
         self,
         trainer: "TorchTrainer[ItemT, ModelInputT, ModelOutputT, ModelParamsT]",
@@ -257,38 +266,28 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
-        from pathlib import Path
-
         import torch
         import torch.distributed as dist
 
         logger = use_step_logger(__name__)
-        try:
-            workdir = use_step_workdir()
-        except RuntimeError:
-            # No workflow context, use current directory
-            workdir = Path(".")
 
         # For DDP: only rank 0 makes the early stopping decision
         should_stop = False
 
         if trainer.distributor.is_main_process:
-            # Check if the metric exists
-            if self._metric not in metrics:
-                raise KeyError(
-                    f"Metric '{self._metric}' not found in evaluation metrics. "
-                    f"Available metrics: {list(metrics.keys())}. "
-                    "Please check your EvaluationCallback configuration or metric name."
-                )
-
-            metric = self._direction * metrics[self._metric]
+            if prefix:
+                metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
+            try:
+                metric = self._direction * metrics[self._metric]
+            except KeyError:
+                return
             if metric > self._best_metric:
                 self._best_metric = metric
                 self._counter = 0
                 # Save state_dict for serialization efficiency
-                with open(workdir / "best_model.pkl", "wb") as file:
-                    cloudpickle.dump(state.state_dict(), file)
+                torch.save(state.state_dict(), self._get_checkpoint_path())
                 logger.info(f"New best model saved with {self._metric}={self._best_metric:.4f}")
             else:
                 self._counter += 1
@@ -316,27 +315,20 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
     ) -> TrainState:
-        from pathlib import Path
-
+        import torch
         import torch.distributed as dist
 
         logger = use_step_logger(__name__)
-        try:
-            workdir = use_step_workdir()
-        except RuntimeError:
-            # No workflow context, use current directory
-            workdir = Path(".")
 
         # Synchronize before loading best model
         trainer.distributor.barrier()
 
         # Load best model if it exists
-        if (workdir / "best_model.pkl").exists():
+        if (checkpoint_path := self._get_checkpoint_path()).exists():
             if trainer.distributor.is_main_process:
-                logger.info("Loading best model.")
-                with open(workdir / "best_model.pkl", "rb") as file:
-                    state_dict = cloudpickle.load(file)
-                    state.load_state_dict(state_dict)
+                logger.info("Loading best state from early stopping checkpoint.")
+                state_dict = torch.load(checkpoint_path, map_location="cpu")
+                state.load_state_dict(state_dict)
 
             # For DDP: broadcast the model state from rank 0 to all other processes
             if trainer.distributor.world_size > 1 and dist.is_initialized():

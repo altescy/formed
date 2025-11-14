@@ -40,9 +40,11 @@ Example:
 """
 
 from collections.abc import Mapping
+from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Generic, cast
 
-import cloudpickle
+import orbax.checkpoint
 from colt import Registrable
 
 from formed.workflow import use_step_logger, use_step_workdir
@@ -159,6 +161,7 @@ class FlaxTrainingCallback(Registrable):
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         pass
 
@@ -240,7 +243,21 @@ class EarlyStoppingCallback(FlaxTrainingCallback):
         self._metric = metric.lstrip("-+")
         self._direction = -1 if metric.startswith("-") else 1
         self._best_metric = -float("inf")
+        self._best_step: int | None = None
         self._counter = 0
+
+    @cached_property
+    def _checkpointer(self) -> orbax.checkpoint.CheckpointManager:
+        workdir = use_step_workdir()
+        return orbax.checkpoint.CheckpointManager(
+            workdir / "best_checkpoint",
+            orbax.checkpoint.PyTreeCheckpointer(),
+            options=orbax.checkpoint.CheckpointManagerOptions(max_to_keep=1, create=True),
+        )
+
+    def _get_best_checkpoint_path(self) -> Path:
+        workdir = use_step_workdir()
+        return workdir / "best_checkpoint"
 
     def on_training_start(
         self,
@@ -257,15 +274,21 @@ class EarlyStoppingCallback(FlaxTrainingCallback):
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         logger = use_step_logger(__name__)
-        workdir = use_step_workdir()
-        metric = self._direction * metrics[self._metric]
+        if prefix:
+            metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
+        try:
+            metric = self._direction * metrics[self._metric]
+        except KeyError:
+            return
+
         if metric > self._best_metric:
             self._best_metric = metric
+            self._best_step = int(state.step)
             self._counter = 0
-            with open(workdir / "best_model.pkl", "wb") as file:
-                cloudpickle.dump(state, file)
+            self._checkpointer.save(int(state.step), state)
             logger.info(f"New best model saved with {self._metric}={self._best_metric:.4f}")
         else:
             self._counter += 1
@@ -279,11 +302,9 @@ class EarlyStoppingCallback(FlaxTrainingCallback):
         state: TrainState,
     ) -> TrainState:
         logger = use_step_logger(__name__)
-        workdir = use_step_workdir()
-        if (workdir / "best_model.pkl").exists():
-            logger.info("Loading best model.")
-            with open(workdir / "best_model.pkl", "rb") as file:
-                return cast(TrainState, cloudpickle.load(file))
+        if self._best_step is not None:
+            logger.info("Restoring best state from early stopping checkpoint.")
+            state = cast(TrainState, self._checkpointer.restore(self._best_step, items=state))
         return state
 
 

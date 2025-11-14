@@ -65,12 +65,13 @@ class ForecastOutput:
 
 
 class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], ForecastOutput]):
-    """LSTM-based time series forecasting model."""
+    """Time series forecasting model."""
 
     def __init__(
         self,
         encoder: ftm.BaseSequenceEncoder,
         vectorizer: ftm.BaseSequenceVectorizer,
+        loss: ftm.BaseRegressionLoss | None = None,
         dropout: float = 0.2,
     ):
         super().__init__()
@@ -82,8 +83,9 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
 
         self._encoder = encoder
         self._vectorizer = vectorizer
+        self._dropout = torch.nn.Dropout(dropout) if dropout > 0 else None
         self._predictor = torch.nn.Linear(feature_dim, 1)
-        self._loss = ft.MeanSquaredErrorLoss()
+        self._loss = loss or ft.MeanSquaredErrorLoss()
 
     def forward(
         self,
@@ -101,6 +103,10 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
 
         # Vectorize encodings
         features = self._vectorizer(encodings)
+
+        # Apply dropout if specified
+        if self._dropout is not None:
+            features = self._dropout(features)
 
         # Predict next value
         predictions = self._predictor(features).squeeze(-1)

@@ -1,11 +1,28 @@
 """Utility functions for PyTorch integration."""
 
-from collections.abc import Callable
+import random
+from collections.abc import Callable, Sequence
+from typing import Literal
 
+import numpy
 import torch
+import torch.nn.functional as F
 
 from .context import get_device
 from .types import TensorCompatible
+
+
+def set_random_seed(seed: int) -> None:
+    """Set random seed for reproducibility across torch, numpy, and random.
+
+    Args:
+        seed: Random seed value.
+    """
+    torch.manual_seed(seed)
+    numpy.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def ensure_torch_tensor(
@@ -103,3 +120,101 @@ def determine_ndim(
         else:
             output_dim = arg
     return output_dim
+
+
+PoolingMethod = Literal["mean", "max", "min", "sum", "first", "last", "hier"]
+
+
+def masked_pool(
+    inputs: torch.Tensor,
+    *,
+    mask: torch.Tensor | None = None,
+    pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
+    normalize: bool = False,
+    window_size: int | None = None,
+) -> torch.Tensor:
+    """Apply masked pooling over the sequence dimension.
+
+    Args:
+        inputs: Input tensor of shape (batch_size, seq_len, feature_dim).
+        mask: Mask tensor of shape (batch_size, seq_len). True/1 indicates valid positions.
+        pooling: Pooling method or sequence of methods.
+        normalize: Whether to L2-normalize before pooling.
+        window_size: Window size for hierarchical pooling (required if pooling="hier").
+
+    Returns:
+        Pooled tensor of shape (batch_size, feature_dim * num_pooling_methods).
+
+    """
+    if normalize:
+        inputs = F.normalize(inputs, p=2, dim=-1)
+
+    if mask is None:
+        mask = torch.ones(inputs.shape[:-1], dtype=torch.bool, device=inputs.device)
+
+    # Convert mask to boolean if needed
+    if mask.dtype != torch.bool:
+        mask = mask.bool()
+
+    pooling_methods = [pooling] if isinstance(pooling, str) else list(pooling)
+    results = []
+
+    for method in pooling_methods:
+        if method == "mean":
+            # Masked mean
+            masked_inputs = inputs * mask.unsqueeze(-1)
+            pooled = masked_inputs.sum(dim=1) / mask.sum(dim=1, keepdim=True).clamp(min=1)
+        elif method == "max":
+            # Masked max
+            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("-inf"))
+            pooled, _ = masked_inputs.max(dim=1)
+        elif method == "min":
+            # Masked min
+            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("inf"))
+            pooled, _ = masked_inputs.min(dim=1)
+        elif method == "sum":
+            # Masked sum
+            masked_inputs = inputs * mask.unsqueeze(-1)
+            pooled = masked_inputs.sum(dim=1)
+        elif method == "first":
+            # First token
+            pooled = inputs[:, 0, :]
+        elif method == "last":
+            # Last valid token
+            # Find the index of the last valid token for each sequence
+            lengths = mask.sum(dim=1).clamp(min=1) - 1  # -1 because indices are 0-based
+            batch_indices = torch.arange(inputs.size(0), device=inputs.device)
+            pooled = inputs[batch_indices, lengths.long()]
+        elif method == "hier":
+            # Hierarchical pooling with sliding window
+            if window_size is None:
+                raise ValueError("window_size must be specified for hierarchical pooling")
+
+            batch_size = inputs.size(0)
+            feature_dim = inputs.size(-1)
+            pooled_list = []
+
+            for i in range(batch_size):
+                # Get valid vectors for this sequence
+                valid_vectors = inputs[i][mask[i]]
+                seq_len = valid_vectors.size(0)
+
+                if seq_len < window_size:
+                    # If sequence is shorter than window, just take mean
+                    pooled_list.append(valid_vectors.mean(dim=0))
+                else:
+                    # Slide window and compute max of means
+                    output = torch.full((feature_dim,), float("-inf"), device=inputs.device)
+                    for offset in range(seq_len - window_size + 1):
+                        window = valid_vectors[offset : offset + window_size]
+                        window_mean = window.mean(dim=0)
+                        output = torch.maximum(output, window_mean)
+                    pooled_list.append(output)
+
+            pooled = torch.stack(pooled_list)
+        else:
+            raise ValueError(f"Unknown pooling method: {method}")
+
+        results.append(pooled)
+
+    return torch.cat(results, dim=-1) if len(results) > 1 else results[0]

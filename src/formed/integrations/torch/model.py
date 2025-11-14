@@ -26,7 +26,8 @@ Example:
 
 """
 
-from typing import Generic
+from collections.abc import Mapping
+from typing import Any, Generic
 
 import torch.nn as nn
 from colt import Registrable
@@ -55,6 +56,8 @@ class BaseTorchModel(
         Models are automatically compatible with TorchTrainer when registered.
 
     """
+
+    __model_config__: Mapping[str, Any] | None = None
 
     def forward(self, inputs: ModelInputT, params: ModelParamsT | None = None) -> ModelOutputT:
         """Forward pass of the model.

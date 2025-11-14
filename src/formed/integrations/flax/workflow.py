@@ -22,14 +22,20 @@ Example:
 
 """
 
+import json
 from collections.abc import Sequence
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, cast
 
+import cloudpickle
+import orbax.checkpoint
 from colt import Lazy
 from flax import nnx
 
 from formed.common.rich import progress
-from formed.workflow import WorkflowStepResultFlag, step, use_step_logger
+from formed.workflow import Format, WorkflowStepResultFlag, step, use_step_logger
+from formed.workflow.colt import COLT_BUILDER, COLT_TYPEKEY
+from formed.workflow.utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
 from .model import BaseFlaxModel
 from .random import use_rngs
@@ -37,7 +43,49 @@ from .training import FlaxTrainer
 from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 
 
-@step("flax::train", format="pickle")
+@Format.register("flax_model")
+class FlaxModelFormat(Format[BaseFlaxModel]):
+    def _get_config_path(self, directory: Path) -> Path:
+        return directory / "config.json"
+
+    def _get_pickle_path(self, directory: Path) -> Path:
+        return directory / "model.pkl"
+
+    def _get_checkpointer(self, directory: Path) -> orbax.checkpoint.CheckpointManager:
+        return orbax.checkpoint.CheckpointManager(
+            directory / "checkpoint",
+            orbax.checkpoint.PyTreeCheckpointer(),
+            options=orbax.checkpoint.CheckpointManagerOptions(create=True),
+        )
+
+    def write(self, artifact: BaseFlaxModel, directory: Path) -> None:
+        if (config := getattr(artifact, "__model_config__", None)) is not None:
+            config = dict(artifact.__model_config__)
+            config[COLT_TYPEKEY] = f"{artifact.__class__.__module__}:{artifact.__class__.__name__}"
+            del artifact.__model_config__
+            self._get_config_path(directory).write_text(json.dumps(config, cls=WorkflowJSONEncoder))
+            self._get_checkpointer(directory).save(0, artifact)
+        else:
+            with self._get_pickle_path(directory).open("wb") as f:
+                cloudpickle.dump(artifact, f)
+
+    def read(self, directory: Path) -> BaseFlaxModel:
+        if (pickle_path := self._get_pickle_path(directory)).exists():
+            with pickle_path.open("rb") as f:
+                return cloudpickle.load(f)
+
+        with use_rngs(0):
+            model = COLT_BUILDER(
+                json.loads(
+                    self._get_config_path(directory).read_text(),
+                    cls=WorkflowJSONDecoder,
+                )
+            )
+
+        return cast(BaseFlaxModel, self._get_checkpointer(directory).restore(0, items=model))
+
+
+@step("flax::train", format=FlaxModelFormat())
 def train_flax_model(
     model: Lazy[BaseFlaxModel],
     trainer: FlaxTrainer,
@@ -74,8 +122,12 @@ def train_flax_model(
     """
 
     with use_rngs(random_seed):
-        state = trainer.train(model.construct(), train_dataset, val_dataset)
-    return nnx.merge(state.graphdef, state.params, *state.additional_states)
+        model_instance = model.construct()
+        state = trainer.train(model_instance, train_dataset, val_dataset)
+
+    model_instance = nnx.merge(state.graphdef, state.params, *state.additional_states)
+    model_instance.__model_config__ = model.config
+    return model_instance
 
 
 @step("flax::evaluate", format="json")
@@ -102,15 +154,16 @@ def evaluate_flax_model(
 
     logger = use_step_logger(__name__)
 
-    model.eval()
-    evaluator.reset()
+    with use_rngs(random_seed):
+        model.eval()
+        evaluator.reset()
 
-    with progress(dataloader(dataset), desc="Evaluating model") as iterator:
-        for inputs in iterator:
-            output = model(inputs, params)
-            evaluator.update(inputs, output)
+        with progress(dataloader(dataset), desc="Evaluating model") as iterator:
+            for inputs in iterator:
+                output = model(inputs, params)
+                evaluator.update(inputs, output)
 
-    metrics = evaluator.compute()
-    logger.info("Evaluation metrics: %s", ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()))
+        metrics = evaluator.compute()
+        logger.info("Evaluation metrics: %s", ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()))
 
     return metrics

@@ -9,9 +9,10 @@ Key Components:
     - BagOfEmbeddingsSequenceVectorizer: Pools sequence embeddings
 
 Features:
-    - Multiple pooling strategies (mean, max, min, sum, first, last)
+    - Multiple pooling strategies (mean, max, min, sum, first, last, hier)
     - Masked pooling to ignore padding tokens
     - Optional normalization before pooling
+    - Hierarchical pooling with sliding windows
 
 Example:
     >>> from formed.integrations.torch.modules import BagOfEmbeddingsSequenceVectorizer
@@ -30,83 +31,14 @@ Example:
 
 import abc
 from collections.abc import Callable, Sequence
-from typing import Literal
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from colt import Registrable
 
-PoolingMethod = Literal["mean", "max", "min", "sum", "first", "last"]
+from ..utils import PoolingMethod, masked_pool
 
 
-def masked_pool(
-    inputs: torch.Tensor,
-    *,
-    mask: torch.Tensor | None = None,
-    pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
-    normalize: bool = False,
-) -> torch.Tensor:
-    """Apply masked pooling over the sequence dimension.
-
-    Args:
-        inputs: Input tensor of shape (batch_size, seq_len, feature_dim).
-        mask: Mask tensor of shape (batch_size, seq_len). True/1 indicates valid positions.
-        pooling: Pooling method or sequence of methods.
-        normalize: Whether to L2-normalize before pooling.
-
-    Returns:
-        Pooled tensor of shape (batch_size, feature_dim * num_pooling_methods).
-
-    """
-    if normalize:
-        inputs = F.normalize(inputs, p=2, dim=-1)
-
-    if mask is None:
-        mask = torch.ones(inputs.shape[:-1], dtype=torch.bool, device=inputs.device)
-
-    # Convert mask to boolean if needed
-    if mask.dtype != torch.bool:
-        mask = mask.bool()
-
-    pooling_methods = [pooling] if isinstance(pooling, str) else list(pooling)
-    results = []
-
-    for method in pooling_methods:
-        if method == "mean":
-            # Masked mean
-            masked_inputs = inputs * mask.unsqueeze(-1)
-            pooled = masked_inputs.sum(dim=1) / mask.sum(dim=1, keepdim=True).clamp(min=1)
-        elif method == "max":
-            # Masked max
-            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("-inf"))
-            pooled, _ = masked_inputs.max(dim=1)
-        elif method == "min":
-            # Masked min
-            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("inf"))
-            pooled, _ = masked_inputs.min(dim=1)
-        elif method == "sum":
-            # Masked sum
-            masked_inputs = inputs * mask.unsqueeze(-1)
-            pooled = masked_inputs.sum(dim=1)
-        elif method == "first":
-            # First token
-            pooled = inputs[:, 0, :]
-        elif method == "last":
-            # Last valid token
-            # Find the index of the last valid token for each sequence
-            lengths = mask.sum(dim=1).clamp(min=1) - 1  # -1 because indices are 0-based
-            batch_indices = torch.arange(inputs.size(0), device=inputs.device)
-            pooled = inputs[batch_indices, lengths.long()]
-        else:
-            raise ValueError(f"Unknown pooling method: {method}")
-
-        results.append(pooled)
-
-    return torch.cat(results, dim=-1) if len(results) > 1 else results[0]
-
-
-class BaseSequenceVectorizer(nn.Module, Registrable, abc.ABC):
+class BaseSequenceVectorizer(torch.nn.Module, Registrable, abc.ABC):
     """Abstract base class for sequence vectorizers.
 
     Vectorizers convert variable-length sequences into fixed-size vectors
@@ -171,7 +103,9 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
             - "sum": Sum pooling
             - "first": Take first token
             - "last": Take last non-padding token
+            - "hier": Hierarchical pooling with sliding window
         normalize: Whether to L2-normalize embeddings before pooling.
+        window_size: Window size for hierarchical pooling (required if pooling="hier").
 
     Example:
         >>> # Mean pooling
@@ -188,6 +122,12 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(
         ...     pooling=["mean", "max"]
         ... )
+        >>>
+        >>> # Hierarchical pooling
+        >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(
+        ...     pooling="hier",
+        ...     window_size=3
+        ... )
 
     Note:
         This vectorizer is dimension-agnostic - it preserves the embedding
@@ -199,10 +139,12 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         self,
         pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
         normalize: bool = False,
+        window_size: int | None = None,
     ) -> None:
         super().__init__()
         self._pooling: PoolingMethod | Sequence[PoolingMethod] = pooling
         self._normalize = normalize
+        self._window_size = window_size
 
     def forward(
         self,
@@ -215,6 +157,7 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
             mask=mask,
             pooling=self._pooling,
             normalize=self._normalize,
+            window_size=self._window_size,
         )
 
     def get_input_dim(self) -> None:

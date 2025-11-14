@@ -128,6 +128,8 @@ class TorchTrainer(
         logging_strategy: Literal["epoch", "step"] = "epoch",
         logging_interval: int = 1,
         logging_first_step: bool = True,
+        train_prefix: str = "train/",
+        val_prefix: str = "val/",
     ) -> None:
         self._optimizer = optimizer
         self._train_dataloader = train_dataloader
@@ -141,6 +143,8 @@ class TorchTrainer(
         self._logging_interval = logging_interval
         self._logging_first_step = logging_first_step
         self._callbacks = callbacks
+        self._train_prefix = train_prefix
+        self._val_prefix = val_prefix
 
     @property
     def optimizer(self) -> IOptimizer:
@@ -268,17 +272,12 @@ class TorchTrainer(
                 metrics.update(evaluator.compute())
             return metrics
 
-        def finalize_evaluation(
-            metrics: Mapping[str, float],
-        ) -> None:
+        def finalize_evaluation(metrics: Mapping[str, float], prefix: str) -> None:
             assert state is not None
             for callback in self._callbacks:
-                callback.on_eval_end(self, model, state, metrics)
+                callback.on_eval_end(self, model, state, metrics, prefix)
 
-        def log(
-            metrics: Mapping[str, float],
-            prefix: str,
-        ) -> None:
+        def log(metrics: Mapping[str, float], prefix: str) -> None:
             assert state is not None
             if not metrics:
                 return
@@ -356,8 +355,8 @@ class TorchTrainer(
             progress.remove_task(task)
 
             computed_metrics = compute_metrics(evaluators)
-            log(computed_metrics, prefix="val/")
-            finalize_evaluation(computed_metrics)
+            log(computed_metrics, prefix=self._val_prefix)
+            finalize_evaluation(computed_metrics, prefix=self._val_prefix)
 
         def is_logging_step(step: int) -> bool:
             return (self._logging_strategy == "step" and step % self._logging_interval == 0) or (
@@ -371,7 +370,7 @@ class TorchTrainer(
             return self._eval_strategy == "step" and step % self._eval_interval == 0
 
         def is_eval_eopch(epoch: int) -> bool:
-            return self._logging_strategy == "epoch" and epoch % self._logging_interval == 0
+            return self._eval_strategy == "epoch" and epoch % self._eval_interval == 0
 
         evaluators = new_evaluators()
 
@@ -398,8 +397,8 @@ class TorchTrainer(
 
                         if is_logging_step(int(state.step)):
                             train_metrics = compute_metrics(evaluators)
-                            log(train_metrics, prefix="train/")
-                            finalize_evaluation(train_metrics)
+                            log(train_metrics, prefix=self._train_prefix)
+                            finalize_evaluation(train_metrics, prefix=self._train_prefix)
                             evaluators = new_evaluators()
 
                         finalize_batch(epoch, output)
@@ -411,8 +410,8 @@ class TorchTrainer(
 
                     if is_logging_epoch(epoch):
                         train_metrics = compute_metrics(evaluators)
-                        log(train_metrics, prefix="train/")
-                        finalize_evaluation(train_metrics)
+                        log(train_metrics, prefix=self._train_prefix)
+                        finalize_evaluation(train_metrics, prefix=self._train_prefix)
                         evaluators = new_evaluators()
 
                     if is_eval_eopch(epoch):

@@ -1,7 +1,7 @@
 import dataclasses
-from typing import Any, ClassVar, Protocol, TypeVar, Union, runtime_checkable
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, Union, runtime_checkable
 
-from pydantic import BaseModel, JsonValue
+from typing_extensions import Self, TypeAlias
 
 __all__ = [
     "DataContainer",
@@ -11,6 +11,16 @@ __all__ = [
     "S_DataContainer",
     "T_DataContainer",
     "T_NamedTuple",
+]
+
+JsonValue: TypeAlias = Union[
+    list["JsonValue"],
+    dict[str, "JsonValue"],
+    str,
+    bool,
+    int,
+    float,
+    None,
 ]
 
 
@@ -33,7 +43,15 @@ class IJsonSerializable(Protocol):
     def json(self) -> JsonValue: ...
 
 
-DataContainer = Union[IDataclass, INamedTuple, BaseModel, dict[str, Any]]
+@runtime_checkable
+class IPydanticModel(Protocol):
+    def model_dump(self, *, mode: Literal["json", "python"] = "python") -> dict[str, Any]: ...
+
+    @classmethod
+    def model_validate(cls, obj: Any) -> Self: ...
+
+
+DataContainer = Union[IDataclass, INamedTuple, IPydanticModel, dict[str, Any]]
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
