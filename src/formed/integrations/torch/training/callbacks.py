@@ -43,7 +43,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic
 
-import torch
 from colt import Registrable
 
 from formed.workflow import use_step_logger, use_step_workdir
@@ -267,8 +266,6 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         state: TrainState,
         metrics: Mapping[str, float],
     ) -> None:
-        from pathlib import Path
-
         import torch
         import torch.distributed as dist
 
@@ -291,7 +288,7 @@ class EarlyStoppingCallback(TorchTrainingCallback):
                 self._best_metric = metric
                 self._counter = 0
                 # Save state_dict for serialization efficiency
-                torch.save(state.model.state_dict(), self._get_checkpoint_path())
+                torch.save(state.state_dict(), self._get_checkpoint_path())
                 logger.info(f"New best model saved with {self._metric}={self._best_metric:.4f}")
             else:
                 self._counter += 1
@@ -319,23 +316,19 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
     ) -> TrainState:
+        import torch
         import torch.distributed as dist
 
         logger = use_step_logger(__name__)
-        try:
-            workdir = use_step_workdir()
-        except RuntimeError:
-            # No workflow context, use current directory
-            workdir = Path(".")
 
         # Synchronize before loading best model
         trainer.distributor.barrier()
 
         # Load best model if it exists
-        if (workdir / "best_model.pkl").exists():
+        if (checkpoint_path := self._get_checkpoint_path()).exists():
             if trainer.distributor.is_main_process:
-                logger.info("Loading best model.")
-                state_dict = torch.load(self._get_checkpoint_path(), map_location="cpu")
+                logger.info("Loading best state from early stopping checkpoint.")
+                state_dict = torch.load(checkpoint_path, map_location="cpu")
                 state.load_state_dict(state_dict)
 
             # For DDP: broadcast the model state from rank 0 to all other processes
