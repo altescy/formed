@@ -25,7 +25,7 @@ import hashlib
 import io
 from typing import Any
 
-import dill
+import cloudpickle
 
 
 def hash_object_bytes(o: Any) -> bytes:
@@ -50,7 +50,7 @@ def hash_object_bytes(o: Any) -> bytes:
     """
     m = hashlib.blake2b()
     with io.BytesIO() as buffer:
-        dill.dump(o, buffer)
+        cloudpickle.dump(o, buffer)
         m.update(buffer.getbuffer())
     return m.digest()
 

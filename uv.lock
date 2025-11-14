@@ -838,7 +838,6 @@ source = { editable = "." }
 dependencies = [
     { name = "cloudpickle" },
     { name = "colt" },
-    { name = "dill" },
     { name = "filelock" },
     { name = "minato" },
     { name = "pyyaml" },
@@ -907,7 +906,6 @@ requires-dist = [
     { name = "datasets", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "datasets", marker = "extra == 'sentence-transformers'", specifier = ">=2.0" },
     { name = "datasets", marker = "extra == 'transformers'", specifier = ">=2.0" },
-    { name = "dill" },
     { name = "filelock" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10" },
     { name = "flax", marker = "extra == 'flax'", specifier = ">=0.10" },
