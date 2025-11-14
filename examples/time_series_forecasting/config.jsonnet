@@ -115,7 +115,7 @@ local evaluator = {
           {
             type: 'early_stopping',
             patience: 5,
-            metric: '-loss',
+            metric: '-val/loss',
           },
           {
             type: 'mlflow',

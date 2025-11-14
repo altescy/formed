@@ -159,6 +159,7 @@ class TorchTrainingCallback(Registrable):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         pass
 
@@ -265,6 +266,7 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         import torch
         import torch.distributed as dist
@@ -275,15 +277,12 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         should_stop = False
 
         if trainer.distributor.is_main_process:
-            # Check if the metric exists
-            if self._metric not in metrics:
-                raise KeyError(
-                    f"Metric '{self._metric}' not found in evaluation metrics. "
-                    f"Available metrics: {list(metrics.keys())}. "
-                    "Please check your EvaluationCallback configuration or metric name."
-                )
-
-            metric = self._direction * metrics[self._metric]
+            if prefix:
+                metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
+            try:
+                metric = self._direction * metrics[self._metric]
+            except KeyError:
+                return
             if metric > self._best_metric:
                 self._best_metric = metric
                 self._counter = 0

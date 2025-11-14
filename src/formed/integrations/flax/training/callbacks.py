@@ -161,6 +161,7 @@ class FlaxTrainingCallback(Registrable):
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         pass
 
@@ -273,9 +274,16 @@ class EarlyStoppingCallback(FlaxTrainingCallback):
         model: BaseFlaxModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
         metrics: Mapping[str, float],
+        prefix: str = "",
     ) -> None:
         logger = use_step_logger(__name__)
-        metric = self._direction * metrics[self._metric]
+        if prefix:
+            metrics = {f"{prefix}{key}": value for key, value in metrics.items()}
+        try:
+            metric = self._direction * metrics[self._metric]
+        except KeyError:
+            return
+
         if metric > self._best_metric:
             self._best_metric = metric
             self._best_step = int(state.step)
