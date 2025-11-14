@@ -1,8 +1,10 @@
 """Utility functions for PyTorch integration."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from typing import Literal
 
 import torch
+import torch.nn.functional as F
 
 from .context import get_device
 from .types import TensorCompatible
@@ -103,3 +105,72 @@ def determine_ndim(
         else:
             output_dim = arg
     return output_dim
+
+
+PoolingMethod = Literal["mean", "max", "min", "sum", "first", "last"]
+
+
+def masked_pool(
+    inputs: torch.Tensor,
+    *,
+    mask: torch.Tensor | None = None,
+    pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
+    normalize: bool = False,
+) -> torch.Tensor:
+    """Apply masked pooling over the sequence dimension.
+
+    Args:
+        inputs: Input tensor of shape (batch_size, seq_len, feature_dim).
+        mask: Mask tensor of shape (batch_size, seq_len). True/1 indicates valid positions.
+        pooling: Pooling method or sequence of methods.
+        normalize: Whether to L2-normalize before pooling.
+
+    Returns:
+        Pooled tensor of shape (batch_size, feature_dim * num_pooling_methods).
+
+    """
+    if normalize:
+        inputs = F.normalize(inputs, p=2, dim=-1)
+
+    if mask is None:
+        mask = torch.ones(inputs.shape[:-1], dtype=torch.bool, device=inputs.device)
+
+    # Convert mask to boolean if needed
+    if mask.dtype != torch.bool:
+        mask = mask.bool()
+
+    pooling_methods = [pooling] if isinstance(pooling, str) else list(pooling)
+    results = []
+
+    for method in pooling_methods:
+        if method == "mean":
+            # Masked mean
+            masked_inputs = inputs * mask.unsqueeze(-1)
+            pooled = masked_inputs.sum(dim=1) / mask.sum(dim=1, keepdim=True).clamp(min=1)
+        elif method == "max":
+            # Masked max
+            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("-inf"))
+            pooled, _ = masked_inputs.max(dim=1)
+        elif method == "min":
+            # Masked min
+            masked_inputs = inputs.masked_fill(~mask.unsqueeze(-1), float("inf"))
+            pooled, _ = masked_inputs.min(dim=1)
+        elif method == "sum":
+            # Masked sum
+            masked_inputs = inputs * mask.unsqueeze(-1)
+            pooled = masked_inputs.sum(dim=1)
+        elif method == "first":
+            # First token
+            pooled = inputs[:, 0, :]
+        elif method == "last":
+            # Last valid token
+            # Find the index of the last valid token for each sequence
+            lengths = mask.sum(dim=1).clamp(min=1) - 1  # -1 because indices are 0-based
+            batch_indices = torch.arange(inputs.size(0), device=inputs.device)
+            pooled = inputs[batch_indices, lengths.long()]
+        else:
+            raise ValueError(f"Unknown pooling method: {method}")
+
+        results.append(pooled)
+
+    return torch.cat(results, dim=-1) if len(results) > 1 else results[0]
