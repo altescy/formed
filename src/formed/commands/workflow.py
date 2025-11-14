@@ -138,3 +138,31 @@ class WorkflowVisualizeCommand(Subcommand):
 
         console = Console(file=args.output)
         console.print(Panel(buffer.getvalue().strip(), title=f"Workflow @ {config_path}"))
+
+
+@WorkflowCommand.register("schema")
+class WorkflowSchemaCommand(Subcommand):
+    def setup(self) -> None:
+        self.parser.add_argument(
+            "--output",
+            type=argparse.FileType("w"),
+            default=sys.stdout,
+            help="output file path",
+        )
+        self.parser.add_argument(
+            "--settings",
+            type=str,
+            default=None,
+            help="workflow environment settings file path",
+        )
+
+    def run(self, args: argparse.Namespace) -> None:
+        import json
+
+        from formed.workflow.jsonschema import generate_workflow_schema
+
+        load_formed_settings(args.settings)
+
+        schema = generate_workflow_schema()
+        json.dump(schema, args.output, indent=2)
+        args.output.write("\n")

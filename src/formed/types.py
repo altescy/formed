@@ -32,6 +32,7 @@ class IDataclass(Protocol):
 @runtime_checkable
 class INamedTuple(Protocol):
     _fields: ClassVar[tuple[str, ...]]
+    _field_defaults: ClassVar[dict[str, Any]]
 
     def _asdict(self) -> dict[str, Any]: ...
 

@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Any, TypeGuard
+
+from formed.types import INamedTuple
 
 
-def is_namedtuple(obj: Any) -> bool:
+def is_namedtuple(obj: Any) -> TypeGuard[INamedTuple]:
     if not isinstance(obj, type) and isinstance(obj, object):
         obj = type(obj)
     if not isinstance(obj, type):
