@@ -6,11 +6,15 @@ from trainable parameters.
 
 """
 
+from typing import Generic, TypeVar
+
 from flax import nnx
 from flax.training import train_state
 
+Node = TypeVar("Node")
 
-class TrainState(train_state.TrainState):
+
+class TrainState(train_state.TrainState, Generic[Node]):
     """Extended training state for Flax NNX models.
 
     This class extends flax.training.train_state.TrainState to work with
@@ -41,5 +45,5 @@ class TrainState(train_state.TrainState):
 
     """
 
-    graphdef: nnx.GraphDef
+    graphdef: nnx.GraphDef[Node]
     additional_states: tuple[nnx.State, ...] = ()

@@ -1,13 +1,28 @@
 """Utility functions for PyTorch integration."""
 
+import random
 from collections.abc import Callable, Sequence
 from typing import Literal
 
+import numpy
 import torch
 import torch.nn.functional as F
 
 from .context import get_device
 from .types import TensorCompatible
+
+
+def set_random_seed(seed: int) -> None:
+    """Set random seed for reproducibility across torch, numpy, and random.
+
+    Args:
+        seed: Random seed value.
+    """
+    torch.manual_seed(seed)
+    numpy.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def ensure_torch_tensor(
