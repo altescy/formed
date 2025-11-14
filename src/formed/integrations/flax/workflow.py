@@ -102,15 +102,16 @@ def evaluate_flax_model(
 
     logger = use_step_logger(__name__)
 
-    model.eval()
-    evaluator.reset()
+    with use_rngs(random_seed):
+        model.eval()
+        evaluator.reset()
 
-    with progress(dataloader(dataset), desc="Evaluating model") as iterator:
-        for inputs in iterator:
-            output = model(inputs, params)
-            evaluator.update(inputs, output)
+        with progress(dataloader(dataset), desc="Evaluating model") as iterator:
+            for inputs in iterator:
+                output = model(inputs, params)
+                evaluator.update(inputs, output)
 
-    metrics = evaluator.compute()
-    logger.info("Evaluation metrics: %s", ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()))
+        metrics = evaluator.compute()
+        logger.info("Evaluation metrics: %s", ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()))
 
     return metrics
