@@ -23,7 +23,7 @@ from formed.workflow import Format, step, use_step_workdir
 from .types import SentenceTransformerT
 
 
-@Format.register("sentence_transformer")
+@Format.register("sentence_transformer::model")
 class SentenceTransformerFormat(Generic[SentenceTransformerT], Format[SentenceTransformerT]):
     def write(self, artifact: SentenceTransformerT, directory: Path) -> None:
         artifact.save_pretrained(str(directory / "model"))
@@ -32,7 +32,7 @@ class SentenceTransformerFormat(Generic[SentenceTransformerT], Format[SentenceTr
         return cast(SentenceTransformerT, SentenceTransformer(str(directory / "model")))
 
 
-@step("sentence_transformers::load_pretrained_model", cacheable=False)
+@step("sentence_transformers::load", cacheable=False)
 def load_pretrained_model(
     model_name_or_path: str | PathLike,
     **kwargs: Any,

@@ -48,7 +48,7 @@ def test_sentence_transformers_workflow(
         {
             "steps": {
                 "dataset": {
-                    "type": "datasets::load_dataset",
+                    "type": "datasets::load",
                     "path": str(dataset_path),
                 },
                 "model": {

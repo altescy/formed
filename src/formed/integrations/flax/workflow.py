@@ -43,7 +43,7 @@ from .training import FlaxTrainer
 from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 
 
-@Format.register("flax_model")
+@Format.register("flax::model")
 class FlaxModelFormat(Format[BaseFlaxModel]):
     def _get_config_path(self, directory: Path) -> Path:
         return directory / "config.json"
