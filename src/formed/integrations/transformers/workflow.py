@@ -24,7 +24,7 @@ DataCollator: TypeAlias = Callable  # NOTE: workaround for type mismatch in tran
 PretrainedModelT = TypeVar("PretrainedModelT", bound=PreTrainedModel)
 
 
-@Format.register("transformers::pretrained_model")
+@Format.register("transformers::model")
 class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[PretrainedModelT]):
     def write(self, artifact: PretrainedModelT, directory: Path) -> None:
         artifact.save_pretrained(str(directory / "model"))
@@ -36,10 +36,7 @@ class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[Pretra
         )
 
 
-@step(
-    "transformers::tokenize_dataset",
-    format=DatasetFormat(),
-)
+@step("transformers::tokenize", format=DatasetFormat())
 def tokenize_dataset(
     dataset: datasets.Dataset | datasets.DatasetDict,
     tokenizer: PreTrainedTokenizerBase,
@@ -65,7 +62,7 @@ def tokenize_dataset(
     )
 
 
-@step("transformers::load_pretrained_model", cacheable=False)
+@step("transformers::load_model", cacheable=False)
 def load_pretrained_model(
     model_name_or_path: str | PathLike,
     auto_class: str | type[_BaseAutoModelClass] = transformers.AutoModel,
@@ -83,7 +80,7 @@ def load_pretrained_model(
     return cast(transformers.PreTrainedModel, model)
 
 
-@step("transformers::load_pretrained_tokenizer", cacheable=False)
+@step("transformers::load_tokenizer", cacheable=False)
 def load_pretrained_tokenizer(
     pretrained_model_name_or_path: str | PathLike,
     submodule: str | None = None,
@@ -99,11 +96,8 @@ def load_pretrained_tokenizer(
     )
 
 
-@step(
-    "transformers::finetune_model",
-    format=TransformersPretrainedModelFormat(),
-)
-def finetune_model(
+@step("transformers::train_model", format=TransformersPretrainedModelFormat())
+def train_transformer_model(
     model: PreTrainedModel,
     args: Lazy[TrainingArguments],
     data_collator: DataCollator | None = None,  # pyright: ignore[reportInvalidTypeForm]

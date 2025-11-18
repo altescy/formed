@@ -30,7 +30,7 @@ class DatasetFormat(Generic[DatasetOrMappingT], Format[DatasetOrMappingT]):
         )
 
 
-@step("datasets::load_dataset", cacheable=False, format=DatasetFormat())
+@step("datasets::load", cacheable=False, format=DatasetFormat())
 def load_dataset(
     path: str | PathLike,
     **kwargs: Any,
@@ -46,7 +46,7 @@ def load_dataset(
     return dataset
 
 
-@step("datasets::compose_datasetdict", format=DatasetFormat())
+@step("datasets::compose", format=DatasetFormat())
 def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
     datasets_: dict[str, datasets.Dataset] = {
         key: dataset for key, dataset in kwargs.items() if isinstance(dataset, datasets.Dataset)
@@ -60,7 +60,7 @@ def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
     return datasets.DatasetDict(**datasets_)
 
 
-@step("datasets::concatenate_datasets", format=DatasetFormat())
+@step("datasets::concatenate", format=DatasetFormat())
 def concatenate_datasets(dsets: list[datasets.Dataset], **kwargs: Any) -> datasets.Dataset:
     return cast(datasets.Dataset, datasets.concatenate_datasets(dsets, **kwargs))
 

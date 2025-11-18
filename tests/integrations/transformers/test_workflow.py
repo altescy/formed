@@ -48,27 +48,27 @@ def test_transformers_workflow(
         {
             "steps": {
                 "dataset": {
-                    "type": "datasets::load_dataset",
+                    "type": "datasets::load",
                     "path": str(dataset_path),
                 },
                 "tokenizer": {
-                    "type": "transformers::load_pretrained_tokenizer",
+                    "type": "transformers::load_tokenizer",
                     "pretrained_model_name_or_path": "hf-internal-testing/tiny-random-BertModel",
                 },
                 "tokenized_dataset": {
-                    "type": "transformers::tokenize_dataset",
+                    "type": "transformers::tokenize",
                     "dataset": {"type": "ref", "ref": "dataset"},
                     "tokenizer": {"type": "ref", "ref": "tokenizer"},
                     "max_length": 10,
                     "truncation": True,
                 },
                 "backbone_model": {
-                    "type": "transformers::load_pretrained_model",
+                    "type": "transformers::load_model",
                     "auto_class": "AutoModelForMaskedLM",
                     "model_name_or_path": "hf-internal-testing/tiny-random-BertModel",
                 },
                 "finetuned_model": {
-                    "type": "transformers::finetune_model",
+                    "type": "transformers::train_model",
                     "model": {"type": "ref", "ref": "backbone_model"},
                     "dataset": {"type": "ref", "ref": "tokenized_dataset"},
                     "args": {
