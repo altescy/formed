@@ -1,3 +1,5 @@
+import importlib
+import json
 from collections.abc import Callable, Mapping
 from contextlib import suppress
 from os import PathLike
@@ -28,12 +30,24 @@ PretrainedModelT = TypeVar("PretrainedModelT", bound=PreTrainedModel)
 class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[PretrainedModelT]):
     def write(self, artifact: PretrainedModelT, directory: Path) -> None:
         artifact.save_pretrained(str(directory / "model"))
+        metadata = {
+            "module": artifact.__class__.__module__,
+            "class": artifact.__class__.__name__,
+        }
+        metadata_path = directory / "metadata.json"
+        metadata_path.write_text(json.dumps(metadata, ensure_ascii=False))
 
     def read(self, directory: Path) -> PretrainedModelT:
-        return cast(
-            PretrainedModelT,
-            transformers.AutoModel.from_pretrained(str(directory / "model")),
-        )
+        metadata_path = directory / "metadata.json"
+        metadata = json.loads(metadata_path.read_text())
+        module_name = metadata["module"]
+        class_name = metadata["class"]
+        module = importlib.import_module(module_name)
+        model_class = getattr(module, class_name)
+        if not issubclass(model_class, PreTrainedModel):
+            raise ValueError(f"Class {class_name} is not a subclass of PreTrainedModel")
+        model = model_class.from_pretrained(str(directory / "model"))
+        return cast(PretrainedModelT, model)
 
 
 @step("transformers::tokenize", format=DatasetFormat())
