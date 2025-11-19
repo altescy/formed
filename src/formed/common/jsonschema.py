@@ -26,6 +26,35 @@ def _default(python_type: Any) -> dict[str, Any]:
     }
 
 
+def generate_definitions_from_registrable(
+    target: type[Registrable] | None = None,
+    default: Union[Mapping[str, Any], Callable[[Any], dict[str, Any]]] = _default,
+    callback: Optional[Callable[[Optional[str], dict[str, Any]], dict[str, Any]]] = None,
+) -> dict[str, Any]:
+    definitions: dict[str, Any] = {}
+    root_registry = (
+        Registrable._registry
+        if not target
+        else {cls: registry for cls, registry in Registrable._registry.items() if issubclass(cls, target)}
+    )
+    for _, registry in root_registry.items():
+        for name, (subclass, constructor_name) in registry.items():
+            key = _get_ref_name(subclass)
+            if key in definitions:
+                continue
+            schema = generate_json_schema(
+                getattr(subclass, constructor_name or "__init__"),
+                root=False,
+                definitions=definitions,
+                extra_properties={"type": {"const": name}},
+                default=default,
+                callback=callback,
+            )
+            if key not in definitions and "$ref" not in schema:
+                definitions[key] = schema
+    return definitions
+
+
 def generate_json_schema(
     cls: Any,
     *,
@@ -33,21 +62,20 @@ def generate_json_schema(
     definitions: Optional[dict[str, Any]] = None,
     title: Optional[str] = None,
     description: Optional[str] = None,
-    meta_properties: Optional[Mapping[str, Any]] = None,
+    extra_properties: Optional[Mapping[str, Any]] = None,
     default: Union[Mapping[str, Any], Callable[[Any], dict[str, Any]]] = _default,
     callback: Optional[Callable[[Optional[str], dict[str, Any]], dict[str, Any]]] = None,
     path: Optional[str] = None,
 ) -> dict[str, Any]:
-    if cls is Any:
-        return {}
-
     if definitions is None:
         definitions = {}
 
     schema: Dict[str, Any] | None = None
     ref_name: str | None = None
 
-    if isinstance(cls, type):
+    if cls is Any:
+        schema = {}
+    elif isinstance(cls, type):
         if isinstance(cls, type) and issubclass(cls, Enum):
             schema = {"enum": [member.value for member in cls]}
         elif cls in (int, float, str, bool, NoneType):
@@ -56,26 +84,36 @@ def generate_json_schema(
             schema = {"type": "array"}
         elif cls in (dict, Dict, Mapping, MutableMapping):
             schema = {"type": "object"}
-        elif issubclass(cls, Registrable) and (registry := Registrable._registry.get(cls)):
-            schema = {
-                "anyOf": [
-                    generate_json_schema(
-                        subclass,
-                        root=False,
-                        definitions=definitions,
-                        meta_properties={"type": {"const": name}},
-                        default=default,
-                        callback=callback,
-                        path=_concat_path(path, name),
-                    )
-                    for name, (subclass, _) in registry.items()
-                ]
-            }
         else:
             ref_name = _get_ref_name(cls)
             if not root and ref_name in definitions:
                 return {"$ref": f"#/$defs/{ref_name}"}
-            if dataclasses.is_dataclass(cls):
+            if issubclass(cls, Registrable):
+                if registry := Registrable._registry[cls]:
+                    schema = {
+                        "anyOf": [
+                            generate_json_schema(
+                                getattr(subclass, constructor_name or "__init__"),
+                                root=False,
+                                definitions=definitions | {ref_name: {}},
+                                extra_properties={"type": {"const": name}},
+                                default=default,
+                                callback=callback,
+                                path=path,
+                            )
+                            for name, (subclass, constructor_name) in registry.items()
+                        ]
+                    }
+                else:
+                    schema = generate_json_schema(
+                        cls.__init__,
+                        root=False,
+                        definitions=definitions,
+                        default=default,
+                        callback=callback,
+                        path=path,
+                    )
+            elif dataclasses.is_dataclass(cls):
                 fields = [field for field in dataclasses.fields(cls) if field.init]
                 schema = {
                     "type": "object",
@@ -228,18 +266,15 @@ def generate_json_schema(
     if schema is None:
         schema = default(cls) if callable(default) else dict(default)
 
-    if meta_properties:
-        if schema.get("type") == "object":
-            schema.setdefault("properties", {}).update(meta_properties)
-            schema.setdefault("required", []).extend(meta_properties.keys())
-
-    if callback:
-        schema = callback(path, schema)
-
     if title:
         schema["title"] = title
     if description:
         schema["description"] = description
+    if extra_properties and schema.get("type") == "object":
+        schema.setdefault("properties", {}).update(extra_properties)
+        schema.setdefault("required", []).extend(extra_properties.keys())
+    if callback:
+        schema = callback(path, schema)
 
     # Register class schema as reference
     if not root and schema is not None and ref_name is not None:
