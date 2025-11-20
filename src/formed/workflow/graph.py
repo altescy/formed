@@ -29,7 +29,7 @@ Example:
 
 import sys
 from collections.abc import Iterator, Mapping
-from typing import Any, TextIO, TypedDict
+from typing import Any, NotRequired, Required, TextIO, TypedDict
 
 from colt import ConfigurationError, Lazy
 
@@ -42,16 +42,14 @@ from .constants import WORKFLOW_REFKEY
 from .step import WorkflowStep, WorkflowStepInfo, WorkflowStepRef
 from .types import StrictParamPath
 
-
-class WorkflowGraphConfig(TypedDict):
-    """Type definition for workflow configuration.
-
-    Attributes:
-        steps: Dictionary mapping step names to their configurations.
-
-    """
-
-    steps: dict[str, JsonValue]
+WorkflowGraphConfig = TypedDict(
+    "WorkflowGraphConfig",
+    {
+        "steps": Required[dict[str, JsonValue]],
+        "$schema": NotRequired[str],
+    },
+    total=False,
+)
 
 
 class WorkflowGraph(FromJsonnet):
