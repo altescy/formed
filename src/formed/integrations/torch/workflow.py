@@ -31,6 +31,7 @@ import cloudpickle
 import torch
 from colt import Lazy
 
+from formed.common.ctxutils import closing
 from formed.common.rich import progress
 from formed.workflow import Format, WorkflowStepResultFlag, step, use_step_logger
 from formed.workflow.colt import COLT_BUILDER, COLT_TYPEKEY
@@ -191,7 +192,10 @@ def evaluate_torch_model(
 
     # Evaluate model
     with torch.no_grad():
-        with progress(dataloader(dataset), desc="Evaluating model") as iterator:
+        with (
+            closing(dataloader(dataset)) as loader,
+            progress(loader, desc="Evaluating model") as iterator,
+        ):
             for inputs in iterator:
                 output = model(inputs, params)
                 evaluator.update(inputs, output)

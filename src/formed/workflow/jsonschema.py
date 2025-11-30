@@ -1,7 +1,8 @@
 from typing import Any, Final, Mapping, TypedDict
 
 from colt import Registrable
-from formed.common.jsonschema import generate_json_schema, generate_definitions_from_registrable
+
+from formed.common.jsonschema import generate_definitions_from_registrable, generate_json_schema
 from formed.workflow import WorkflowStep
 
 from .constants import WORKFLOW_REFKEY, WORKFLOW_REFTYPE

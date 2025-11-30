@@ -11,6 +11,7 @@ __all__ = [
     "S_DataContainer",
     "T_DataContainer",
     "T_NamedTuple",
+    "SupportsClosing",
 ]
 
 JsonValue: TypeAlias = Union[
@@ -22,6 +23,11 @@ JsonValue: TypeAlias = Union[
     float,
     None,
 ]
+
+
+@runtime_checkable
+class SupportsClosing(Protocol):
+    def close(self) -> None: ...
 
 
 @runtime_checkable

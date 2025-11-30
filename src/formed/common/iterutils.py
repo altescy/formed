@@ -1,8 +1,12 @@
 import itertools
 import math
+import multiprocessing
 from collections import abc
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, Generic, TypeVar
+from multiprocessing.queues import Queue
+from typing import Any, Final, Generic, TypeVar
+
+from formed.types import SupportsClosing
 
 T = TypeVar("T")
 
@@ -28,6 +32,118 @@ class SizedIterator(Generic[T]):
 
     def __len__(self) -> int:
         return self.size
+
+    def close(self) -> None:
+        if isinstance(self.iterator, SupportsClosing):
+            self.iterator.close()
+
+
+class _ExceptionWrapper:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def __repr__(self) -> str:
+        return f"ExceptionWrapper({self.error!r})"
+
+
+class _Sentinel: ...
+
+
+_SENTINEL: Final = _Sentinel()
+
+
+class BufferedIterator(Iterator[T], Generic[T]):
+    """An iterator that buffers items from a source iterable using a separate process.
+
+    Args:
+        source: The source iterable.
+        buffer_size: The size of the buffer.
+        timeout: The timeout for getting items from the buffer.
+
+    """
+
+    def __init__(
+        self,
+        source: Iterable[T],
+        buffer_size: int,
+        *,
+        timeout: float | None = 1.0,
+    ) -> None:
+        self._source = source
+        self._buffer_size = buffer_size
+        self._timeout = timeout
+        self._queue: "Queue[T | _ExceptionWrapper | _Sentinel]" = multiprocessing.Queue(maxsize=buffer_size)
+        self._process: multiprocessing.Process | None = None
+        self._stop_event = multiprocessing.Event()
+        self._exhausted = False
+
+    @classmethod
+    def _worker(
+        cls,
+        source: Iterable[T],
+        queue: "Queue[T | _ExceptionWrapper | _Sentinel]",
+        stop_event=None,
+    ) -> None:
+        try:
+            for item in source:
+                if stop_event and stop_event.is_set():
+                    break
+                queue.put(item)
+        except Exception as e:
+            queue.put(_ExceptionWrapper(e))
+        finally:
+            queue.put(_SENTINEL)
+
+    def __iter__(self) -> Iterator[T]:
+        self.start()
+        if isinstance(self._source, abc.Sized):
+            return SizedIterator(self, len(self._source))
+        return self
+
+    def __next__(self) -> T:
+        if self._process is None:
+            self.start()
+
+        if self._exhausted:
+            raise StopIteration
+
+        try:
+            item = self._queue.get(timeout=self._timeout)
+        except Exception:
+            self.close()
+            raise
+
+        if isinstance(item, _Sentinel):
+            self._exhausted = True
+            self.close()
+            raise StopIteration
+
+        if isinstance(item, _ExceptionWrapper):
+            self._exhausted = True
+            self.close()
+            raise item.error
+
+        return item
+
+    def start(self) -> None:
+        if self._process is None:
+            self._process = multiprocessing.Process(
+                target=self._worker,
+                args=(self._source, self._queue, self._stop_event),
+                daemon=True,
+            )
+            self._process.start()
+
+    def close(self) -> None:
+        if self._process and self._process.is_alive():
+            self._stop_event.set()
+            self._queue.close()
+            self._process.terminate()
+            self._process.join(timeout=0.1)
+            self._process = None
+
+    def __del__(self) -> None:
+        self.close()
 
 
 def batched(iterable: Iterable[T], batch_size: int, drop_last: bool = False) -> Iterator[list[T]]:

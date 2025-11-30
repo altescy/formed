@@ -53,6 +53,7 @@ import torch
 from colt import Lazy
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
+from formed.common.ctxutils import closing
 from formed.common.rich import STDERR_CONSOLE
 from formed.workflow import use_step_logger
 
@@ -348,11 +349,12 @@ class TorchTrainer(
             evaluators = new_evaluators()
 
             task = progress.add_task("Evaluation", total=get_total_eval_steps())
-            for batch in self._val_dataloader(val_dataset):
-                batch = move_to_device(batch)
-                output = self._engine.eval_step(batch, state, self)
-                update_metrics(evaluators, batch, output)
-                progress.advance(task)
+            with closing(self._val_dataloader(val_dataset)) as val_dataloader:
+                for batch in val_dataloader:
+                    batch = move_to_device(batch)
+                    output = self._engine.eval_step(batch, state, self)
+                    update_metrics(evaluators, batch, output)
+                    progress.advance(task)
             progress.remove_task(task)
 
             computed_metrics = compute_metrics(evaluators)
@@ -389,26 +391,27 @@ class TorchTrainer(
                     assert state is not None
                     new_epoch(epoch)
 
-                    for batch in self._train_dataloader(train_dataset):
-                        new_batch(epoch)
+                    with closing(self._train_dataloader(train_dataset)) as train_dataloader:
+                        for batch in train_dataloader:
+                            new_batch(epoch)
 
-                        batch = move_to_device(batch)
-                        output = self._engine.train_step(batch, state, self)
+                            batch = move_to_device(batch)
+                            output = self._engine.train_step(batch, state, self)
 
-                        update_metrics(evaluators, batch, output)
+                            update_metrics(evaluators, batch, output)
 
-                        if is_logging_step(int(state.step)):
-                            train_metrics = compute_metrics(evaluators)
-                            log(train_metrics, prefix=self._train_prefix)
-                            finalize_evaluation(train_metrics, prefix=self._train_prefix)
-                            evaluators = new_evaluators()
+                            if is_logging_step(int(state.step)):
+                                train_metrics = compute_metrics(evaluators)
+                                log(train_metrics, prefix=self._train_prefix)
+                                finalize_evaluation(train_metrics, prefix=self._train_prefix)
+                                evaluators = new_evaluators()
 
-                        finalize_batch(epoch, output)
+                            finalize_batch(epoch, output)
 
-                        progress.advance(task)
+                            progress.advance(task)
 
-                        if is_eval_step(int(state.step)):
-                            do_evaluation(progress)
+                            if is_eval_step(int(state.step)):
+                                do_evaluation(progress)
 
                     if is_logging_epoch(epoch):
                         train_metrics = compute_metrics(evaluators)

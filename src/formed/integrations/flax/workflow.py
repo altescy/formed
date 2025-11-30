@@ -32,6 +32,7 @@ import orbax.checkpoint
 from colt import Lazy
 from flax import nnx
 
+from formed.common.ctxutils import closing
 from formed.common.rich import progress
 from formed.workflow import Format, WorkflowStepResultFlag, step, use_step_logger
 from formed.workflow.colt import COLT_BUILDER, COLT_TYPEKEY
@@ -158,7 +159,10 @@ def evaluate_flax_model(
         model.eval()
         evaluator.reset()
 
-        with progress(dataloader(dataset), desc="Evaluating model") as iterator:
+        with (
+            closing(dataloader(dataset)) as loader,
+            progress(loader, desc="Evaluating model") as iterator,
+        ):
             for inputs in iterator:
                 output = model(inputs, params)
                 evaluator.update(inputs, output)
