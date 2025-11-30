@@ -72,7 +72,7 @@ class BufferedIterator(Iterator[T], Generic[T]):
         self._source = source
         self._buffer_size = buffer_size
         self._timeout = timeout
-        self._queue: Queue[T | _ExceptionWrapper | _Sentinel] = multiprocessing.Queue(maxsize=buffer_size)
+        self._queue: "Queue[T | _ExceptionWrapper | _Sentinel]" = multiprocessing.Queue(maxsize=buffer_size)
         self._process: multiprocessing.Process | None = None
         self._stop_event = multiprocessing.Event()
         self._exhausted = False
@@ -81,7 +81,7 @@ class BufferedIterator(Iterator[T], Generic[T]):
     def _worker(
         cls,
         source: Iterable[T],
-        queue: Queue[T | _ExceptionWrapper | _Sentinel],
+        queue: "Queue[T | _ExceptionWrapper | _Sentinel]",
         stop_event=None,
     ) -> None:
         try:
