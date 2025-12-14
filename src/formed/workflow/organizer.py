@@ -65,7 +65,7 @@ from .utils import WorkflowJSONEncoder
 
 logger = getLogger(__name__)
 
-T_WorkflowOrganizer = TypeVar("T_WorkflowOrganizer", bound="WorkflowOrganizer")
+WorkflowOrganizerT = TypeVar("WorkflowOrganizerT", bound="WorkflowOrganizer")
 
 
 class WorkflowOrganizer(Registrable):

@@ -8,9 +8,9 @@ __all__ = [
     "IDataclass",
     "INamedTuple",
     "JsonValue",
-    "S_DataContainer",
-    "T_DataContainer",
-    "T_NamedTuple",
+    "DataContainerS",
+    "DataContainerT",
+    "NamedTupleT",
     "SupportsClosing",
 ]
 
@@ -42,7 +42,7 @@ class INamedTuple(Protocol):
 
     def _asdict(self) -> dict[str, Any]: ...
 
-    def _replace(self: "T_NamedTuple", **kwargs: Any) -> "T_NamedTuple": ...
+    def _replace(self: "NamedTupleT", **kwargs: Any) -> "NamedTupleT": ...
 
 
 @runtime_checkable
@@ -64,7 +64,7 @@ T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 T_contra = TypeVar("T_contra", contravariant=True)
 
-T_NamedTuple = TypeVar("T_NamedTuple", bound=INamedTuple)
+NamedTupleT = TypeVar("NamedTupleT", bound=INamedTuple)
 
-S_DataContainer = TypeVar("S_DataContainer", bound=DataContainer)
-T_DataContainer = TypeVar("T_DataContainer", bound=DataContainer)
+DataContainerS = TypeVar("DataContainerS", bound=DataContainer)
+DataContainerT = TypeVar("DataContainerT", bound=DataContainer)

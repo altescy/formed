@@ -63,7 +63,7 @@ from .step import (
 logger = getLogger(__name__)
 
 T = TypeVar("T")
-T_WorkflowExecutor = TypeVar("T_WorkflowExecutor", bound="WorkflowExecutor")
+WorkflowExecutorT = TypeVar("WorkflowExecutorT", bound="WorkflowExecutor")
 
 _EXECUTION_CONTEXT = contextvars.ContextVar["WorkflowExecutionContext | None"]("_EXECUTION_CONTEXT", default=None)
 
@@ -150,7 +150,7 @@ class WorkflowExecutor(Registrable):
         """
         raise NotImplementedError
 
-    def __enter__(self: T_WorkflowExecutor) -> T_WorkflowExecutor:
+    def __enter__(self: WorkflowExecutorT) -> WorkflowExecutorT:
         return self
 
     def __exit__(

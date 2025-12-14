@@ -23,10 +23,10 @@ import sys
 from collections.abc import Callable, Hashable
 from typing import Generic, TextIO, TypeVar
 
-T_Node = TypeVar("T_Node", bound=Hashable)
+NodeT = TypeVar("NodeT", bound=Hashable)
 
 
-class DAG(Generic[T_Node]):
+class DAG(Generic[NodeT]):
     """Directed acyclic graph with dependency tracking and visualization.
 
     DAG represents a directed acyclic graph where each node can have dependencies
@@ -34,7 +34,7 @@ class DAG(Generic[T_Node]):
     computing weakly connected components, and visualizing the graph structure.
 
     Type Parameters:
-        T_Node: Node type, must be hashable.
+        NodeT: Node type, must be hashable.
 
     Attributes:
         _dependencies: Mapping from each node to its set of dependency nodes.
@@ -65,9 +65,9 @@ class DAG(Generic[T_Node]):
 
     """
 
-    def __init__(self, dependencies: dict[T_Node, set[T_Node]]) -> None:
+    def __init__(self, dependencies: dict[NodeT, set[NodeT]]) -> None:
         nodes = set(dependencies.keys() | set(node for deps in dependencies.values() for node in deps))
-        empty_dependencies: dict[T_Node, set[T_Node]] = {node: set() for node in nodes}
+        empty_dependencies: dict[NodeT, set[NodeT]] = {node: set() for node in nodes}
 
         self._dependencies = {**empty_dependencies, **dependencies}
 
@@ -83,10 +83,10 @@ class DAG(Generic[T_Node]):
         return hash(frozenset((node, frozenset(deps)) for node, deps in self._dependencies.items()))
 
     @property
-    def nodes(self) -> set[T_Node]:
+    def nodes(self) -> set[NodeT]:
         return set(self._dependencies.keys())
 
-    def subgraph(self, nodes: set[T_Node]) -> "DAG":
+    def subgraph(self, nodes: set[NodeT]) -> "DAG":
         """Create a subgraph containing only the specified nodes.
 
         Args:
@@ -99,7 +99,7 @@ class DAG(Generic[T_Node]):
         """
         return DAG({node: nodes & deps for node, deps in self._dependencies.items() if node in nodes})
 
-    def in_degree(self, node: T_Node) -> int:
+    def in_degree(self, node: NodeT) -> int:
         """Get the number of dependencies for a node.
 
         Args:
@@ -111,7 +111,7 @@ class DAG(Generic[T_Node]):
         """
         return len(self._dependencies[node])
 
-    def successors(self, node: T_Node) -> set[T_Node]:
+    def successors(self, node: NodeT) -> set[NodeT]:
         """Get all nodes that depend on the specified node.
 
         Args:
@@ -145,7 +145,7 @@ class DAG(Generic[T_Node]):
             2
 
         """
-        groups: list[set[T_Node]] = []
+        groups: list[set[NodeT]] = []
 
         for node, deps in self._dependencies.items():
             current_group = {node} | deps
@@ -171,7 +171,7 @@ class DAG(Generic[T_Node]):
         *,
         indent: int = 2,
         output: TextIO = sys.stdout,
-        rename: Callable[[T_Node], str] = str,
+        rename: Callable[[NodeT], str] = str,
     ) -> None:
         """Visualize the DAG structure as ASCII art.
 
@@ -195,7 +195,7 @@ class DAG(Generic[T_Node]):
               ╰─• train
 
         """
-        locations: dict[T_Node, tuple[int, int]] = {}
+        locations: dict[NodeT, tuple[int, int]] = {}
 
         def _process_dag(dag: DAG, level: int) -> None:
             for subdag in sorted(dag.weekly_connected_components(), key=lambda g: sorted(g.nodes)):

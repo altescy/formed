@@ -16,7 +16,7 @@ from .constants import COLT_ARGSKEY, COLT_TYPEKEY
 
 logger = logging.getLogger(__name__)
 
-T_FormedSettings = TypeVar("T_FormedSettings", bound="FormedSettings")
+FormedSettingsT = TypeVar("FormedSettingsT", bound="FormedSettings")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -36,7 +36,7 @@ class FormedSettings:
     logging: Mapping[str, LoggingSettings] = dataclasses.field(default_factory=dict)
 
     @classmethod
-    def from_file(cls: type[T_FormedSettings], path: str | PathLike) -> T_FormedSettings:
+    def from_file(cls: type[FormedSettingsT], path: str | PathLike) -> FormedSettingsT:
         logger = logging.getLogger(__name__)
 
         with open(path) as f:

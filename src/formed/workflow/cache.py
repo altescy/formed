@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T")
-T_WorkflowCache = TypeVar("T_WorkflowCache", bound="WorkflowCache")
+WorkflowCacheT = TypeVar("WorkflowCacheT", bound="WorkflowCache")
 
 
 class WorkflowCache(Registrable):
