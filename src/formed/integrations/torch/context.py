@@ -10,7 +10,7 @@ _TORCH_DEVICE = ContextVar[torch.device | None]("torch_device", default=None)
 
 
 @contextmanager
-def use_device(device: torch.device | str | None = None) -> Iterator[torch.device | None]:
+def use_device(device: str | torch.device | None = None) -> Iterator[torch.device]:
     """Context manager to set and restore the default PyTorch device.
 
     This context manager allows temporarily setting the default device
@@ -34,10 +34,18 @@ def use_device(device: torch.device | str | None = None) -> Iterator[torch.devic
         ...     print(tensor.device)
         cuda:0  # or cpu if CUDA not available
     """
-    device_obj = torch.device(device) if device is not None else None
-    token = _TORCH_DEVICE.set(device_obj)
+    if device is None:
+        if torch.cuda.is_available():
+            device = "cuda:0"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+    if isinstance(device, str):
+        device = torch.device(device)
+    token = _TORCH_DEVICE.set(torch.device(device))
     try:
-        yield _TORCH_DEVICE.get()
+        yield device
     finally:
         _TORCH_DEVICE.reset(token)
 
