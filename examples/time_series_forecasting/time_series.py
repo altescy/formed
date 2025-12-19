@@ -258,7 +258,9 @@ def main():
     trainer = ft.TorchTrainer(
         train_dataloader=train_loader,
         val_dataloader=val_loader,
-        optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+        engine=ft.DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+        ),
         distributor=ft.SingleDeviceDistributor(),
         max_epochs=args.epochs,
         eval_strategy="epoch",

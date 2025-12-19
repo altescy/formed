@@ -22,6 +22,7 @@ from formed.integrations.ml.metrics import Average
 from formed.integrations.torch import (
     BaseTorchModel,
     DataLoader,
+    DefaultTorchTrainingEngine,
     DistributedDataParallelDistributor,
     EarlyStoppingCallback,
     EvaluationCallback,
@@ -120,7 +121,9 @@ def main():
     trainer = TorchTrainer(
         train_dataloader=train_loader,
         val_dataloader=val_loader,
-        optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+        engine=DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+        ),
         distributor=distributor,
         max_epochs=100,  # Large number, will stop early
         eval_strategy="epoch",

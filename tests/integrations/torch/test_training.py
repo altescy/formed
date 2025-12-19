@@ -22,6 +22,7 @@ from formed.integrations.torch import (
     BagOfEmbeddingsSequenceVectorizer,
     BaseTorchModel,
     CrossEntropyLoss,
+    DefaultTorchTrainingEngine,
     EvaluationCallback,
     MeanSquaredErrorLoss,
     TokenEmbedder,
@@ -141,7 +142,9 @@ class TestTrainingWithRegressor:
         trainer = TorchTrainer(
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
-            optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+            engine=DefaultTorchTrainingEngine(
+                optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+            ),
             max_epochs=5,
             callbacks=[EvaluationCallback(RegressionEvaluator())],
         )
@@ -325,7 +328,9 @@ class TestTrainingWithTextClassifier:
         trainer = TorchTrainer(
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
-            optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+            engine=DefaultTorchTrainingEngine(
+                optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+            ),
             max_epochs=5,
             callbacks=[EvaluationCallback(ClassificationEvaluator())],
         )

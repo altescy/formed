@@ -2,14 +2,14 @@
 
 import random
 from collections.abc import Callable, Sequence
-from typing import Literal
+from typing import Literal, Optional, Union, cast
 
 import numpy
 import torch
 import torch.nn.functional as F
 
 from .context import get_device
-from .types import TensorCompatible
+from .types import ModelInputT, TensorCompatible
 
 
 def set_random_seed(seed: int) -> None:
@@ -27,8 +27,8 @@ def set_random_seed(seed: int) -> None:
 
 def ensure_torch_tensor(
     x: TensorCompatible,
-    dtype: torch.dtype | None = None,
-    device: torch.device | str | None = None,
+    dtype: Optional[torch.dtype] = None,
+    device: Optional[Union[torch.device, str]] = None,
 ) -> torch.Tensor:
     """Convert array-like objects to PyTorch tensors.
 
@@ -107,9 +107,61 @@ def ensure_torch_tensor(
     return tensor
 
 
+def move_to_device(inputs: ModelInputT, device: Optional[Union[torch.device, str]]) -> ModelInputT:
+    """Move tensor inputs to the appropriate device.
+
+    This function only moves existing torch.Tensor objects to the target device.
+    Other types (numpy arrays, primitives, etc.) are left unchanged.
+    Users should explicitly convert numpy arrays to tensors in their model's
+    forward method using ensure_torch_tensor().
+    """
+    from typing import Any
+
+    visited: set[int] = set()
+
+    def _move(obj: Any) -> Any:
+        # Handle tensors - move to device
+        if isinstance(obj, torch.Tensor):
+            return obj.to(device)
+
+        # Handle primitives and None - no conversion needed
+        if obj is None or isinstance(obj, (int, float, str, bool, type)):
+            return obj
+
+        # Check if already visited to avoid infinite recursion
+        obj_id = id(obj)
+        if obj_id in visited:
+            return obj
+        visited.add(obj_id)
+
+        # Handle dict
+        if isinstance(obj, dict):
+            return {k: _move(v) for k, v in obj.items()}
+
+        # Handle list/tuple
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(_move(x) for x in obj)
+
+        # Handle objects with __dict__ (but not built-in types)
+        if hasattr(obj, "__dict__") and not isinstance(obj, type):
+            try:
+                for key, value in list(obj.__dict__.items()):
+                    # Skip dunder attributes
+                    if not key.startswith("__"):
+                        setattr(obj, key, _move(value))
+            except (TypeError, AttributeError):
+                # Skip objects that don't allow attribute modification
+                pass
+            return obj
+
+        return obj
+
+    return cast(ModelInputT, _move(inputs))
+
+
 def determine_ndim(
     first: int,
-    *args: int | Callable[[int], int] | None,
+    *args: Optional[Union[int, Callable[[int], int]]],
 ) -> int:
     output_dim = first
     for arg in args:
@@ -128,10 +180,10 @@ PoolingMethod = Literal["mean", "max", "min", "sum", "first", "last", "hier"]
 def masked_pool(
     inputs: torch.Tensor,
     *,
-    mask: torch.Tensor | None = None,
-    pooling: PoolingMethod | Sequence[PoolingMethod] = "mean",
+    mask: Optional[torch.Tensor] = None,
+    pooling: Union[PoolingMethod, Sequence[PoolingMethod]] = "mean",
     normalize: bool = False,
-    window_size: int | None = None,
+    window_size: Optional[int] = None,
 ) -> torch.Tensor:
     """Apply masked pooling over the sequence dimension.
 

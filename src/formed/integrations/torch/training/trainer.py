@@ -22,17 +22,21 @@ Example:
     >>> from formed.integrations.ml import DataLoader, BasicBatchSampler
     >>> import torch.optim as optim
     >>>
-    >>> # Setup data loaders
+    >>> # Setup data loaders and engine
     >>> train_dataloader = DataLoader(
     ...     sampler=BasicBatchSampler(batch_size=32, shuffle=True),
     ...     collator=datamodule.batch
+    ... )
+    >>> engine = DefaultTorchTrainingEngine(
+    ...     optimizer=optim.Adam,
+    ...     lr_scheduler=optim.lr_scheduler.StepLR
     ... )
     >>>
     >>> # Create trainer
     >>> trainer = TorchTrainer(
     ...     train_dataloader=train_dataloader,
     ...     val_dataloader=val_dataloader,
-    ...     optimizer=optim.Adam(model.parameters(), lr=1e-3),
+    ...     engine=engine,
     ...     max_epochs=10,
     ...     callbacks=[
     ...         EvaluationCallback(my_evaluator),
@@ -46,11 +50,10 @@ Example:
 """
 
 import logging
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Generic, Literal, cast
+from collections.abc import Mapping, Sequence
+from typing import Generic, Literal, Optional, cast
 
 import torch
-from colt import Lazy
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
 from formed.common.ctxutils import closing
@@ -60,11 +63,29 @@ from formed.workflow import use_step_logger
 from ..context import use_device
 from ..distributors import BaseDistributor, SingleDeviceDistributor
 from ..model import BaseTorchModel
-from ..types import IDataLoader, IEvaluator, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from ..types import (
+    IDataLoader,
+    IEvaluator,
+    ItemT,
+    ModelInputT,
+    ModelOutputT,
+    ModelParamsT,
+)
+from ..utils import move_to_device
 from .callbacks import TorchTrainingCallback
 from .engine import DefaultTorchTrainingEngine, TorchTrainingEngine
 from .exceptions import StopEarly
 from .state import TrainState
+
+
+def get_default_max_epochs() -> int:
+    """Get a default maximum number of training epochs."""
+    return 10
+
+
+def get_default_distributor() -> BaseDistributor:
+    """Get a default single-device distributor."""
+    return SingleDeviceDistributor()
 
 
 class TorchTrainer(
@@ -92,7 +113,6 @@ class TorchTrainer(
         train_dataloader: Data loader for training dataset.
         val_dataloader: Optional data loader for validation dataset.
         engine: Training engine (defaults to DefaultTorchTrainingEngine).
-        optimizer: PyTorch optimizer.
         callbacks: Sequence of training callbacks.
         distributor: Device distributor (defaults to SingleDeviceDistributor).
         max_epochs: Maximum number of training epochs.
@@ -101,12 +121,18 @@ class TorchTrainer(
         logging_strategy: When to log - "epoch" or "step".
         logging_interval: Logging interval (epochs or steps).
         logging_first_step: Whether to log after the first training step.
+        train_prefix: Prefix for training metrics logging. Default is "train/".
+        val_prefix: Prefix for validation metrics logging. Default is "val/".
 
     Example:
+        >>> engine = DefaultTorchTrainingEngine(
+        ...     optimizer=torch.optim.Adam,
+        ...     lr_scheduler=torch.optim.lr_scheduler.StepLR
+        ... )
         >>> trainer = TorchTrainer(
         ...     train_dataloader=train_loader,
         ...     val_dataloader=val_loader,
-        ...     optimizer=torch.optim.Adam(model.parameters(), 1e-3),
+        ...     engine=engine,
         ...     max_epochs=10,
         ...     eval_strategy="epoch",
         ...     logging_strategy="step",
@@ -119,12 +145,11 @@ class TorchTrainer(
         self,
         *,
         train_dataloader: IDataLoader[ItemT, ModelInputT],
-        val_dataloader: IDataLoader[ItemT, ModelInputT] | None = None,
-        engine: TorchTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT] | None = None,
-        optimizer: Lazy[IOptimizer] | IOptimizer | Callable[[Iterator[torch.nn.Parameter]], IOptimizer],
+        val_dataloader: Optional[IDataLoader[ItemT, ModelInputT]] = None,
+        engine: Optional[TorchTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]] = None,
         callbacks: Sequence[TorchTrainingCallback] = (),
-        distributor: BaseDistributor | None = None,
-        max_epochs: int = 10,
+        distributor: Optional[BaseDistributor] = None,
+        max_epochs: Optional[int] = None,
         eval_strategy: Literal["epoch", "step"] = "epoch",
         eval_interval: int = 1,
         logging_strategy: Literal["epoch", "step"] = "epoch",
@@ -133,12 +158,11 @@ class TorchTrainer(
         train_prefix: str = "train/",
         val_prefix: str = "val/",
     ) -> None:
-        self._optimizer = optimizer
         self._train_dataloader = train_dataloader
         self._val_dataloader = val_dataloader
         self._engine = engine or DefaultTorchTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]()
-        self._distributor = distributor or SingleDeviceDistributor()
-        self._max_epochs = max_epochs
+        self._distributor = distributor or get_default_distributor()
+        self._max_epochs = max_epochs or get_default_max_epochs()
         self._eval_strategy = eval_strategy
         self._eval_interval = eval_interval
         self._logging_strategy = logging_strategy
@@ -149,12 +173,6 @@ class TorchTrainer(
         self._val_prefix = val_prefix
 
     @property
-    def optimizer(self) -> IOptimizer:
-        if not isinstance(self._optimizer, IOptimizer):
-            raise ValueError("Optimizer has not been initialized. Call train() first.")
-        return self._optimizer
-
-    @property
     def distributor(self) -> BaseDistributor:
         return self._distributor
 
@@ -162,8 +180,8 @@ class TorchTrainer(
         self,
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         train_dataset: Sequence[ItemT],
-        val_dataset: Sequence[ItemT] | None = None,
-        state: TrainState | None = None,
+        val_dataset: Optional[Sequence[ItemT]] = None,
+        state: Optional[TrainState] = None,
     ) -> TrainState:
         """Train a model on the provided datasets.
 
@@ -200,8 +218,8 @@ class TorchTrainer(
         self,
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         train_dataset: Sequence[ItemT],
-        val_dataset: Sequence[ItemT] | None,
-        state: TrainState | None,
+        val_dataset: Optional[Sequence[ItemT]],
+        state: Optional[TrainState],
         logger: logging.Logger,
     ) -> TrainState:
         """Internal training implementation within device context."""
@@ -211,11 +229,6 @@ class TorchTrainer(
             BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
             self._distributor.wrap_model(model),
         )
-
-        if isinstance(self._optimizer, Lazy):
-            self._optimizer = self._optimizer.construct(params=model.parameters())
-        elif callable(self._optimizer):
-            self._optimizer = self._optimizer(model.parameters())
 
         if state is None:
             state = self._engine.create_state(self, model)
@@ -288,57 +301,6 @@ class TorchTrainer(
             for callback in self._callbacks:
                 callback.on_log(self, model, state, metrics, prefix=prefix)
 
-        def move_to_device(inputs: ModelInputT) -> ModelInputT:
-            """Move tensor inputs to the appropriate device.
-
-            This function only moves existing torch.Tensor objects to the target device.
-            Other types (numpy arrays, primitives, etc.) are left unchanged.
-            Users should explicitly convert numpy arrays to tensors in their model's
-            forward method using ensure_torch_tensor().
-            """
-            from typing import Any
-
-            visited: set[int] = set()
-
-            def _move(obj: Any) -> Any:
-                # Handle tensors - move to device
-                if isinstance(obj, torch.Tensor):
-                    return obj.to(self._distributor.device)
-
-                # Handle primitives and None - no conversion needed
-                if obj is None or isinstance(obj, (int, float, str, bool, type)):
-                    return obj
-
-                # Check if already visited to avoid infinite recursion
-                obj_id = id(obj)
-                if obj_id in visited:
-                    return obj
-                visited.add(obj_id)
-
-                # Handle dict
-                if isinstance(obj, dict):
-                    return {k: _move(v) for k, v in obj.items()}
-
-                # Handle list/tuple
-                if isinstance(obj, (list, tuple)):
-                    return type(obj)(_move(x) for x in obj)
-
-                # Handle objects with __dict__ (but not built-in types)
-                if hasattr(obj, "__dict__") and not isinstance(obj, type):
-                    try:
-                        for key, value in list(obj.__dict__.items()):
-                            # Skip dunder attributes
-                            if not key.startswith("__"):
-                                setattr(obj, key, _move(value))
-                    except (TypeError, AttributeError):
-                        # Skip objects that don't allow attribute modification
-                        pass
-                    return obj
-
-                return obj
-
-            return cast(ModelInputT, _move(inputs))
-
         def do_evaluation(progress: Progress) -> None:
             if not val_dataset:
                 return
@@ -348,10 +310,15 @@ class TorchTrainer(
 
             evaluators = new_evaluators()
 
+            model.eval()
+
             task = progress.add_task("Evaluation", total=get_total_eval_steps())
-            with closing(self._val_dataloader(val_dataset)) as val_dataloader:
+            with (
+                torch.inference_mode(),
+                closing(self._val_dataloader(val_dataset)) as val_dataloader,
+            ):
                 for batch in val_dataloader:
-                    batch = move_to_device(batch)
+                    batch = move_to_device(batch, self._distributor.device)
                     output = self._engine.eval_step(batch, state, self)
                     update_metrics(evaluators, batch, output)
                     progress.advance(task)
@@ -395,7 +362,9 @@ class TorchTrainer(
                         for batch in train_dataloader:
                             new_batch(epoch)
 
-                            batch = move_to_device(batch)
+                            model.train()
+
+                            batch = move_to_device(batch, self._distributor.device)
                             output = self._engine.train_step(batch, state, self)
 
                             update_metrics(evaluators, batch, output)

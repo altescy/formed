@@ -28,7 +28,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from formed.integrations.torch import BaseTorchModel, DataLoader, DistributedDataParallelDistributor, TorchTrainer
+from formed.integrations.torch import (
+    BaseTorchModel,
+    DataLoader,
+    DefaultTorchTrainingEngine,
+    DistributedDataParallelDistributor,
+    TorchTrainer,
+)
 
 
 class SimpleClassifier(BaseTorchModel):
@@ -145,7 +151,9 @@ def main():
     trainer = TorchTrainer(
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
-        optimizer=partial(torch.optim.Adam, lr=args.lr),
+        engine=DefaultTorchTrainingEngine(
+            optimizer=partial(torch.optim.Adam, lr=args.lr),
+        ),
         distributor=distributor,  # Use DDP distributor
         max_epochs=args.epochs,
         eval_strategy="epoch",
