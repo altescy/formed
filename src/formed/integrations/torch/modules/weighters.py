@@ -23,13 +23,16 @@ Example:
 """
 
 import abc
-from typing import Generic, TypeVar
+from typing import Generic, Optional, TypeVar
 
 import torch
 import torch.nn as nn
 from colt import Registrable
 
-_ParamsT = TypeVar("_ParamsT", bound=object | None)
+from ..types import TensorCompatible
+from ..utils import ensure_torch_tensor
+
+_ParamsT = TypeVar("_ParamsT", bound=Optional[object])
 
 
 class BaseLabelWeighter(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
@@ -48,7 +51,7 @@ class BaseLabelWeighter(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         self,
         logits: torch.Tensor,
         targets: torch.Tensor,
-        params: _ParamsT | None = None,
+        params: Optional[_ParamsT] = None,
     ) -> torch.Tensor:
         """Compute weights for each target label.
 
@@ -81,9 +84,9 @@ class StaticLabelWeighter(BaseLabelWeighter[None]):
 
     """
 
-    def __init__(self, weights: torch.Tensor) -> None:
+    def __init__(self, weights: TensorCompatible) -> None:
         super().__init__()
-        self.register_buffer("_weights", weights.float())
+        self.register_buffer("_weights", ensure_torch_tensor(weights, dtype=torch.float))
         self._weights: torch.Tensor
 
     def forward(
@@ -128,9 +131,9 @@ class BalancedByDistributionLabelWeighter(BaseLabelWeighter[None]):
 
     """
 
-    def __init__(self, distribution: torch.Tensor, eps: float = 1e-8) -> None:
+    def __init__(self, distribution: TensorCompatible, eps: float = 1e-8) -> None:
         super().__init__()
-        self.register_buffer("_distribution", distribution.float())
+        self.register_buffer("_distribution", ensure_torch_tensor(distribution, dtype=torch.float))
         self._distribution: torch.Tensor
         self._eps = eps
 

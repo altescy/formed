@@ -25,7 +25,7 @@ Example:
 """
 
 import abc
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, Optional, TypeVar
 
 import torch
 import torch.nn as nn
@@ -36,7 +36,7 @@ from ..types import TensorCompatible
 from ..utils import ensure_torch_tensor
 from .weighters import BaseLabelWeighter
 
-_ParamsT = TypeVar("_ParamsT", bound=object | None)
+_ParamsT = TypeVar("_ParamsT", bound=Optional[object])
 
 
 class BaseClassificationLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
@@ -50,7 +50,7 @@ class BaseClassificationLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC)
     """
 
     @abc.abstractmethod
-    def forward(self, logits: torch.Tensor, labels: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor, params: Optional[_ParamsT] = None) -> torch.Tensor:
         """Compute the classification loss.
 
         Args:
@@ -64,7 +64,9 @@ class BaseClassificationLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC)
         """
         raise NotImplementedError
 
-    def __call__(self, logits: torch.Tensor, labels: TensorCompatible, params: _ParamsT | None = None) -> torch.Tensor:
+    def __call__(
+        self, logits: torch.Tensor, labels: TensorCompatible, params: Optional[_ParamsT] = None
+    ) -> torch.Tensor:
         return super().__call__(logits, labels, params)
 
 
@@ -86,7 +88,7 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
 
     def __init__(
         self,
-        weighter: BaseLabelWeighter[_ParamsT] | None = None,
+        weighter: Optional[BaseLabelWeighter[_ParamsT]] = None,
         reduce: Literal["mean", "sum"] = "mean",
     ) -> None:
         super().__init__()
@@ -97,7 +99,7 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
         self,
         logits: torch.Tensor,
         labels: TensorCompatible,
-        params: _ParamsT | None = None,
+        params: Optional[_ParamsT] = None,
     ) -> torch.Tensor:
         """Compute cross-entropy loss.
 
@@ -130,6 +132,70 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
             raise ValueError(f"Unknown reduce operation: {self._reduce}")
 
 
+@BaseClassificationLoss.register("bce_with_logits")
+class BCEWithLogitsLoss(BaseClassificationLoss[_ParamsT]):
+    """Binary cross-entropy loss with logits for multilabel classification tasks.
+
+    This loss combines a Sigmoid layer and the BCELoss in one single class.
+    This version is more numerically stable than using a plain Sigmoid followed by BCELoss.
+
+    Args:
+        weighter: An optional label weighter to assign weights to each class.
+        reduce: Reduction method - "mean" or "sum".
+        pos_weight: Optional weight for positive examples per class.
+
+    Example:
+        >>> loss_fn = BCEWithLogitsLoss()
+        >>> logits = torch.randn(4, 10)  # (batch_size, num_classes)
+        >>> labels = torch.randint(0, 2, (4, 10)).float()  # (batch_size, num_classes)
+        >>> loss = loss_fn(logits, labels)
+
+    """
+
+    def __init__(
+        self,
+        weighter: Optional[BaseLabelWeighter[_ParamsT]] = None,
+        reduce: Literal["mean", "sum"] = "mean",
+        pos_weight: Optional[TensorCompatible] = None,
+    ) -> None:
+        super().__init__()
+        self._weighter = weighter
+        self._reduce = reduce
+        self._pos_weight = ensure_torch_tensor(pos_weight) if pos_weight is not None else None
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        labels: TensorCompatible,
+        params: Optional[_ParamsT] = None,
+    ) -> torch.Tensor:
+        """Compute BCE with logits loss.
+
+        Args:
+            logits: Logits of shape (..., num_classes).
+            labels: Binary labels of shape (..., num_classes).
+            params: Optional parameters for the weighter.
+
+        Returns:
+            Loss scalar.
+
+        """
+        labels = ensure_torch_tensor(labels).float()
+
+        loss = F.binary_cross_entropy_with_logits(logits, labels, pos_weight=self._pos_weight, reduction="none")
+
+        if self._weighter is not None:
+            weights = self._weighter(logits, labels, params)
+            loss = loss * weights
+
+        if self._reduce == "mean":
+            return loss.mean()
+        elif self._reduce == "sum":
+            return loss.sum()
+        else:
+            raise ValueError(f"Unknown reduce operation: {self._reduce}")
+
+
 class BaseRegressionLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
     """Abstract base class for regression loss functions.
 
@@ -141,7 +207,9 @@ class BaseRegressionLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
     """
 
     @abc.abstractmethod
-    def forward(self, predictions: torch.Tensor, labels: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
+    def forward(
+        self, predictions: torch.Tensor, labels: torch.Tensor, params: Optional[_ParamsT] = None
+    ) -> torch.Tensor:
         """Compute the regression loss.
 
         Args:
@@ -156,7 +224,7 @@ class BaseRegressionLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         raise NotImplementedError
 
     def __call__(
-        self, predictions: torch.Tensor, targets: TensorCompatible, params: _ParamsT | None = None
+        self, predictions: torch.Tensor, targets: TensorCompatible, params: Optional[_ParamsT] = None
     ) -> torch.Tensor:
         return super().__call__(predictions, targets, params)
 
@@ -187,7 +255,7 @@ class MeanSquaredErrorLoss(BaseRegressionLoss[_ParamsT]):
         self,
         predictions: torch.Tensor,
         labels: TensorCompatible,
-        params: _ParamsT | None = None,
+        params: Optional[_ParamsT] = None,
     ) -> torch.Tensor:
         """Compute MSE loss.
 

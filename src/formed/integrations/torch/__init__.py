@@ -6,6 +6,19 @@ from .distributors import (
     DistributedDataParallelDistributor,
     SingleDeviceDistributor,
 )
+from .initializers import (
+    BaseTensorInitializer,
+    KaimingNormalTensorInitializer,
+    KaimingUniformTensorInitializer,
+    NormalTensorInitializer,
+    OnesTensorInitializer,
+    OrthogonalTensorInitializer,
+    SparseTensorInitializer,
+    UniformTensorInitializer,
+    XavierNormalTensorInitializer,
+    XavierUniformTensorInitializer,
+    ZerosTensorInitializer,
+)
 from .model import BaseTorchModel
 from .modules import (
     AnalyzedTextEmbedder,
@@ -29,6 +42,7 @@ from .modules import (
     StaticLabelWeighter,
     TokenEmbedder,
 )
+from .schedulers import CosineLRScheduler
 from .training import (
     DefaultTorchTrainingEngine,
     EarlyStoppingCallback,
@@ -59,11 +73,25 @@ __all__ = [
     "DataParallelDistributor",
     "DistributedDataParallelDistributor",
     "SingleDeviceDistributor",
+    # schedulers
+    "CosineLRScheduler",
     # engine
     "DefaultTorchTrainingEngine",
     "TorchTrainingEngine",
     # exceptions
     "StopEarly",
+    # initializers
+    "BaseTensorInitializer",
+    "KaimingNormalTensorInitializer",
+    "KaimingUniformTensorInitializer",
+    "NormalTensorInitializer",
+    "OnesTensorInitializer",
+    "OrthogonalTensorInitializer",
+    "SparseTensorInitializer",
+    "UniformTensorInitializer",
+    "XavierNormalTensorInitializer",
+    "XavierUniformTensorInitializer",
+    "ZerosTensorInitializer",
     # modules - embedders
     "AnalyzedTextEmbedder",
     "BaseEmbedder",

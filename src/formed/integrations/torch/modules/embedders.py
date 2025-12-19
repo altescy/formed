@@ -34,55 +34,75 @@ Example:
 """
 
 import abc
-from typing import Any, Generic, NamedTuple, Protocol, runtime_checkable
+from collections.abc import Callable
+from contextlib import suppress
+from os import PathLike
+from typing import TYPE_CHECKING, Any, Generic, Literal, NamedTuple, Optional, Protocol, Union, runtime_checkable
 
 import torch
 import torch.nn as nn
 from colt import Registrable
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
-from ..types import TensorCompatibleT
+from ..initializers import BaseTensorInitializer
+from ..types import IIDSequenceBatch, TensorCompatible, TensorCompatibleT
 from ..utils import ensure_torch_tensor
+from .scalarmix import ScalarMix
 from .vectorizers import BaseSequenceVectorizer
+
+if TYPE_CHECKING:
+    with suppress(ImportError):
+        from transformers import PreTrainedModel
+        from transformers.models.auto.auto_factory import _BaseAutoModelClass
 
 _TextBatchT = TypeVar("_TextBatchT")
 
 
 @runtime_checkable
-class IIDSequenceBatch(Protocol[TensorCompatibleT]):
-    """Protocol for token ID sequence batches.
+class IVariableTensorBatch(Protocol[TensorCompatibleT]):
+    """Protocol for variable-length tensor batches.
 
     Attributes:
-        ids: Token IDs of shape (batch_size, seq_len) or (batch_size, seq_len, char_len).
-        mask: Attention mask of shape (batch_size, seq_len) or (batch_size, seq_len, char_len).
+        tensor: Tensor of shape (batch_size, seq_len, feature_dim).
+        mask: Attention mask of shape (batch_size, seq_len).
 
     """
 
-    ids: TensorCompatibleT
+    tensor: TensorCompatibleT
     mask: TensorCompatibleT
 
     def __len__(self) -> int: ...
 
 
-SurfaceBatchT = TypeVar("SurfaceBatchT", bound=IIDSequenceBatch, default=Any)
-PostagBatchT = TypeVar("PostagBatchT", bound=IIDSequenceBatch | None, default=Any)
-CharacterBatchT = TypeVar("CharacterBatchT", bound=IIDSequenceBatch | None, default=Any)
+SurfaceBatchT = TypeVar("SurfaceBatchT", bound="IIDSequenceBatch", default=Any)
+PostagBatchT = TypeVar("PostagBatchT", bound=Union["IIDSequenceBatch", None], default=Any)
+CharacterBatchT = TypeVar("CharacterBatchT", bound=Union["IIDSequenceBatch", None], default=Any)
+TokenVectorBatchT = TypeVar("TokenVectorBatchT", bound=Union["IVariableTensorBatch", None], default=Any)
 
 
 @runtime_checkable
-class IAnalyzedTextBatch(Protocol[SurfaceBatchT, PostagBatchT, CharacterBatchT]):
+class IAnalyzedTextBatch(
+    Protocol[
+        SurfaceBatchT,
+        PostagBatchT,
+        CharacterBatchT,
+        TokenVectorBatchT,
+    ]
+):
     """Protocol for analyzed text batches with multiple linguistic features.
 
     Attributes:
         surfaces: Surface form token IDs.
         postags: Part-of-speech tag IDs (optional).
         characters: Character sequence IDs (optional).
+        token_vectors: Token-level dense vectors (optional).
 
     """
 
     surfaces: SurfaceBatchT
     postags: PostagBatchT
     characters: CharacterBatchT
+    token_vectors: TokenVectorBatchT
 
 
 class EmbedderOutput(NamedTuple):
@@ -136,8 +156,37 @@ class BaseEmbedder(nn.Module, Registrable, Generic[_TextBatchT], abc.ABC):
         return super().__call__(inputs)
 
 
+@BaseEmbedder.register("pass_through")
+class PassThroughEmbedder(BaseEmbedder[IVariableTensorBatch[TensorCompatibleT]]):
+    """Embedder that passes through input tensors unchanged.
+
+    This embedder is useful when the input tensors are already in the desired
+    embedding format. It simply returns the input tensors and their masks.
+
+    Example:
+        >>> from formed.integrations.torch.modules import PassThroughEmbedder
+        >>>
+        >>> embedder = PassThroughEmbedder()
+        >>> output = embedder(variable_tensor_batch)
+        >>> assert torch.equal(output.embeddings, variable_tensor_batch.tensor)
+        >>> assert torch.equal(output.mask, variable_tensor_batch.mask)
+
+    """
+
+    def forward(
+        self,
+        inputs: IVariableTensorBatch[TensorCompatibleT],
+    ) -> EmbedderOutput:
+        tensor = ensure_torch_tensor(inputs.tensor)
+        mask = ensure_torch_tensor(inputs.mask).bool()
+        return EmbedderOutput(embeddings=tensor, mask=mask)
+
+    def get_output_dim(self) -> int:
+        raise NotImplementedError("PassThroughEmbedder does not have a fixed output dimension.")
+
+
 @BaseEmbedder.register("token")
-class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
+class TokenEmbedder(BaseEmbedder["IIDSequenceBatch"]):
     """Embedder for token ID sequences.
 
     This embedder converts token IDs into dense embeddings using a learned
@@ -170,17 +219,19 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
 
     def __init__(
         self,
-        vocab_size: int,
-        embedding_dim: int,
+        initializer: BaseTensorInitializer | Callable[[], TensorCompatible],
         *,
         padding_idx: int = 0,
-        vectorizer: BaseSequenceVectorizer | None = None,
+        freeze: bool = False,
+        vectorizer: Optional[BaseSequenceVectorizer] = None,
     ) -> None:
+        weight = ensure_torch_tensor(initializer())
+
         super().__init__()
-        self._embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=padding_idx)
+        self._embedding = nn.Embedding.from_pretrained(weight, padding_idx=padding_idx, freeze=freeze)
         self._vectorizer = vectorizer
 
-    def forward(self, inputs: IIDSequenceBatch) -> EmbedderOutput:
+    def forward(self, inputs: "IIDSequenceBatch") -> EmbedderOutput:
         token_ids = ensure_torch_tensor(inputs.ids)
         mask = ensure_torch_tensor(inputs.mask).bool()
 
@@ -219,8 +270,142 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         return self._embedding.embedding_dim
 
 
+@BaseEmbedder.register("pretrained_transformer")
+class PretrainedTransformerEmbedder(BaseEmbedder[IIDSequenceBatch]):
+    """Embedder using pretrained transformer models from Hugging Face.
+
+    This embedder wraps pretrained transformer models (BERT, RoBERTa, etc.)
+    to extract contextualized embeddings. It uses the last hidden state from
+    the transformer as the embedding representation.
+
+    Args:
+        model: Either a model name/path string, PathLike object, or a PreTrainedModel instance.
+            If a string or PathLike, the model will be loaded using transformers auto classes.
+        auto_class: The auto class to use for loading the model. Can be:
+            - None (default): Uses AutoModel
+            - A class type: e.g., AutoModel, AutoModelForMaskedLM
+            - A string in "module:ClassName" format: e.g., "transformers:AutoModel"
+        subcmodule: Optional submodule path to extract from the loaded model (e.g., "encoder").
+        freeze: If True, freezes all model parameters (no gradient computation).
+        **kwargs: Additional keyword arguments passed to the model loader.
+
+    Example:
+        >>> # Load a pretrained BERT model
+        >>> embedder = PretrainedTransformerEmbedder(
+        ...     model="bert-base-uncased",
+        ...     freeze=True
+        ... )
+        >>>
+        >>> # Use a specific auto class
+        >>> from transformers import AutoModel
+        >>> embedder = PretrainedTransformerEmbedder(
+        ...     model="roberta-base",
+        ...     auto_class=AutoModel,
+        ...     freeze=False
+        ... )
+        >>>
+        >>> # Use an already loaded model
+        >>> from transformers import AutoModel
+        >>> model = AutoModel.from_pretrained("bert-base-uncased")
+        >>> embedder = PretrainedTransformerEmbedder(model=model)
+
+    Note:
+        Models are cached using LRU cache by the load_pretrained_transformer utility.
+        When freeze=True, all model parameters have requires_grad=False.
+
+    """
+
+    class _Embedding(torch.nn.Module):
+        def __init__(self, model: "PreTrainedModel") -> None:
+            super().__init__()
+            self.embedding = model.get_input_embeddings()
+
+        def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+            return self.embedding(input_ids)
+
+        def __call__(self, input_ids: torch.Tensor) -> torch.Tensor:
+            return super().__call__(input_ids)
+
+    def __init__(
+        self,
+        model: Union[str, PathLike, "PreTrainedModel"],
+        auto_class: str | type["_BaseAutoModelClass"] | None = None,
+        subcmodule: str | None = None,
+        freeze: bool = False,
+        eval_mode: bool = False,
+        layer_to_use: Literal["embeddings", "last", "all"] = "last",
+        gradient_checkpointing: bool | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if isinstance(model, (str, PathLike)):
+            from formed.integrations.transformers import load_pretrained_transformer
+
+            model = load_pretrained_transformer.__wrapped__(
+                model,
+                auto_class=auto_class,
+                submodule=subcmodule,
+                **kwargs,
+            )
+
+        super().__init__()
+
+        self._model = model
+        self._scalar_mix: ScalarMix | None = None
+        self._eval_mode = eval_mode
+        self._output_dim = model.config.hidden_size
+        self._vocab_size = model.config.vocab_size
+
+        if gradient_checkpointing is not None:
+            self._model.config.update({"gradient_checkpointing": gradient_checkpointing})
+
+        if self._eval_mode:
+            self._model.eval()
+
+        if freeze:
+            for param in self._model.parameters():
+                param.requires_grad = False
+
+        if layer_to_use == "all":
+            self._scalar_mix = ScalarMix(self._model.config.num_hidden_layers)
+            self._model.config.output_hidden_states = True
+        elif layer_to_use == "embeddings":
+            self._model = PretrainedTransformerEmbedder._Embedding(self._model)
+
+    def forward(self, inputs: IIDSequenceBatch) -> EmbedderOutput:
+        input_ids = ensure_torch_tensor(inputs.ids)
+        mask = ensure_torch_tensor(inputs.mask)
+
+        if isinstance(self._model, PretrainedTransformerEmbedder._Embedding):
+            embeddings = self._model(input_ids)
+        else:
+            transformer_outputs = self._model(input_ids=input_ids, attention_mask=mask)
+            if self._scalar_mix is not None:
+                # The hidden states will also include the embedding layer, which we don't
+                # include in the scalar mix. Hence the `[1:]` slicing.
+                hidden_states = transformer_outputs.hidden_states[1:]
+                embeddings = self._scalar_mix(hidden_states)
+            else:
+                embeddings = transformer_outputs.last_hidden_state
+        return EmbedderOutput(embeddings, mask)
+
+    def get_output_dim(self) -> int:
+        return self._output_dim
+
+    def get_vocab_size(self) -> int:
+        return self._vocab_size
+
+    def train(self, mode: bool = True) -> Self:
+        self.training = mode
+        for name, module in self.named_children():
+            if self._eval_mode and name == "_model":
+                module.eval()
+            else:
+                module.train(mode)
+        return self
+
+
 @BaseEmbedder.register("analyzed_text")
-class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
+class AnalyzedTextEmbedder(BaseEmbedder["IAnalyzedTextBatch"]):
     """Embedder for analyzed text with multiple linguistic features.
 
     This embedder combines embeddings from multiple linguistic representations
@@ -258,9 +443,10 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
 
     def __init__(
         self,
-        surface: BaseEmbedder[IIDSequenceBatch] | None = None,
-        postag: BaseEmbedder[IIDSequenceBatch] | None = None,
-        character: BaseEmbedder[IIDSequenceBatch] | None = None,
+        surface: Optional["BaseEmbedder[IIDSequenceBatch]"] = None,
+        postag: Optional["BaseEmbedder[IIDSequenceBatch]"] = None,
+        character: Optional["BaseEmbedder[IIDSequenceBatch]"] = None,
+        token_vector: Optional["BaseEmbedder[IVariableTensorBatch]"] = None,
     ) -> None:
         super().__init__()
         if all(embedder is None for embedder in (surface, postag, character)):
@@ -269,10 +455,11 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
         self._surface = surface
         self._postag = postag
         self._character = character
+        self._token_vector = token_vector
 
-    def forward(self, inputs: IAnalyzedTextBatch) -> EmbedderOutput:
+    def forward(self, inputs: "IAnalyzedTextBatch") -> EmbedderOutput:
         embeddings: list[torch.Tensor] = []
-        mask: torch.Tensor | None = None
+        mask: Optional[torch.Tensor] = None
 
         for embedder, ids in (
             (self._surface, inputs.surfaces),
@@ -283,6 +470,10 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
                 output = embedder(ids)
                 embeddings.append(output.embeddings)
                 mask = output.mask
+
+        if self._token_vector is not None and inputs.token_vectors is not None:
+            output = self._token_vector(inputs.token_vectors)
+            embeddings.append(output.embeddings)
 
         if not embeddings:
             raise ValueError("No embeddings were computed in AnalyzedTextEmbedder.")
