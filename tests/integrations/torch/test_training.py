@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Generic, Optional
+from typing import Any, Generic, Optional, cast
 
 import numpy
 import pytest
@@ -20,6 +20,8 @@ from formed.integrations.ml.types import AsBatch, AsInstance, DataModuleModeT  #
 from formed.integrations.torch import (
     AnalyzedTextEmbedder,
     BagOfEmbeddingsSequenceVectorizer,
+    BalancedByDistributionLabelWeighter,
+    BaseClassificationLoss,
     BaseTorchModel,
     CrossEntropyLoss,
     DefaultTorchTrainingEngine,
@@ -27,6 +29,7 @@ from formed.integrations.torch import (
     MeanSquaredErrorLoss,
     TokenEmbedder,
     TorchTrainer,
+    XavierUniformTensorInitializer,
     ensure_torch_tensor,
 )
 
@@ -139,12 +142,13 @@ class TestTrainingWithRegressor:
 
         model = TestTrainingWithRegressor.TorchRegressor(feature_dim=10)
 
+        engine = DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam,
+        )
         trainer = TorchTrainer(
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
-            engine=DefaultTorchTrainingEngine(
-                optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
-            ),
+            engine=engine,
             max_epochs=5,
             callbacks=[EvaluationCallback(RegressionEvaluator())],
         )
@@ -265,15 +269,16 @@ class TestTrainingWithTextClassifier:
             num_classes: int,
             vocab_size: int,
             embedding_dim: int = 64,
+            loss: Optional[BaseClassificationLoss] = None,
         ) -> None:
             super().__init__()
             self._num_classes = num_classes
             self._embedder = AnalyzedTextEmbedder(
-                surface=TokenEmbedder(vocab_size=vocab_size, embedding_dim=embedding_dim),
+                surface=TokenEmbedder(initializer=XavierUniformTensorInitializer((vocab_size, embedding_dim))),
             )
             self._vectorizer = BagOfEmbeddingsSequenceVectorizer()
             self._classifier = nn.Linear(embedding_dim, num_classes)
-            self._loss = CrossEntropyLoss()
+            self._loss = loss or CrossEntropyLoss()
 
         def forward(
             self,
@@ -322,17 +327,420 @@ class TestTrainingWithTextClassifier:
         model = self.SimpleTextClassifier(
             num_classes=datamodule.label.num_labels,
             vocab_size=datamodule.text.surfaces.vocab_size,
-            embedding_dim=64,
+            embedding_dim=32,
+            loss=CrossEntropyLoss(weighter=BalancedByDistributionLabelWeighter(datamodule.label.distribution)),
         )
 
+        engine = DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam,
+        )
         trainer = TorchTrainer(
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
-            engine=DefaultTorchTrainingEngine(
-                optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
-            ),
+            engine=engine,
             max_epochs=5,
             callbacks=[EvaluationCallback(ClassificationEvaluator())],
         )
 
         trainer.train(model, train_instances, val_instances)
+
+    def test_training_with_lr_scheduler(self, text_classification_dataset) -> None:
+        """Test training with learning rate scheduler."""
+        from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+
+        train_data = text_classification_dataset[:80]
+        val_data = text_classification_dataset[80:]
+
+        datamodule = TextClassificationDataModule(
+            text=Tokenizer(surfaces=TokenSequenceIndexer()),
+            label=LabelIndexer(),
+        )
+
+        with datamodule.train():
+            train_instances = [datamodule.instance(example) for example in train_data]
+        val_instances = [datamodule.instance(example) for example in val_data]
+
+        train_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        )
+        val_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=False),
+            collator=datamodule.batch,
+        )
+
+        model = self.SimpleTextClassifier(
+            num_classes=datamodule.label.num_labels,
+            vocab_size=datamodule.text.surfaces.vocab_size,
+            embedding_dim=32,
+        )
+
+        # Track initial learning rate
+        initial_lr = 1e-2
+
+        engine = DefaultTorchTrainingEngine(
+            optimizer=lambda params: torch.optim.Adam(params, lr=initial_lr),
+            lr_scheduler=lambda optimizer: torch.optim.lr_scheduler.StepLR(
+                cast(torch.optim.Optimizer, optimizer), step_size=10, gamma=0.5
+            ),
+        )
+        trainer = TorchTrainer(
+            train_dataloader=train_dataloader,
+            val_dataloader=val_dataloader,
+            engine=engine,
+            max_epochs=3,
+            callbacks=[EvaluationCallback(ClassificationEvaluator())],
+        )
+
+        state = trainer.train(model, train_instances, val_instances)
+
+        # Verify that lr_scheduler was used
+        assert state.lr_scheduler is not None
+        # Learning rate should have changed after training
+        # Cast to access param_groups which is not in IOptimizer protocol
+        optimizer_with_groups = cast(Any, state.optimizer)
+        final_lr = optimizer_with_groups.param_groups[0]["lr"]
+        # After 3 epochs with batch_size=16 and 80 samples, we have 15 steps (5 per epoch)
+        # With step_size=10, lr should change once: initial_lr * 0.5
+        assert final_lr < initial_lr
+
+    def test_training_with_lr_scheduler_callable(self, text_classification_dataset) -> None:
+        """Test training with learning rate scheduler via callable."""
+        from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+
+        train_data = text_classification_dataset[:80]
+        val_data = text_classification_dataset[80:]
+
+        datamodule = TextClassificationDataModule(
+            text=Tokenizer(surfaces=TokenSequenceIndexer()),
+            label=LabelIndexer(),
+        )
+
+        with datamodule.train():
+            train_instances = [datamodule.instance(example) for example in train_data]
+        val_instances = [datamodule.instance(example) for example in val_data]
+
+        train_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        )
+        val_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=False),
+            collator=datamodule.batch,
+        )
+
+        model = self.SimpleTextClassifier(
+            num_classes=datamodule.label.num_labels,
+            vocab_size=datamodule.text.surfaces.vocab_size,
+            embedding_dim=32,
+        )
+
+        initial_lr = 1e-2
+
+        # Use callable for lr_scheduler initialization
+        engine = DefaultTorchTrainingEngine(
+            optimizer=lambda params: torch.optim.Adam(params, lr=initial_lr),
+            lr_scheduler=lambda optimizer: torch.optim.lr_scheduler.ExponentialLR(
+                cast(torch.optim.Optimizer, optimizer), gamma=0.9
+            ),
+        )
+        trainer = TorchTrainer(
+            train_dataloader=train_dataloader,
+            val_dataloader=val_dataloader,
+            engine=engine,
+            max_epochs=3,
+            callbacks=[EvaluationCallback(ClassificationEvaluator())],
+        )
+
+        state = trainer.train(model, train_instances, val_instances)
+
+        # Verify scheduler was initialized and used
+        assert state.lr_scheduler is not None
+        # Cast to access param_groups which is not in IOptimizer protocol
+        optimizer_with_groups = cast(Any, state.optimizer)
+        final_lr = optimizer_with_groups.param_groups[0]["lr"]
+        # With ExponentialLR and gamma=0.9, lr should decrease
+        assert final_lr < initial_lr
+
+    def test_training_without_lr_scheduler(self, text_classification_dataset) -> None:
+        """Test that training works without lr_scheduler (backward compatibility)."""
+        from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+
+        train_data = text_classification_dataset[:80]
+        val_data = text_classification_dataset[80:]
+
+        datamodule = TextClassificationDataModule(
+            text=Tokenizer(surfaces=TokenSequenceIndexer()),
+            label=LabelIndexer(),
+        )
+
+        with datamodule.train():
+            train_instances = [datamodule.instance(example) for example in train_data]
+        val_instances = [datamodule.instance(example) for example in val_data]
+
+        train_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        )
+        val_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=False),
+            collator=datamodule.batch,
+        )
+
+        model = self.SimpleTextClassifier(
+            num_classes=datamodule.label.num_labels,
+            vocab_size=datamodule.text.surfaces.vocab_size,
+            embedding_dim=32,
+        )
+
+        initial_lr = 1e-3
+
+        engine = DefaultTorchTrainingEngine(
+            optimizer=lambda params: torch.optim.Adam(params, lr=initial_lr),
+        )
+        trainer = TorchTrainer(
+            train_dataloader=train_dataloader,
+            val_dataloader=val_dataloader,
+            engine=engine,
+            max_epochs=3,
+            callbacks=[EvaluationCallback(ClassificationEvaluator())],
+        )
+
+        state = trainer.train(model, train_instances, val_instances)
+
+        # Verify that lr_scheduler is None
+        assert state.lr_scheduler is None
+        # Learning rate should remain unchanged
+        # Cast to access param_groups which is not in IOptimizer protocol
+        optimizer_with_groups = cast(Any, state.optimizer)
+        final_lr = optimizer_with_groups.param_groups[0]["lr"]
+        assert final_lr == initial_lr
+
+
+class TestTrainStateWithLRScheduler:
+    """Tests for TrainState serialization with lr_scheduler."""
+
+    def test_state_dict_with_lr_scheduler(self) -> None:
+        """Test that state_dict includes lr_scheduler state."""
+        from formed.integrations.torch.training.state import TrainState
+
+        model = nn.Linear(10, 1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+
+        state = TrainState(
+            model=model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            step=10,
+        )
+
+        state_dict = state.state_dict()
+
+        # Verify all components are in state_dict
+        assert "model_state" in state_dict
+        assert "optimizer_state" in state_dict
+        assert "lr_scheduler_state" in state_dict
+        assert "step" in state_dict
+        assert state_dict["step"] == 10
+
+    def test_state_dict_without_lr_scheduler(self) -> None:
+        """Test that state_dict works without lr_scheduler."""
+        from formed.integrations.torch.training.state import TrainState
+
+        model = nn.Linear(10, 1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        state = TrainState(
+            model=model,
+            optimizer=optimizer,
+            step=10,
+        )
+
+        state_dict = state.state_dict()
+
+        # Verify lr_scheduler_state is not in state_dict
+        assert "model_state" in state_dict
+        assert "optimizer_state" in state_dict
+        assert "lr_scheduler_state" not in state_dict
+        assert "step" in state_dict
+        assert state_dict["step"] == 10
+
+    def test_load_state_dict_with_lr_scheduler(self) -> None:
+        """Test loading state_dict with lr_scheduler."""
+        from formed.integrations.torch.training.state import TrainState
+
+        # Create initial state
+        model = nn.Linear(10, 1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+
+        state = TrainState(
+            model=model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            step=10,
+        )
+
+        # Take some steps to change scheduler state
+        for _ in range(7):
+            optimizer.step()
+            lr_scheduler.step()
+
+        # Save state
+        saved_state_dict = state.state_dict()
+        saved_lr = optimizer.param_groups[0]["lr"]
+
+        # Create new state and load
+        new_model = nn.Linear(10, 1)
+        new_optimizer = torch.optim.Adam(new_model.parameters(), lr=1e-3)
+        new_lr_scheduler = torch.optim.lr_scheduler.StepLR(new_optimizer, step_size=5, gamma=0.5)
+
+        new_state = TrainState(
+            model=new_model,
+            optimizer=new_optimizer,
+            lr_scheduler=new_lr_scheduler,
+            step=0,
+        )
+
+        new_state.load_state_dict(saved_state_dict)
+
+        # Verify state was restored
+        assert new_state.step == 10
+        loaded_lr = new_optimizer.param_groups[0]["lr"]
+        assert loaded_lr == saved_lr
+
+    def test_load_state_dict_without_lr_scheduler(self) -> None:
+        """Test loading state_dict without lr_scheduler doesn't crash."""
+        from formed.integrations.torch.training.state import TrainState
+
+        # Create state without scheduler
+        model = nn.Linear(10, 1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        state = TrainState(
+            model=model,
+            optimizer=optimizer,
+            step=10,
+        )
+
+        saved_state_dict = state.state_dict()
+
+        # Create new state with scheduler and load state without scheduler
+        new_model = nn.Linear(10, 1)
+        new_optimizer = torch.optim.Adam(new_model.parameters(), lr=1e-3)
+        new_lr_scheduler = torch.optim.lr_scheduler.StepLR(new_optimizer, step_size=5, gamma=0.5)
+
+        new_state = TrainState(
+            model=new_model,
+            optimizer=new_optimizer,
+            lr_scheduler=new_lr_scheduler,
+            step=0,
+        )
+
+        # This should not crash
+        new_state.load_state_dict(saved_state_dict)
+
+        # Verify step was loaded
+        assert new_state.step == 10
+        # Scheduler state should remain at initial state (not loaded)
+        assert new_state.lr_scheduler is not None
+
+
+class TestGradientClipping:
+    """Tests for gradient clipping functionality."""
+
+    def test_training_with_gradient_clipping(self, text_classification_dataset) -> None:
+        """Test that gradient clipping is applied during training."""
+        from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+
+        train_data = text_classification_dataset[:80]
+        val_data = text_classification_dataset[80:]
+
+        datamodule = TextClassificationDataModule(
+            text=Tokenizer(surfaces=TokenSequenceIndexer()),
+            label=LabelIndexer(),
+        )
+
+        with datamodule.train():
+            train_instances = [datamodule.instance(example) for example in train_data]
+        val_instances = [datamodule.instance(example) for example in val_data]
+
+        train_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        )
+        val_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=False),
+            collator=datamodule.batch,
+        )
+
+        model = TestTrainingWithTextClassifier.SimpleTextClassifier(
+            num_classes=datamodule.label.num_labels,
+            vocab_size=datamodule.text.surfaces.vocab_size,
+            embedding_dim=32,
+        )
+
+        # Create engine with gradient clipping
+        engine = DefaultTorchTrainingEngine(
+            optimizer=lambda params: torch.optim.Adam(params, lr=1e-2),
+            max_grad_norm=1.0,
+        )
+        trainer = TorchTrainer(
+            train_dataloader=train_dataloader,
+            val_dataloader=val_dataloader,
+            engine=engine,
+            max_epochs=2,
+            callbacks=[EvaluationCallback(ClassificationEvaluator())],
+        )
+
+        # Train model
+        state = trainer.train(model, train_instances, val_instances)
+
+        # Verify training completed successfully
+        assert state.step > 0
+
+    def test_gradient_clipping_with_grad_scaler(self, text_classification_dataset) -> None:
+        """Test gradient clipping works with gradient scaling (mixed precision)."""
+        from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
+
+        train_data = text_classification_dataset[:80]
+
+        datamodule = TextClassificationDataModule(
+            text=Tokenizer(surfaces=TokenSequenceIndexer()),
+            label=LabelIndexer(),
+        )
+
+        with datamodule.train():
+            train_instances = [datamodule.instance(example) for example in train_data]
+
+        train_dataloader = DataLoader(
+            sampler=BasicBatchSampler(batch_size=16, shuffle=True, drop_last=True),
+            collator=datamodule.batch,
+        )
+
+        model = TestTrainingWithTextClassifier.SimpleTextClassifier(
+            num_classes=datamodule.label.num_labels,
+            vocab_size=datamodule.text.surfaces.vocab_size,
+            embedding_dim=32,
+        )
+
+        # Create engine with gradient clipping and grad_scaler
+        engine = DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam,
+            max_grad_norm=1.0,
+            dtype="float32",
+            grad_scaler=torch.amp.grad_scaler.GradScaler(device="cpu"),
+        )
+        trainer = TorchTrainer(
+            train_dataloader=train_dataloader,
+            engine=engine,
+            max_epochs=1,
+        )
+
+        # Train model
+        state = trainer.train(model, train_instances)
+
+        # Verify training completed successfully
+        assert state.step > 0
+        assert state.grad_scaler is not None
