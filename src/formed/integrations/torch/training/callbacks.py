@@ -235,7 +235,7 @@ class EarlyStoppingCallback(TorchTrainingCallback):
     def __init__(
         self,
         patience: int = 5,
-        metric: str = "-loss",
+        metric: str = "-train/loss",
     ) -> None:
         self._patience = patience
         self._metric = metric.lstrip("-+")
