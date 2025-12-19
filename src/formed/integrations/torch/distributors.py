@@ -568,4 +568,3 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
 
         if dist.is_initialized():
             dist.destroy_process_group()
-
