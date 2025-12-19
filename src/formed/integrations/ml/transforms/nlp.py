@@ -48,6 +48,7 @@ from formed.common.nlputils import punkt_tokenize
 
 from ..types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleModeT, IDSequenceBatch  # noqa: F401
 from .base import BaseTransform, DataModule, Extra, Param
+from .basic import TensorSequenceTransform, TensorTransform
 
 logger = getLogger(__name__)
 
@@ -446,6 +447,8 @@ class Tokenizer(
     surfaces: TokenSequenceIndexer = dataclasses.field(default_factory=TokenSequenceIndexer)
     postags: Extra[TokenSequenceIndexer] = Extra.default(None)
     characters: Extra[TokenCharactersIndexer] = Extra.default(None)
+    text_vector: Extra[TensorTransform] = Extra.default(None)
+    token_vectors: Extra[TensorSequenceTransform] = Extra.default(None)
 
     analyzer: Param[Callable[[str | Sequence[str] | AnalyzedText], AnalyzedText] | None] = Param.default(None)
 

@@ -80,6 +80,17 @@ class IIDSequenceBatch(Protocol[TensorT]):
     def __len__(self) -> int: ...
 
 
+@dataclasses.dataclass
+class VariableTensorBatch(Generic[TensorT_co]):
+    tensor: TensorT_co
+    mask: TensorT_co
+
+    def __len__(self) -> int:
+        return len(self.tensor)
+
+
 class AnalyzedText(NamedTuple):
     surfaces: Sequence[str]
     postags: Sequence[str] | None = None
+    text_vector: AnyTensor | None = None
+    token_vectors: Sequence[AnyTensor] | None = None

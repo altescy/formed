@@ -1,5 +1,12 @@
 from .base import BaseTransform, DataModule, Extra, Param, register_dataclass
-from .basic import LabelIndexer, MetadataTransform, ScalarTransform, TensorTransform
+from .basic import (
+    LabelIndexer,
+    MetadataTransform,
+    ScalarTransform,
+    TensorSequenceTransform,
+    TensorTransform,
+    VariableTensorTransform,
+)
 from .nlp import TokenCharactersIndexer, Tokenizer, TokenSequenceIndexer
 
 __all__ = [
@@ -13,7 +20,9 @@ __all__ = [
     "MetadataTransform",
     "LabelIndexer",
     "ScalarTransform",
+    "TensorSequenceTransform",
     "TensorTransform",
+    "VariableTensorTransform",
     # nlp
     "Tokenizer",
     "TokenSequenceIndexer",

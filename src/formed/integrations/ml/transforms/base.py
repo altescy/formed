@@ -939,6 +939,10 @@ class DataModule(
 
     def _get_input_value(self, data: _T) -> _T | None:
         if self._parent is None:
+            if callable(self.accessor):
+                return self.accessor(data)
+            elif isinstance(self.accessor, str):
+                return xgetattr(data, self.accessor)
             return data
         return super()._get_input_value(data)
 
