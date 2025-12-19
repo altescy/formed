@@ -23,29 +23,32 @@ Example:
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import Annotated, TypeVar, cast
+from typing import Annotated, Any, cast
 
 import cloudpickle
 import torch
 from colt import Lazy
+from typing_extensions import TypeVar
 
 from formed.common.ctxutils import closing
 from formed.common.rich import progress
-from formed.workflow import Format, WorkflowStepResultFlag, step, use_step_logger
+from formed.workflow import Format, WorkflowStepArgFlag, WorkflowStepResultFlag, step, use_step_logger
 from formed.workflow.colt import COLT_BUILDER, COLT_TYPEKEY
 from formed.workflow.utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
+from .context import use_device
 from .model import BaseTorchModel
 from .training import TorchTrainer
-from .types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
-from .utils import set_random_seed
+from .types import IEvaluator, IStreamingDataLoader, ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from .utils import move_to_device, set_random_seed
 
 _ModelT = TypeVar("_ModelT", bound=BaseTorchModel)
+_ResultT = TypeVar("_ResultT", default=Any)
 
 
-@Format.register("torch_model")
+@Format.register("torch::model")
 class TorchModelFormat(Format[_ModelT]):
     def _get_config_path(self, directory: Path) -> Path:
         return directory / "config.json"
@@ -85,10 +88,10 @@ class TorchModelFormat(Format[_ModelT]):
             self._get_config_path(directory).read_text(),
             cls=WorkflowJSONDecoder,
         )
-        state_dict = torch.load(self._get_state_path(directory))
-        model = COLT_BUILDER(config)
+        state_dict = torch.load(self._get_state_path(directory), map_location="cpu")
+        model = COLT_BUILDER(config, BaseTorchModel)
         model.load_state_dict(state_dict)
-        return model
+        return cast(_ModelT, model)
 
 
 @step("torch::train", format=TorchModelFormat())
@@ -147,9 +150,10 @@ def evaluate_torch_model(
     model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
     evaluator: IEvaluator[ModelInputT, ModelOutputT],
     dataset: list[ItemT],
-    dataloader: IDataLoader[ItemT, ModelInputT],
+    dataloader: IStreamingDataLoader[ItemT, ModelInputT],
     params: ModelParamsT | None = None,
     random_seed: int | None = None,
+    device: Annotated[str | torch.device | None, WorkflowStepArgFlag.IGNORE] = None,
 ) -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
     """Evaluate a PyTorch model on a dataset using the provided evaluator.
 
@@ -164,6 +168,7 @@ def evaluate_torch_model(
         dataloader: DataLoader to convert items to model inputs.
         params: Optional model parameters to use for evaluation.
         random_seed: Optional random seed for reproducibility.
+        device: Optional device (e.g., "cpu", "cuda") to run evaluation on.
 
     Returns:
         Dictionary of computed evaluation metrics.
@@ -186,17 +191,23 @@ def evaluate_torch_model(
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(random_seed)
 
-    # Set model to evaluation mode
-    model.eval()
-    evaluator.reset()
-
     # Evaluate model
-    with torch.no_grad():
+    with torch.inference_mode(), use_device(device) as device:
+        # Move model to device if specified
+        model.to(device)
+
+        # Set model to evaluation mode
+        model.eval()
+
+        # Reset evaluator state
+        evaluator.reset()
+
         with (
             closing(dataloader(dataset)) as loader,
             progress(loader, desc="Evaluating model") as iterator,
         ):
             for inputs in iterator:
+                inputs = move_to_device(inputs, device)
                 output = model(inputs, params)
                 evaluator.update(inputs, output)
 
@@ -204,3 +215,37 @@ def evaluate_torch_model(
     logger.info("Evaluation metrics: %s", ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()))
 
     return metrics
+
+
+@step("torch::predict")
+@step("torch::predict_without_caching", cacheable=False)
+def predict(
+    dataset: Iterable[ItemT],
+    dataloader: IStreamingDataLoader[ItemT, ModelInputT],
+    model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
+    postprocessor: Callable[[ModelInputT, ModelOutputT], Iterable[_ResultT]],
+    params: ModelParamsT | None = None,
+    device: Annotated[str | torch.device | None, WorkflowStepArgFlag.IGNORE] = None,
+    random_seed: int | None = None,
+) -> Iterator[_ResultT]:
+    # Set random seed if provided
+    if random_seed is not None:
+        torch.manual_seed(random_seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(random_seed)
+
+    with torch.inference_mode(), use_device(device) as device:
+        # Move model to device if specified
+        model.to(device)
+
+        # Set model to evaluation mode
+        model.eval()
+
+        with (
+            closing(dataloader(dataset)) as loader,
+            progress(loader, desc="Predicting") as iterator,
+        ):
+            for inputs in iterator:
+                inputs = move_to_device(inputs, device)
+                output = model(inputs, params)
+                yield from postprocessor(inputs, output)
