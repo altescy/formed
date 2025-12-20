@@ -81,7 +81,7 @@ class WorkflowRef(Generic[_T], Placeholder[_T]):
 class RefCallback(ColtCallback):
     """Replace `ref` configs with `WorkflowRef` instances as placeholders"""
 
-    _STEP_NAME_TO_TYPE_KEY: Final[str] = "__worktop_workflow_step__"
+    _STEP_NAME_TO_TYPE_KEY: Final[str] = "__formed_workflow_step__"
 
     def _get_step_name_to_type(self, graph_path: ParamPath, context: ColtContext) -> dict[str, type[WorkflowStep[Any]]]:
         registry: dict[ParamPath, dict[str, type[WorkflowStep[Any]]]] = context.state.setdefault(
