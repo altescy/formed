@@ -40,32 +40,34 @@ from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
 from types import TracebackType
-from typing import Any, NewType, TypeVar
+from typing import Any, NewType, Optional, TypeVar, Union, cast
 
-from colt import Registrable
+from colt import Lazy, Registrable
+from typing_extensions import Self
 
 from formed.common.attributeutils import xgetattr
 from formed.common.git import GitInfo, get_git_info
 from formed.common.pkgutils import PackageInfo, get_installed_packages
+from formed.types import JsonValue
 
 from .cache import EmptyWorkflowCache, WorkflowCache
 from .callback import EmptyWorkflowCallback, WorkflowCallback
-from .graph import WorkflowGraph
+from .graph import WorkflowGraph, WorkflowGraphArchive
 from .step import (
     WorkflowStep,
     WorkflowStepContext,
     WorkflowStepInfo,
-    WorkflowStepRef,
     WorkflowStepState,
     WorkflowStepStatus,
 )
+from .utils import as_jsonvalue, from_jsonvalue
 
 logger = getLogger(__name__)
 
 T = TypeVar("T")
 WorkflowExecutorT = TypeVar("WorkflowExecutorT", bound="WorkflowExecutor")
 
-_EXECUTION_CONTEXT = contextvars.ContextVar["WorkflowExecutionContext | None"]("_EXECUTION_CONTEXT", default=None)
+_EXECUTION_CONTEXT = contextvars.ContextVar[Optional["WorkflowExecutionContext"]]("_EXECUTION_CONTEXT", default=None)
 
 
 WorkflowExecutionID = NewType("WorkflowExecutionID", str)
@@ -81,16 +83,16 @@ class WorkflowExecutionStatus(str, Enum):
 
 @dataclasses.dataclass
 class WorkflowExecutionState:
-    execution_id: WorkflowExecutionID | None = None
+    execution_id: Optional[WorkflowExecutionID] = None
     status: WorkflowExecutionStatus = WorkflowExecutionStatus.PENDING
-    started_at: datetime.datetime | None = None
-    finished_at: datetime.datetime | None = None
+    started_at: Optional[datetime.datetime] = None
+    finished_at: Optional[datetime.datetime] = None
 
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowExecutionMetadata:
     version: str = version("formed")
-    git: GitInfo | None = dataclasses.field(default_factory=get_git_info)
+    git: Optional[GitInfo] = dataclasses.field(default_factory=get_git_info)
     environment: Mapping[str, str] = dataclasses.field(default_factory=dict)
     required_modules: Sequence[str] = dataclasses.field(default_factory=list)
     dependent_packages: Sequence[PackageInfo] = dataclasses.field(default_factory=get_installed_packages)
@@ -100,8 +102,51 @@ class WorkflowExecutionMetadata:
 class WorkflowExecutionInfo:
     graph: WorkflowGraph
 
-    id: WorkflowExecutionID | None = None
+    id: Optional[WorkflowExecutionID] = None
     metadata: WorkflowExecutionMetadata = dataclasses.field(default_factory=WorkflowExecutionMetadata)
+
+    def json(self) -> dict[str, JsonValue]:
+        """Convert to JSON-serializable dict.
+
+        Returns a dict that may contain types requiring WorkflowJSONEncoder
+        for proper serialization (e.g., datetime, git info).
+
+        Usage:
+            data = execution_info.to_json_dict()
+            json.dump(data, file, cls=WorkflowJSONEncoder)
+        """
+        return {
+            "format_version": "2.0",
+            "id": self.id or "",
+            "graph": self.graph.to_archive().json(),
+            "metadata": as_jsonvalue(self.metadata),
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, JsonValue], /) -> Self:
+        """Reconstruct from JSON-serializable dict.
+
+        Validates format version and reconstructs all fields.
+
+        Usage:
+            data = json.load(file, cls=WorkflowJSONDecoder)
+            execution_info = WorkflowExecutionInfo.from_json_dict(data)
+        """
+
+        if data.get("format_version") != "2.0":
+            raise ValueError(f"Unsupported format version '{data.get('format_version')}'. Expected '2.0'.")
+
+        execution_id = WorkflowExecutionID(cast(str, data["id"])) if data["id"] else None
+        graph = WorkflowGraph.from_archive(WorkflowGraphArchive.from_json(cast(dict[str, JsonValue], data["graph"])))
+        metadata: WorkflowExecutionMetadata = from_jsonvalue(data["metadata"])
+
+        assert isinstance(metadata, WorkflowExecutionMetadata)
+
+        return cls(
+            graph=graph,
+            id=execution_id,
+            metadata=metadata,
+        )
 
 
 @dataclasses.dataclass
@@ -113,41 +158,13 @@ class WorkflowExecutionContext:
 
 
 class WorkflowExecutor(Registrable):
-    """Abstract base class for workflow execution engines.
-
-    WorkflowExecutor defines the interface for executing workflows. Subclasses
-    implement different execution strategies (sequential, parallel, distributed, etc.).
-
-    The executor can be used as a context manager for resource cleanup.
-
-    Example:
-        >>> executor = DefaultWorkflowExecutor()
-        >>> with executor:
-        ...     context = executor(graph, cache=cache)
-
-    Note:
-        Executors are registered and can be instantiated by name via colt.
-
-    """
-
     def __call__(
         self,
-        graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
+        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
         *,
-        cache: WorkflowCache | None = None,
-        callback: WorkflowCallback | None = None,
+        cache: Optional[WorkflowCache] = None,
+        callback: Optional[WorkflowCallback] = None,
     ) -> WorkflowExecutionContext:
-        """Execute a workflow.
-
-        Args:
-            graph_or_execution: Workflow graph or execution info to execute.
-            cache: Optional cache for step results. Defaults to EmptyWorkflowCache.
-            callback: Optional callback for monitoring execution. Defaults to EmptyWorkflowCallback.
-
-        Returns:
-            Execution context containing state and results.
-
-        """
         raise NotImplementedError
 
     def __enter__(self: WorkflowExecutorT) -> WorkflowExecutorT:
@@ -155,60 +172,21 @@ class WorkflowExecutor(Registrable):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
     ) -> None:
         pass
 
 
 @WorkflowExecutor.register("default")
 class DefaultWorkflowExecutor(WorkflowExecutor):
-    """Default sequential workflow executor.
-
-    DefaultWorkflowExecutor executes workflow steps sequentially in topological order,
-    respecting dependencies. It integrates caching and callbacks, handles errors,
-    and tracks execution state.
-
-    Features:
-        - Sequential execution with dependency resolution
-        - Automatic cache management
-        - Callback integration for monitoring
-        - Error handling with state tracking
-        - Temporary cache for non-cacheable steps
-
-    Example:
-        >>> from formed.workflow import WorkflowGraph, DefaultWorkflowExecutor
-        >>> from formed.workflow.cache import FilesystemWorkflowCache
-        >>> from formed.workflow.callback import LoggingWorkflowCallback
-        >>>
-        >>> executor = DefaultWorkflowExecutor()
-        >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
-        >>> cache = FilesystemWorkflowCache(".formed/cache")
-        >>> callback = LoggingWorkflowCallback()
-        >>>
-        >>> with executor:
-        ...     context = executor(graph, cache=cache, callback=callback)
-        >>>
-        >>> # Check execution status
-        >>> print(context.state.status)  # "completed" or "failure"
-        >>> print(context.state.execution_id)  # Unique execution ID
-
-    Note:
-        - Steps are executed in topological order
-        - Cached results are used when fingerprints match
-        - Non-deterministic steps always re-execute
-        - Steps ending with "!" force re-execution (no temp cache)
-        - Callbacks receive step_start/step_finish notifications
-
-    """
-
     def __call__(
         self,
-        graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
+        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
         *,
-        cache: WorkflowCache | None = None,
-        callback: WorkflowCallback | None = None,
+        cache: Optional[WorkflowCache] = None,
+        callback: Optional[WorkflowCallback] = None,
     ) -> WorkflowExecutionContext:
         cache = cache if cache is not None else EmptyWorkflowCache()
         callback = callback if callback is not None else EmptyWorkflowCallback()
@@ -256,11 +234,18 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             else:
                 try:
                     callback.on_step_start(step_context, execution_context)
-                    dependencies: Mapping[int | str | Sequence[int | str], Any] = {
+                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = {
                         path: _run_step(dep) for path, dep in step_info.dependencies
                     }
                     if set(dependencies.keys()) != set(path for path, _ in step_info.dependencies):
                         raise ValueError("Dependencies are not consistent with the graph")
+
+                    # Type narrowing: ensure we're working with a live step
+                    if not isinstance(step_info.step, Lazy):
+                        raise TypeError(
+                            f"Cannot execute archived step '{step_info.name}'. "
+                            f"Archived steps are immutable snapshots from past executions."
+                        )
 
                     step = step_info.step.construct(dependencies)
                     result = step(step_context)
@@ -272,7 +257,8 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                             result = cache[step_info]
                     elif not step_info.name.endswith("!"):
                         # NOTE: You can force to run the step without caching by adding "!" at the end of the name
-                        temporary_cache[step_info] = result
+                        if not isinstance(result, Iterator):
+                            temporary_cache[step_info] = result
                 except KeyboardInterrupt:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
                     step_context = dataclasses.replace(step_context, state=step_state)
@@ -289,8 +275,8 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                     step_context = dataclasses.replace(step_context, state=step_state)
                     callback.on_step_end(step_context, execution_context)
 
-            if isinstance(step_info, WorkflowStepRef) and step_info.fieldref is not None:
-                result = xgetattr(result, step_info.fieldref)
+            if step_info.fieldref is not None:
+                result = cast(T, xgetattr(result, step_info.fieldref))
 
             return result
 
@@ -324,5 +310,5 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
         return dataclasses.replace(execution_context, state=execution_state)
 
 
-def use_execution_context() -> WorkflowExecutionContext | None:
+def use_execution_context() -> Optional[WorkflowExecutionContext]:
     return _EXECUTION_CONTEXT.get()

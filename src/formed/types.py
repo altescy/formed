@@ -56,6 +56,16 @@ class IJsonSerializable(Protocol):
 
 
 @runtime_checkable
+class IJsonDeserializable(Protocol):
+    @classmethod
+    def from_json(cls, o: JsonValue, /) -> Self: ...
+
+
+@runtime_checkable
+class IJsonCompatible(IJsonSerializable, IJsonDeserializable, Protocol): ...
+
+
+@runtime_checkable
 class IPydanticModel(Protocol):
     def model_dump(self, *, mode: Literal["json", "python"] = "python") -> dict[str, Any]: ...
 
