@@ -1,6 +1,7 @@
 """Tests for transformers utility functions."""
 
 from transformers import AutoModelForSequenceClassification
+
 from formed.integrations.transformers.utils import (
     load_pretrained_tokenizer,
     load_pretrained_transformer,
