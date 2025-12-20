@@ -7,7 +7,6 @@ from typing_extensions import TypeVar
 import formed.integrations.ml as ml
 import formed.integrations.ml.types as mlt
 
-
 InputT = TypeVar(
     "InputT",
     default=Any,

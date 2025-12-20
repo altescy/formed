@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic
 
 import formed.integrations.ml as ml
 import formed.integrations.ml.types as mlt
@@ -16,6 +16,6 @@ class TextClassificationDataModule(
     ],
     Generic[mlt.DataModuleModeT, InputT, TextTransformT_co],
 ):
-    id: ml.MetadataTransform[Any, str]
     text: TextTransformT_co
+    id: ml.Extra[ml.MetadataTransform[Any, str]] = ml.Extra.default()
     label: ml.Extra[ml.LabelIndexer] = ml.Extra.default()

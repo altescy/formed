@@ -5,6 +5,9 @@ workflow:
 
 required_modules:
   - textclf
+  - formed.integrations.datasets
   - formed.integrations.flax
   - formed.integrations.ml
   - formed.integrations.mlflow
+  - formed.integrations.torch
+  - formed.integrations.transformers
