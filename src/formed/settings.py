@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 from collections.abc import Mapping, Sequence
+from functools import cache
 from os import PathLike
 from typing import ClassVar, Literal, TypeVar
 
@@ -63,6 +64,7 @@ class FormedSettings:
         return formed_settings
 
 
+@cache
 def load_formed_settings(path: str | PathLike | None = None) -> FormedSettings:
     if path is not None or DEFAULT_FORMED_SETTINGS_PATH.exists():
         path = path or DEFAULT_FORMED_SETTINGS_PATH
