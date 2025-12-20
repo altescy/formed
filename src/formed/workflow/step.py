@@ -630,4 +630,4 @@ def use_step_workdir() -> Path:
 
 
 def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
-    return getLogger(f"worktop.workflow.step.{info.name}.{info.fingerprint[:8]}")
+    return getLogger(f"formed.workflow.step.{info.name}.{info.fingerprint[:8]}")
