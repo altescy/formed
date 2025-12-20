@@ -545,7 +545,7 @@ def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
 ##
 
 
-@step("worktop::load_artifact", cacheable=False)
+@step("formed::load_artifact", cacheable=False)
 def load_artifact(path: str | PathLike, format: Format):
     path = minato.cached_path(path)
     return format.read(path)
