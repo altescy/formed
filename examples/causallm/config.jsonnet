@@ -55,7 +55,6 @@ local tokenizer = {
           type: 'formed.integrations.transformers.training:MlflowTrainerCallback',
         },
       ],
-
     },
   },
 }
