@@ -34,13 +34,14 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Generic, cast
 
 import jax
+import optax
 from colt import Registrable
 from flax import nnx
 
 from formed.common.attributeutils import xgetattr
 
 from ..model import BaseFlaxModel
-from ..types import ModelInputT, ModelOutputT, ModelParamsT
+from ..types import IOptimizer, ModelInputT, ModelOutputT, ModelParamsT
 from .state import TrainState
 
 if TYPE_CHECKING:
@@ -133,6 +134,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
     Args:
         loss: Loss accessor - either attribute name (e.g., "loss") or
             callable that extracts loss from model output.
+        optimizer: Optax optimizer or transformation.
 
     Example:
         >>> # Use output.loss attribute
@@ -145,9 +147,17 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
 
     """
 
-    def __init__(self, loss: str | Callable[[ModelOutputT], jax.Array] = "loss") -> None:
+    def __init__(
+        self,
+        loss: str | Callable[[ModelOutputT], jax.Array] = "loss",
+        optimizer: IOptimizer | optax.MultiSteps | optax.GradientTransformation = optax.adamw(1e-3),
+    ) -> None:
+        if not isinstance(optimizer, optax.GradientTransformation):
+            optimizer = optax.GradientTransformation(optimizer.init, optimizer.update)  # pyright: ignore[reportArgumentType]
+
         super().__init__()
         self._loss = partial(xgetattr, name=loss) if isinstance(loss, str) else loss
+        self._optimizer = optimizer
 
     def create_state(
         self,
@@ -163,7 +173,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
                 graphdef=graphdef,
                 additional_states=tuple(states),
                 params=params,
-                tx=trainer.optimizer,
+                tx=self._optimizer,
             ),
         )
 

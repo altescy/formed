@@ -8,7 +8,6 @@ Key Features:
     - Flexible training loop with epoch and step-based logging/evaluation
     - Support for callbacks at various training stages
     - Distributed training via data parallelism
-    - Integration with optax optimizers
     - Rich progress bars with training metrics
     - Early stopping and checkpointing
     - MLflow integration
@@ -50,7 +49,6 @@ from collections.abc import Mapping, Sequence
 from functools import partial
 from typing import Generic, Literal
 
-import optax
 from flax import nnx
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 
@@ -61,7 +59,7 @@ from formed.workflow import use_step_logger
 from ..distributors import BaseDistributor, SingleDeviceDistributor
 from ..model import BaseFlaxModel
 from ..random import require_rngs
-from ..types import IDataLoader, IEvaluator, IOptimizer, ItemT, ModelInputT, ModelOutputT, ModelParamsT
+from ..types import IDataLoader, IEvaluator, ItemT, ModelInputT, ModelOutputT, ModelParamsT
 from .callbacks import FlaxTrainingCallback
 from .engine import DefaultFlaxTrainingEngine, FlaxTrainingEngine
 from .exceptions import StopEarly
@@ -93,7 +91,6 @@ class FlaxTrainer(
         train_dataloader: Data loader for training dataset.
         val_dataloader: Optional data loader for validation dataset.
         engine: Training engine (defaults to DefaultFlaxTrainingEngine).
-        optimizer: Optax optimizer or transformation.
         callbacks: Sequence of training callbacks.
         distributor: Device distributor (defaults to SingleDeviceDistributor).
         max_epochs: Maximum number of training epochs.
@@ -107,11 +104,13 @@ class FlaxTrainer(
         >>> trainer = FlaxTrainer(
         ...     train_dataloader=train_loader,
         ...     val_dataloader=val_loader,
-        ...     optimizer=optax.adamw(1e-3),
         ...     max_epochs=10,
         ...     eval_strategy="epoch",
         ...     logging_strategy="step",
         ...     logging_interval=100
+        ...     engine=DefaultFlaxTrainingEngine(
+        ...         optimizer=optax.adamw(1e-3),
+        ...     ),
         ... )
 
     """
@@ -122,7 +121,6 @@ class FlaxTrainer(
         train_dataloader: IDataLoader[ItemT, ModelInputT],
         val_dataloader: IDataLoader[ItemT, ModelInputT] | None = None,
         engine: FlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT] | None = None,
-        optimizer: IOptimizer | optax.MultiSteps | optax.GradientTransformation = optax.adamw(1e-3),
         callbacks: Sequence[FlaxTrainingCallback] = (),
         distributor: BaseDistributor | None = None,
         max_epochs: int = 10,
@@ -134,10 +132,6 @@ class FlaxTrainer(
         train_prefix: str = "train/",
         val_prefix: str = "val/",
     ) -> None:
-        if not isinstance(optimizer, optax.GradientTransformation):
-            optimizer = optax.GradientTransformation(optimizer.init, optimizer.update)  # pyright: ignore[reportArgumentType]
-
-        self._optimizer = optimizer
         self._train_dataloader = train_dataloader
         self._val_dataloader = val_dataloader
         self._engine = engine or DefaultFlaxTrainingEngine[ModelInputT, ModelOutputT, ModelParamsT]()
@@ -151,10 +145,6 @@ class FlaxTrainer(
         self._callbacks = callbacks
         self._train_prefix = train_prefix
         self._val_prefix = val_prefix
-
-    @property
-    def optimizer(self) -> optax.GradientTransformation:
-        return self._optimizer
 
     @property
     def distributor(self) -> BaseDistributor:

@@ -40,7 +40,7 @@ local evaluator = {
     model: {
       type: 'flax::train',
       model: {
-        type: 'text_classification:TextClassifier',
+        type: 'textclf::flax_text_classifier',
         num_classes: ref('datamodule.label.num_labels'),
         embedder: {
           type: 'analyzed_text',
