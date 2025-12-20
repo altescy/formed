@@ -149,7 +149,7 @@ def train_torch_model(
 def evaluate_torch_model(
     model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
     evaluator: IEvaluator[ModelInputT, ModelOutputT],
-    dataset: list[ItemT],
+    dataset: Iterable[ItemT],
     dataloader: IStreamingDataLoader[ItemT, ModelInputT],
     params: ModelParamsT | None = None,
     random_seed: int | None = None,
