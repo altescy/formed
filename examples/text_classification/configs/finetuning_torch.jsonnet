@@ -1,6 +1,6 @@
 local ref(name) = { type: 'ref', ref: name };
 
-local backbone = 'distilbert-base-uncased';
+local backbone = 'bert-base-uncased';
 local batch_size = 128;
 local learning_rate = 3e-4;
 
@@ -46,6 +46,7 @@ local evaluator = {
     tokenizer: {
       type: 'transformers::convert_tokenizer',
       tokenizer: backbone,
+      unk_token: '[UNK]',
       bos_token: '[CLS]',
       eos_token: null,
     },
