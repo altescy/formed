@@ -29,7 +29,7 @@ Example:
 
 import sys
 from collections.abc import Iterator, Mapping
-from typing import Any, NotRequired, Required, TextIO, TypedDict
+from typing import Any, Optional, TextIO, TypedDict
 
 from colt import ConfigurationError, Lazy
 
@@ -37,77 +37,18 @@ from formed.common.dag import DAG
 from formed.common.jsonnet import FromJsonnet
 from formed.types import JsonValue
 
+from .archive import WorkflowGraphArchive, WorkflowStepArchive
 from .colt import COLT_BUILDER, WorkflowRef
 from .constants import WORKFLOW_REFKEY
-from .step import WorkflowStep, WorkflowStepInfo, WorkflowStepRef
+from .step import WorkflowStep, WorkflowStepInfo
 from .types import StrictParamPath
 
-WorkflowGraphConfig = TypedDict(
-    "WorkflowGraphConfig",
-    {
-        "steps": Required[dict[str, JsonValue]],
-        "$schema": NotRequired[str],
-    },
-    total=False,
-)
+
+class WorkflowGraphConfig(TypedDict):
+    steps: dict[str, JsonValue]
 
 
 class WorkflowGraph(FromJsonnet):
-    """Directed acyclic graph of workflow steps with dependency tracking.
-
-    WorkflowGraph parses workflow configurations (typically from Jsonnet),
-    resolves step dependencies, and provides topological ordering for execution.
-    It detects cycles, validates configurations, and builds a DAG representation.
-
-    Attributes:
-        _steps: Mapping of step names to WorkflowStepInfo metadata.
-        _dag: Directed acyclic graph representation of step dependencies.
-
-    Example:
-        >>> # Define workflow configuration as a dictionary
-        >>> config = {
-        ...     "steps": {
-        ...         "load_data": {
-        ...             "type": "load_csv",
-        ...             "path": "data.csv"
-        ...         },
-        ...         "preprocess": {
-        ...             "type": "preprocess",
-        ...             "data": {"type": "ref", "ref": "load_data"}
-        ...         },
-        ...         "train": {
-        ...             "type": "train_model",
-        ...             "data": {"type": "ref", "ref": "preprocess"}
-        ...         }
-        ...     }
-        ... }
-        >>>
-        >>> # Build graph from config dict
-        >>> graph = WorkflowGraph.from_config(config)
-        >>>
-        >>> # Or load from Jsonnet file
-        >>> graph = WorkflowGraph.from_jsonnet("workflow.jsonnet")
-        >>>
-        >>> # Iterate in topological order (load_data -> preprocess -> train)
-        >>> for step_info in graph:
-        ...     print(step_info.name)
-        >>>
-        >>> # Access specific steps
-        >>> train_step = graph["train"]
-        >>> print(train_step.dependencies)  # Shows dependency on preprocess
-        >>>
-        >>> # Visualize graph
-        >>> graph.visualize(sys.stdout)
-
-    Note:
-        - Steps reference each other using {type: "ref", ref: "step_name"}
-        - Field-level refs: {type: "ref", ref: "step_name.field"}
-        - Dependencies are automatically detected from configuration
-        - Cycles in dependencies raise ConfigurationError
-        - Topological order ensures dependencies execute before dependents
-
-    """
-
     __COLT_BUILDER__ = COLT_BUILDER
 
     @classmethod
@@ -120,8 +61,8 @@ class WorkflowGraph(FromJsonnet):
 
         builder = next(iter(steps.values()))._builder
 
-        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str, str | None]]:
-            refs: set[tuple[StrictParamPath, str, str | None]] = set()
+        def find_dependencies(obj: Any, path: tuple[str, ...]) -> frozenset[tuple[StrictParamPath, str, Optional[str]]]:
+            refs: set[tuple[StrictParamPath, str, Optional[str]]] = set()
             if WorkflowRef.is_ref(builder, obj):
                 step_name, field_name = WorkflowRef._parse_ref(str(obj[WORKFLOW_REFKEY]))
                 refs |= {(path, step_name, field_name)}
@@ -156,12 +97,13 @@ class WorkflowGraph(FromJsonnet):
         def make_dependency_step(
             path: StrictParamPath,
             step_info: WorkflowStepInfo,
-            field_name: str | None,
+            field_name: Optional[str],
         ) -> tuple[StrictParamPath, WorkflowStepInfo]:
             if field_name:
+                # Create a new WorkflowStepInfo with fieldref set
                 return (
                     path,
-                    WorkflowStepRef(
+                    WorkflowStepInfo(
                         name=step_info.name,
                         step=step_info.step,
                         dependencies=step_info.dependencies,
@@ -197,12 +139,29 @@ class WorkflowGraph(FromJsonnet):
         return self._step_info[step_name]
 
     def get_subgraph(self, step_name: str) -> "WorkflowGraph":
+        """Get a subgraph containing a step and all its dependencies.
+
+        Only works with live (non-archived) graphs. For archived graphs,
+        dependencies are already resolved in the archive.
+        """
         if step_name not in self._step_info:
             raise ValueError(f"Step {step_name} not found in the graph")
         step_info = self._step_info[step_name]
+
+        # Type narrowing: ensure all steps are live
+        if not isinstance(step_info.step, Lazy):
+            raise TypeError(
+                f"Cannot create subgraph from archived step '{step_name}'. "
+                f"Subgraph extraction only works with live workflows."
+            )
+
         subgraph_steps: dict[str, Lazy[WorkflowStep]] = {step_name: step_info.step}
         for _, dependant_step_info in step_info.dependencies:
+            if not isinstance(dependant_step_info.step, Lazy):
+                raise TypeError(f"Cannot create subgraph: dependency '{dependant_step_info.name}' is archived.")
             for sub_step_info in self.get_subgraph(dependant_step_info.name):
+                if not isinstance(sub_step_info.step, Lazy):
+                    raise TypeError(f"Cannot create subgraph: nested dependency '{sub_step_info.name}' is archived.")
                 subgraph_steps[sub_step_info.name] = sub_step_info.step
         return WorkflowGraph(subgraph_steps)
 
@@ -226,9 +185,67 @@ class WorkflowGraph(FromJsonnet):
 
         dag.visualize(output=output)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"steps": {step_info.name: step_info.step.config for step_info in self}}
-
     @classmethod
     def from_config(cls, config: WorkflowGraphConfig) -> "WorkflowGraph":
         return cls.__COLT_BUILDER__(config, WorkflowGraph)
+
+    def to_archive(self) -> WorkflowGraphArchive:
+        """Convert graph to archive format for serialization.
+
+        This captures the execution-time state of all steps in a flat structure.
+        Only works with live graphs.
+        """
+        # Ensure all steps are live before archiving
+        for step_info in self:
+            if not isinstance(step_info.step, Lazy):
+                raise TypeError(
+                    f"Cannot archive graph containing archived step '{step_info.name}'. "
+                    f"Only live graphs can be converted to archives."
+                )
+
+        # Convert all steps to archives
+        steps: dict[str, WorkflowStepArchive] = {}
+        for step_info in self:
+            steps[step_info.name] = step_info.to_archive()
+
+        # Compute execution order (topological sort)
+        execution_order = [step_info.name for step_info in self]
+
+        return WorkflowGraphArchive(
+            steps=steps,
+            execution_order=execution_order,
+        )
+
+    @classmethod
+    def from_archive(cls, archive: WorkflowGraphArchive) -> "WorkflowGraph":
+        """Reconstruct graph from archive.
+
+        Handles all dependency resolution internally using a two-pass approach.
+        Organizers don't need to know about the complexity.
+        """
+        # First pass: Create all step infos without dependencies
+        # This builds a fingerprint -> WorkflowStepInfo map
+        fingerprint_to_info: dict[str, WorkflowStepInfo] = {}
+
+        for step_name in archive.execution_order:
+            step_archive = archive.steps[step_name]
+            # Create WorkflowStepInfo with archive but no dependencies yet
+            step_info = WorkflowStepInfo(
+                name=step_archive.name,
+                step=step_archive,
+                dependencies=frozenset(),
+                fieldref=step_archive.fieldref,
+            )
+            fingerprint_to_info[step_archive.fingerprint] = step_info
+
+        # Second pass: Resolve dependencies using from_archive
+        step_name_to_info: dict[str, WorkflowStepInfo] = {}
+        for step_name in archive.execution_order:
+            step_archive = archive.steps[step_name]
+            step_info = WorkflowStepInfo.from_archive(step_archive, fingerprint_to_info)
+            step_name_to_info[step_name] = step_info
+
+        # Create graph directly by setting _step_info
+        graph = cls.__new__(cls)
+        graph._step_info = step_name_to_info
+        return graph

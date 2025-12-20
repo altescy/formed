@@ -34,8 +34,6 @@ from formed.workflow import (
     get_step_logger_from_info,
     use_step_context,
 )
-from formed.workflow.colt import COLT_BUILDER
-from formed.workflow.utils import as_jsonvalue
 
 from . import utils as mlflow_utils
 from .constants import DEFAULT_MLFLOW_DIRECTORY, DEFAULT_MLFLOW_EXPERIMENT_NAME
@@ -50,17 +48,17 @@ from .utils import (
 
 if TYPE_CHECKING:
     with suppress(ImportError):
+        from matplotlib.figure import Figure as MatplotlibFigure
+    with suppress(ImportError):
+        from mlflow import Image as MlflowImage
+    with suppress(ImportError):
         from numpy import ndarray as NumpyArray
     with suppress(ImportError):
         from pandas import DataFrame as PandasDataFrame
     with suppress(ImportError):
         from PIL.Image import Image as PILImage
     with suppress(ImportError):
-        from matplotlib.figure import Figure as MatplotlibFigure
-    with suppress(ImportError):
         from plotly.graph_objs import Figure as PlotlyFigure
-    with suppress(ImportError):
-        from mlflow import Image as MlflowImage
 
 logger = getLogger(__name__)
 
@@ -77,8 +75,8 @@ class MlflowWorkflowCache(WorkflowCache):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        directory: str | PathLike | None = None,
-        mlflow_client: MlflowClient | None = None,
+        directory: Optional[Union[str, PathLike]] = None,
+        mlflow_client: Optional[MlflowClient] = None,
     ) -> None:
         self._client = mlflow_client or MlflowClient()
         self._experiment_name = experiment_name
@@ -201,15 +199,17 @@ class MlflowWorkflowCallback(WorkflowCallback):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        mlflow_client: MlflowClient | None = None,
+        mlflow_client: Optional[MlflowClient] = None,
         log_execution_metrics: bool = False,
     ) -> None:
         self._client = mlflow_client or MlflowClient()
         self._experiment_name = experiment_name
-        self._execution_run: MlflowRun | None = None
-        self._execution_log: LogCapture[StringIO] | None = None
+        self._execution_run: Optional[MlflowRun] = None
+        self._execution_log: Optional[LogCapture[StringIO]] = None
         self._step_log: dict[WorkflowStepInfo, LogCapture[StringIO]] = {}
         self._log_execution_metrics = log_execution_metrics
+        self._step_run_ids: dict[str, str] = {}
+        self._dependents_map: dict[str, set[str]] = {}
 
     def on_execution_start(
         self,
@@ -226,11 +226,24 @@ class MlflowWorkflowCallback(WorkflowCallback):
             self._experiment_name,
             execution_info,
         )
+        # Use WorkflowExecutionInfo.to_json_dict() for proper serialization
         self._client.log_dict(
             run_id=self._execution_run.info.run_id,
-            dictionary=cast(dict, as_jsonvalue(execution_info)),
+            dictionary=execution_info.json(),
             artifact_file=self._EXECUTION_METADATA_ARTIFACT_FILENAME,
         )
+
+        # Initialize tracking for notes
+        self._dependents_map = self._build_dependents_map(execution_info.graph)
+        self._step_run_ids = {}
+
+        # Set initial execution note
+        initial_note = self._generate_execution_note_markdown(
+            execution_info,
+            self._step_run_ids,
+            self._dependents_map,
+        )
+        self._update_run_note(self._execution_run.info.run_id, initial_note)
 
     def on_execution_end(
         self,
@@ -267,11 +280,193 @@ class MlflowWorkflowCallback(WorkflowCallback):
         )
         self._client.log_dict(
             run_id=run.info.run_id,
-            dictionary=cast(dict, as_jsonvalue(step_info)),
+            dictionary=step_info.json(),
             artifact_file=self._STEP_METADATA_ARTIFACT_FILENAME,
         )
         self._step_log[step_info] = LogCapture(StringIO(), logger=get_step_logger_from_info(step_info))
         self._step_log[step_info].start()
+
+        # Store step run ID
+        self._step_run_ids[step_info.name] = run.info.run_id
+
+        # Set step note
+        step_note = self._generate_step_note_markdown(
+            step_info,
+            execution_context.info,
+            self._step_run_ids,
+            self._dependents_map,
+        )
+        self._update_run_note(run.info.run_id, step_note)
+
+        # Update execution note with new run ID
+        execution_note = self._generate_execution_note_markdown(
+            execution_context.info,
+            self._step_run_ids,
+            self._dependents_map,
+        )
+        self._update_run_note(self._execution_run.info.run_id, execution_note)
+
+    def _build_dependents_map(self, graph: WorkflowGraph) -> dict[str, set[str]]:
+        """Build reverse dependency map: step_name -> set of steps that depend on it."""
+        dependents: dict[str, set[str]] = {name: set() for name in graph._step_info.keys()}
+        for step_name, step_info in graph._step_info.items():
+            for _, dep_info in step_info.dependencies:
+                dependents[dep_info.name].add(step_name)
+        return dependents
+
+    def _get_mlflow_run_url(self, run_id: str) -> str:
+        """Generate MLflow UI URL for a run."""
+        experiment = get_mlflow_experiment(self._experiment_name)
+        experiment_id = experiment.experiment_id
+        return f"/#/experiments/{experiment_id}/runs/{run_id}"
+
+    def _update_run_note(self, run_id: str, markdown: str) -> None:
+        """Update MLFLOW_RUN_NOTE tag for a run."""
+        self._client.set_tag(run_id, MlflowTag.MLFLOW_RUN_NOTE.value, markdown)
+
+    def _generate_execution_note_markdown(
+        self,
+        execution_info: WorkflowExecutionInfo,
+        step_run_ids: dict[str, str],
+        dependents_map: dict[str, set[str]],
+    ) -> str:
+        """Generate markdown note for execution run.
+
+        Args:
+            execution_info: Execution information
+            step_run_ids: Map of step names to their MLflow run IDs (may be incomplete)
+            dependents_map: Reverse dependency map
+
+        Returns:
+            Markdown string with execution summary
+        """
+        lines = []
+        lines.append(f"# Workflow Execution: {execution_info.id}")
+        lines.append("")
+        lines.append("## Steps")
+        lines.append("")
+        lines.append("| Step | Dependencies | Dependents |")
+        lines.append("|------|--------------|------------|")
+
+        for step_name, step_info in execution_info.graph._step_info.items():
+            # Step name with link if available
+            if step_name in step_run_ids:
+                step_link = f"[{step_name}]({self._get_mlflow_run_url(step_run_ids[step_name])})"
+            else:
+                step_link = step_name
+
+            # Dependencies (use set to avoid duplicates)
+            dep_names = {dep_info.name for _, dep_info in step_info.dependencies}
+            if dep_names:
+                dep_links = []
+                for dep_name in sorted(dep_names):
+                    if dep_name in step_run_ids:
+                        dep_links.append(f"[{dep_name}]({self._get_mlflow_run_url(step_run_ids[dep_name])})")
+                    else:
+                        dep_links.append(dep_name)
+                dependencies_str = ", ".join(dep_links)
+            else:
+                dependencies_str = "-"
+
+            # Dependents
+            dependent_names = dependents_map.get(step_name, set())
+            if dependent_names:
+                dependent_links = []
+                for dependent_name in sorted(dependent_names):
+                    if dependent_name in step_run_ids:
+                        dependent_links.append(
+                            f"[{dependent_name}]({self._get_mlflow_run_url(step_run_ids[dependent_name])})"
+                        )
+                    else:
+                        dependent_links.append(dependent_name)
+                dependents_str = ", ".join(dependent_links)
+            else:
+                dependents_str = "-"
+
+            lines.append(f"| {step_link} | {dependencies_str} | {dependents_str} |")
+
+        lines.append("")
+        lines.append("## Dependency Graph")
+        lines.append("")
+        lines.append("```")
+
+        # Use DAG.visualize for text-based graph
+        from io import StringIO
+
+        from formed.common.dag import DAG
+
+        dag = DAG(
+            {
+                step_name: {dep.name for _, dep in info.dependencies}
+                for step_name, info in execution_info.graph._step_info.items()
+            }
+        )
+        graph_output = StringIO()
+        dag.visualize(output=graph_output)
+        lines.append(graph_output.getvalue().rstrip())
+
+        lines.append("```")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    def _generate_step_note_markdown(
+        self,
+        step_info: WorkflowStepInfo,
+        execution_info: WorkflowExecutionInfo,
+        step_run_ids: dict[str, str],
+        dependents_map: dict[str, set[str]],
+    ) -> str:
+        """Generate markdown note for step run.
+
+        Args:
+            step_info: Step information
+            execution_info: Execution information
+            step_run_ids: Map of step names to their MLflow run IDs (may be incomplete)
+            dependents_map: Reverse dependency map
+
+        Returns:
+            Markdown string with step details
+        """
+        lines = []
+        lines.append(f"# Step: {step_info.name}")
+        lines.append("")
+
+        # Link to parent execution
+        if self._execution_run is not None:
+            execution_url = self._get_mlflow_run_url(self._execution_run.info.run_id)
+            lines.append(f"**Execution:** [{execution_info.id}]({execution_url})")
+            lines.append("")
+
+        # Dependencies (upstream) - use set to avoid duplicates
+        dep_names = {dep_info.name for _, dep_info in step_info.dependencies}
+        if dep_names:
+            lines.append("## Dependencies (Upstream)")
+            lines.append("")
+            for dep_name in sorted(dep_names):
+                if dep_name in step_run_ids:
+                    dep_url = self._get_mlflow_run_url(step_run_ids[dep_name])
+                    lines.append(f"- [{dep_name}]({dep_url})")
+                else:
+                    lines.append(f"- {dep_name}")
+            lines.append("")
+
+        # Dependents (downstream)
+        dependent_names = dependents_map.get(step_info.name, set())
+        if dependent_names:
+            lines.append("## Dependents (Downstream)")
+            lines.append("")
+            for dependent_name in sorted(dependent_names):
+                if dependent_name in step_run_ids:
+                    dependent_url = self._get_mlflow_run_url(step_run_ids[dependent_name])
+                    lines.append(f"- [{dependent_name}]({dependent_url})")
+                else:
+                    lines.append(f"- {dependent_name}")
+            lines.append("")
+
+        lines.append("")
+
+        return "\n".join(lines)
 
     def on_step_end(
         self,
@@ -319,9 +514,9 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
     def __init__(
         self,
         experiment_name: str = DEFAULT_MLFLOW_EXPERIMENT_NAME,
-        cache: WorkflowCache | None = None,
-        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
-        log_execution_metrics: bool | None = None,
+        cache: Optional[WorkflowCache] = None,
+        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
+        log_execution_metrics: Optional[bool] = None,
     ) -> None:
         self._client = MlflowClient()
         self._experiment_name = experiment_name
@@ -352,7 +547,7 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
     def run(
         self,
         executor: WorkflowExecutor,
-        execution: WorkflowGraph | WorkflowExecutionInfo,
+        execution: Union[WorkflowGraph, WorkflowExecutionInfo],
     ) -> WorkflowExecutionContext:
         cxt = contextvars.copy_context()
 
@@ -365,7 +560,7 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
 
         return cxt.run(_run)
 
-    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
+    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
         run = mlflow_utils.fetch_mlflow_run(
             self._client,
             self._experiment_name,
@@ -375,11 +570,15 @@ class MlflowWorkflowOrganizer(WorkflowOrganizer):
             return None
         artifact_uri = run.info.artifact_uri
         if not artifact_uri:
-            return None
-        execution_dict = mlflow.artifacts.load_dict(
+            raise RuntimeError(f"Run {run.info.run_id} has no artifact URI")
+
+        # Load execution data using proper deserialization
+        # Download artifact to temporary file
+        execution_data = mlflow.artifacts.load_dict(
             artifact_uri + "/" + MlflowWorkflowCallback._EXECUTION_METADATA_ARTIFACT_FILENAME
         )
-        execution_info = COLT_BUILDER(execution_dict, WorkflowExecutionInfo)
+        execution_info = WorkflowExecutionInfo.from_json(execution_data)
+
         execution_state = mlflow_utils.get_execution_state_from_run(run)
         return WorkflowExecutionContext(execution_info, execution_state, self.cache, self.callback)
 
@@ -414,7 +613,7 @@ class MlflowLogger:
     @overload
     def _get_artifact_path(self, artifact_path: str) -> str: ...
 
-    def _get_artifact_path(self, artifact_path: str | None) -> str | None:
+    def _get_artifact_path(self, artifact_path: Optional[str]) -> Optional[str]:
         if artifact_path is None:
             return None
         return os.path.join(self._ARTIFACT_PATH, artifact_path)
@@ -427,8 +626,8 @@ class MlflowLogger:
         self,
         key: str,
         value: float,
-        timestamp: int | None = None,
-        step: int | None = None,
+        timestamp: Optional[int] = None,
+        step: Optional[int] = None,
     ) -> None:
         self.mlflow_client.log_metric(
             run_id=self.run.info.run_id,
@@ -444,7 +643,7 @@ class MlflowLogger:
 
     def log_table(
         self,
-        data: Union[dict[str, Sequence[str | bool | int | float]], "PandasDataFrame"],
+        data: Union[dict[str, Sequence[Union[str, bool, int, float]]], "PandasDataFrame"],
         artifact_path: str,
     ) -> None:
         self.mlflow_client.log_table(
@@ -489,7 +688,7 @@ class MlflowLogger:
     def log_image(
         self,
         image: Union["NumpyArray", "PILImage", "MlflowImage"],
-        artifact_path: str | None = None,
+        artifact_path: Optional[str] = None,
     ) -> None:
         self.mlflow_client.log_image(
             run_id=self.run.info.run_id,
@@ -499,8 +698,8 @@ class MlflowLogger:
 
     def log_artifact(
         self,
-        local_path: str | PathLike,
-        artifact_path: str | None = None,
+        local_path: Union[str, PathLike],
+        artifact_path: Optional[str] = None,
     ) -> None:
         self.mlflow_client.log_artifact(
             run_id=self.run.info.run_id,
@@ -508,12 +707,23 @@ class MlflowLogger:
             artifact_path=self._get_artifact_path(artifact_path),
         )
 
+    def log_artifacts(
+        self,
+        local_dir: Union[str, PathLike],
+        artifact_path: Optional[str] = None,
+    ) -> None:
+        self.mlflow_client.log_artifacts(
+            run_id=self.run.info.run_id,
+            local_dir=str(local_dir),
+            artifact_path=self._get_artifact_path(artifact_path),
+        )
 
-def use_mlflow_experiment() -> MlflowExperiment | None:
+
+def use_mlflow_experiment() -> Optional[MlflowExperiment]:
     return _MLFLOW_EXPERIMENT.get()
 
 
-def use_mlflow_logger() -> MlflowLogger | None:
+def use_mlflow_logger() -> Optional[MlflowLogger]:
     if (experiment := use_mlflow_experiment()) is None:
         return None
 

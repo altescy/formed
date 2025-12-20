@@ -1,39 +1,3 @@
-"""Workflow step definitions and decorators.
-
-This module provides the core abstractions for defining workflow steps - units of
-computation that can be cached, versioned, and organized into directed acyclic graphs.
-
-Key Components:
-    WorkflowStep: Base class for all workflow steps
-    WorkflowStepInfo: Metadata about a step including its dependencies
-    step: Decorator to convert functions into workflow steps
-    WorkflowStepStatus: Execution status enumeration
-    WorkflowStepContext: Runtime context available to executing steps
-
-Features:
-    - Content-based caching via fingerprinting
-    - Automatic version management
-    - Dependency tracking between steps
-    - Custom serialization formats
-    - Context managers for step-local resources
-
-Example:
-    >>> from formed import workflow
-    >>>
-    >>> @workflow.step
-    ... def process_data(input_file: str) -> dict:
-    ...     # Step function implementation
-    ...     return {"result": "processed"}
-    >>>
-    >>> @workflow.step(version="1.0")
-    ... def analyze(data: dict) -> float:
-    ...     return data["result"]
-    >>>
-    >>> # Steps can reference each other in workflow configs
-    >>> # and will be cached based on their fingerprint
-
-"""
-
 import contextvars
 import dataclasses
 import datetime
@@ -41,33 +5,44 @@ import inspect
 import typing
 from collections.abc import Callable, Mapping
 from enum import Enum
+from functools import cached_property
 from logging import Logger, getLogger
+from os import PathLike
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
     Generic,
+    Optional,
     TypeVar,
+    Union,
     cast,
     overload,
 )
 
+import minato
 from colt import Lazy, Registrable
 
 from formed.common.astutils import normalize_source
+from formed.types import JsonValue
 
+from .archive import WorkflowStepArchive
 from .constants import WORKFLOW_WORKSPACE_DIRECTORY
 from .format import AutoFormat, Format
 from .types import StrictParamPath
 from .utils import object_fingerprint
+
+if TYPE_CHECKING:
+    pass
 
 T = TypeVar("T")
 OutputT = TypeVar("OutputT")
 StepFunctionT = TypeVar("StepFunctionT", bound=Callable[..., Any])
 WorkflowStepT = TypeVar("WorkflowStepT", bound="WorkflowStep")
 
-_STEP_CONTEXT = contextvars.ContextVar["WorkflowStepContext | None"]("_STEP_CONTEXT", default=None)
+_STEP_CONTEXT = contextvars.ContextVar[Optional["WorkflowStepContext"]]("_STEP_CONTEXT", default=None)
 
 
 class WorkflowStepArgFlag(str, Enum):
@@ -90,17 +65,6 @@ class WorkflowStepResultFlag(str, Enum):
 
 
 class WorkflowStepStatus(str, Enum):
-    """Execution status of a workflow step.
-
-    Attributes:
-        PENDING: Step has not started execution.
-        RUNNING: Step is currently executing.
-        FAILURE: Step execution failed with an error.
-        CANCELED: Step execution was canceled.
-        COMPLETED: Step successfully completed execution.
-
-    """
-
     PENDING = "pending"
     RUNNING = "running"
     FAILURE = "failure"
@@ -110,87 +74,22 @@ class WorkflowStepStatus(str, Enum):
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowStepState:
-    """Runtime state of a workflow step execution.
-
-    Attributes:
-        fingerprint: Content-based hash uniquely identifying this step configuration.
-        status: Current execution status of the step.
-        started_at: Timestamp when step execution began (None if not started).
-        finished_at: Timestamp when step execution finished (None if not finished).
-
-    """
-
     fingerprint: str
     status: WorkflowStepStatus = WorkflowStepStatus.PENDING
-    started_at: datetime.datetime | None = None
-    finished_at: datetime.datetime | None = None
+    started_at: Optional[datetime.datetime] = None
+    finished_at: Optional[datetime.datetime] = None
 
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowStepContext:
-    """Context information available to executing workflow steps.
-
-    This context is accessible via get_step_context() within a step function
-    and provides metadata about the current step execution.
-
-    Attributes:
-        info: Metadata about the step (name, dependencies, etc.).
-        state: Current runtime state of the step execution.
-
-    Example:
-        >>> from formed.workflow.step import get_step_context
-        >>>
-        >>> @workflow.step
-        ... def my_step() -> str:
-        ...     context = get_step_context()
-        ...     print(f"Step name: {context.info.name}")
-        ...     print(f"Status: {context.state.status}")
-        ...     return "result"
-
-    """
-
     info: "WorkflowStepInfo"
     state: WorkflowStepState
 
 
 class WorkflowStep(Generic[OutputT], Registrable):
-    """Base class for workflow steps representing units of computation.
-
-    WorkflowStep wraps a function with metadata for caching, versioning, and
-    dependency tracking. Steps are typically created via the @workflow.step
-    decorator rather than instantiated directly.
-
-    Type Parameters:
-        OutputT: The return type of the step function.
-
-    Class Attributes:
-        VERSION: Optional version string for cache invalidation.
-        DETERMINISTIC: Whether the step produces deterministic outputs.
-        CACHEABLE: Whether step results should be cached (None = auto-detect).
-        FORMAT: Serialization format for step outputs.
-        FUNCTION: The underlying function implementing the step logic.
-
-    Example:
-        >>> # Steps are typically created via decorator
-        >>> @workflow.step(version="1.0", deterministic=True)
-        ... def process(data: str) -> dict:
-        ...     return {"processed": data}
-        >>>
-        >>> # The decorator creates a WorkflowStep subclass
-        >>> step_instance = process(data="input")
-        >>> # Execute the step with optional context
-        >>> result = step_instance(context=None)
-
-    Note:
-        - Fingerprint is computed from VERSION, source code, and arguments
-        - Non-deterministic steps are always re-executed
-        - CACHEABLE=False disables caching regardless of determinism
-
-    """
-
-    VERSION: ClassVar[str | None] = None
+    VERSION: ClassVar[Optional[str]] = None
     DETERMINISTIC: ClassVar[bool] = True
-    CACHEABLE: ClassVar[bool | None] = None
+    CACHEABLE: ClassVar[Optional[bool]] = None
     FORMAT: Format[OutputT]
     FUNCTION: Callable[..., OutputT]
 
@@ -198,20 +97,7 @@ class WorkflowStep(Generic[OutputT], Registrable):
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self, context: "WorkflowStepContext | None") -> OutputT:
-        """Execute the step function with optional context.
-
-        Args:
-            context: Optional execution context providing step metadata and state.
-
-        Returns:
-            The result of executing the step function.
-
-        Note:
-            The context is set in a context variable accessible via get_step_context()
-            within the step function.
-
-        """
+    def __call__(self, context: Optional["WorkflowStepContext"]) -> OutputT:
         cls = cast(WorkflowStep[OutputT], self.__class__)
         ctx = contextvars.copy_context()
 
@@ -223,8 +109,8 @@ class WorkflowStep(Generic[OutputT], Registrable):
         return ctx.run(run)
 
     @classmethod
-    def get_output_type(cls, field: str | None = None) -> type[OutputT]:
-        return_annotation = cls.FUNCTION.__annotations__["return"]
+    def get_output_type(cls, field: Optional[str] = None) -> type[OutputT]:
+        return_annotation = cls.FUNCTION.__annotations__.get("return", Any)
         if field is not None:
             return_annotation = typing.get_type_hints(return_annotation).get(field, Any)
         if getattr(return_annotation, "__parameters__", None):
@@ -238,13 +124,15 @@ class WorkflowStep(Generic[OutputT], Registrable):
         cls,
         func: Callable[..., OutputT],
         *,
-        version: str | None = None,
+        version: Optional[str] = None,
         deterministic: bool = True,
-        cacheable: bool | None = None,
-        format: str | Format[OutputT] | None = None,
+        cacheable: Optional[bool] = None,
+        format: Optional[Union[str, Format[OutputT]]] = None,
     ) -> type["WorkflowStep[OutputT]"]:
         if isinstance(format, str):
             format = cast(type[Format[OutputT]], Format.by_name(format))()
+        if version is None:
+            version = object_fingerprint(normalize_source(inspect.getsource(func)))
 
         class WrapperStep(WorkflowStep):
             VERSION = version
@@ -262,16 +150,13 @@ class WorkflowStep(Generic[OutputT], Registrable):
         setattr(WrapperStep, "__name__", func.__name__)
         setattr(WrapperStep, "__qualname__", func.__qualname__)
         setattr(WrapperStep, "__doc__", func.__doc__)
-        setattr(
-            getattr(WrapperStep, "__init__"),
-            "__annotations__",
-            init_annotations,
-        )
+        setattr(getattr(WrapperStep, "__init__"), "__annotations__", init_annotations)
         setattr(
             getattr(WrapperStep, "__init__"),
             "__signature__",
             signature.replace(return_annotation=annotations.get("return", inspect.Signature.empty)),
         )
+
         return WrapperStep
 
     @classmethod
@@ -290,102 +175,108 @@ class WorkflowStep(Generic[OutputT], Registrable):
 
 @dataclasses.dataclass(frozen=True)
 class WorkflowStepInfo(Generic[WorkflowStepT]):
-    """Metadata and configuration for a workflow step.
+    """Unified step info that works for both live and archived steps.
 
-    WorkflowStepInfo encapsulates all information needed to identify, execute,
-    and cache a workflow step. It tracks dependencies, computes fingerprints,
-    and provides access to step configuration.
+    The `step` field determines the mode:
+    - Lazy[WorkflowStepT]: Live mode - can be constructed and executed
+    - WorkflowStepArchive: Archived mode - immutable snapshot from past execution
 
-    Type Parameters:
-        WorkflowStepT: The concrete WorkflowStep subclass.
+    Live mode (before execution):
+        - step: Lazy[WorkflowStepT] that can be constructed
+        - dependencies: references to other live WorkflowStepInfo objects
+        - Properties computed from step_class
 
-    Attributes:
-        name: Unique identifier for this step in the workflow.
-        step: Lazy-evaluated step instance with configuration.
-        dependencies: Set of (parameter_path, step_info) tuples for dependencies.
-
-    Properties:
-        step_class: The WorkflowStep class (not instance).
-        format: Serialization format for step outputs.
-        version: Version string or source code fingerprint.
-        deterministic: Whether the step is deterministic.
-        cacheable: Whether caching is enabled for this step.
-        should_be_cached: True if step should be cached (deterministic and cacheable).
-        fingerprint: Content-based hash uniquely identifying this step configuration.
-
-    Example:
-        >>> from colt import Lazy
-        >>>
-        >>> # Step info is typically created by WorkflowGraph
-        >>> step_info = WorkflowStepInfo(
-        ...     name="preprocess",
-        ...     step=Lazy({"input": "data.csv"}, cls=PreprocessStep),
-        ...     dependencies=frozenset()
-        ... )
-        >>> print(step_info.fingerprint)  # Unique hash
-        >>> print(step_info.should_be_cached)  # True if cacheable
-
-    Note:
-        - Fingerprint includes version, config, and dependency fingerprints
-        - Two steps with identical fingerprints can share cached results
-        - Dependencies use StrictParamPath to specify which parameter depends on which step
-
+    Archived mode (after execution):
+        - step: WorkflowStepArchive with pre-computed metadata
+        - dependencies: references to other archived WorkflowStepInfo objects
+        - Properties returned from archive
     """
 
     name: str
-    step: Lazy[WorkflowStepT]
+    step: Lazy[WorkflowStepT] | WorkflowStepArchive
     dependencies: frozenset[tuple[StrictParamPath, "WorkflowStepInfo"]]
 
-    @property
+    # For WorkflowStepRef compatibility
+    fieldref: str | None = None
+
+    def is_live(self) -> bool:
+        """Check if this is a live step."""
+        return isinstance(self.step, Lazy)
+
+    def is_archived(self) -> bool:
+        """Check if this is an archived step."""
+        return isinstance(self.step, WorkflowStepArchive)
+
+    @cached_property
     def step_class(self) -> type[WorkflowStepT]:
-        """Get the WorkflowStep class (not instance) for this step."""
+        """Get the step class. Only works in live mode."""
+        if not isinstance(self.step, Lazy):
+            raise TypeError(
+                f"Step '{self.name}' is archived. "
+                f"Cannot access step_class from archived steps. "
+                f"Use the archive data directly or check is_live() first."
+            )
         step_class = self.step.constructor
         if not isinstance(step_class, type) or not issubclass(step_class, WorkflowStep):
             raise ValueError(f"Step {self.name} is not a subclass of WorkflowStep")
         return cast(type[WorkflowStepT], step_class)
 
-    @property
+    @cached_property
+    def archive(self) -> WorkflowStepArchive:
+        """Get the archive. Only works in archived mode."""
+        if not isinstance(self.step, WorkflowStepArchive):
+            raise TypeError(
+                f"Step '{self.name}' is live. "
+                f"Cannot access archive from live steps. "
+                f"Call to_archive() to create an archive."
+            )
+        return self.step
+
+    @cached_property
     def format(self) -> Format:
-        """Get the serialization format for this step's outputs."""
+        """Get the format. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return Format.by_name(self.step.format_identifier)()
         return self.step_class.FORMAT
 
-    @property
+    @cached_property
     def version(self) -> str:
-        """Get the version string or compute from source code."""
+        """Get the version. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.version
         return self.step_class.VERSION or object_fingerprint(self.step_class.get_normalized_source())
 
-    @property
+    @cached_property
     def deterministic(self) -> bool:
-        """Check if this step produces deterministic outputs."""
+        """Get deterministic flag. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.deterministic
         return self.step_class.DETERMINISTIC
 
-    @property
+    @cached_property
     def cacheable(self) -> bool | None:
-        """Check if caching is explicitly enabled/disabled (None = auto)."""
+        """Get cacheable flag. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.cacheable
         return self.step_class.CACHEABLE
 
-    @property
+    @cached_property
     def should_be_cached(self) -> bool:
-        """Determine if this step's results should be cached.
-
-        Returns True if cacheable is explicitly True, or if cacheable is None
-        and the step is deterministic.
-        """
+        """Check if step should be cached. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.should_be_cached
         return self.cacheable or (self.cacheable is None and self.deterministic)
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
-        """Compute a content-based fingerprint for this step.
+        """Get fingerprint. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.fingerprint
 
-        The fingerprint includes:
-        - Step metadata (name, version, determinism, cacheability, format)
-        - Configuration (excluding IGNORE-flagged arguments)
-        - Dependency fingerprints (for transitive cache invalidation)
+        # Compute from current state (live mode)
+        if not isinstance(self.step, Lazy):
+            raise TypeError("Step is not in live mode")
 
-        Returns:
-            A deterministic hash string uniquely identifying this configuration.
-
-        """
         metadata = (
             self.name,
             self.version,
@@ -400,6 +291,130 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
         dependencies = sorted(info.fingerprint for (key, *_), info in self.dependencies if key not in ignore_args)
         return object_fingerprint((metadata, config, dependencies))
 
+    def to_archive(self) -> WorkflowStepArchive:
+        """Convert to archive format for serialization.
+
+        This is called at execution time to capture the current state.
+        Only works in live mode.
+        """
+        if isinstance(self.step, WorkflowStepArchive):
+            # Already archived, return as-is
+            return self.step
+
+        if not isinstance(self.step, Lazy):
+            raise TypeError("Step must be either Lazy or dict")
+
+        # Capture source code if available
+        normalized_source: str | None = None
+        try:
+            normalized_source = self.step_class.get_normalized_source()
+        except (OSError, TypeError):
+            # Built-in functions or C extensions don't have source
+            pass
+
+        # Build dependency fingerprint map with fieldrefs
+        dependency_fingerprints: dict[str, dict[str, Any]] = {}
+        for path, dep_info in self.dependencies:
+            param_path_str = ".".join(str(p) for p in (path if isinstance(path, tuple) else (path,)))
+            dependency_fingerprints[param_path_str] = {
+                "fingerprint": dep_info.fingerprint,
+                "fieldref": dep_info.fieldref,
+            }
+
+        # Get step type name (the registered name in Colt)
+        step_type: str
+        if hasattr(self.step.constructor, "__registered_name__"):
+            step_type = self.step.constructor.__registered_name__  # type: ignore
+        else:
+            # Fallback to class name
+            step_type = self.step.constructor.__name__  # type: ignore
+
+        # Build the archive using NamedTuple constructor
+        return WorkflowStepArchive(
+            name=self.name,
+            step_type=step_type,
+            fingerprint=self.fingerprint,
+            format_identifier=self.format.identifier,
+            version=self.version,
+            source_hash=object_fingerprint(normalized_source) if normalized_source else "",
+            config=dict(self.step.config) if isinstance(self.step.config, Mapping) else {},
+            deterministic=self.deterministic,
+            cacheable=self.cacheable,
+            should_be_cached=self.should_be_cached,
+            dependency_fingerprints=dependency_fingerprints,
+            fieldref=self.fieldref,
+        )
+
+    @classmethod
+    def from_archive(
+        cls,
+        archive: WorkflowStepArchive,
+        dependency_map: Mapping[str, "WorkflowStepInfo"],
+    ) -> "WorkflowStepInfo":
+        """Reconstruct WorkflowStepInfo from an archive.
+
+        Args:
+            archive: The archived step metadata
+            dependency_map: Map from fingerprint to WorkflowStepInfo for all dependencies
+
+        Returns:
+            WorkflowStepInfo in archived mode (step field is WorkflowStepArchive)
+        """
+        # Reconstruct dependencies using the dependency_map
+        dependencies: set[tuple[StrictParamPath, WorkflowStepInfo]] = set()
+        for param_path_str, dep_data in archive.dependency_fingerprints.items():
+            dep_fingerprint = dep_data["fingerprint"]
+            assert isinstance(dep_fingerprint, str)
+
+            dep_fieldref = dep_data["fieldref"] if "fieldref" in dep_data else None
+            assert dep_fieldref is None or isinstance(dep_fieldref, str)
+
+            if dep_fingerprint not in dependency_map:
+                raise ValueError(
+                    f"Dependency with fingerprint {dep_fingerprint} not found in dependency_map for step {archive.name}"
+                )
+            path_parts = tuple(param_path_str.split("."))
+            base_dep_info = dependency_map[dep_fingerprint]
+
+            # If the dependency has a fieldref, create a new WorkflowStepInfo with fieldref set
+            if dep_fieldref:
+                dep_info = WorkflowStepInfo(
+                    name=base_dep_info.name,
+                    step=base_dep_info.step,
+                    dependencies=base_dep_info.dependencies,
+                    fieldref=dep_fieldref,
+                )
+            else:
+                dep_info = base_dep_info
+
+            dependencies.add((path_parts, dep_info))
+
+        return cls(
+            name=archive.name,
+            step=archive,  # Store the archive directly, not a Lazy
+            dependencies=frozenset(dependencies),
+            fieldref=archive.fieldref,
+        )
+
+    def json(self) -> dict[str, JsonValue]:
+        """Convert to dict for JSON serialization (legacy compatibility)."""
+        if isinstance(self.step, WorkflowStepArchive):
+            config = self.step.config
+        elif isinstance(self.step, Lazy):
+            config = self.step.config
+        else:
+            config = {}
+
+        return {
+            "name": self.name,
+            "version": self.version,
+            "format": self.format.identifier,
+            "deterministic": self.deterministic,
+            "cacheable": self.cacheable,
+            "fingerprint": self.fingerprint,
+            "config": config,
+        }
+
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, WorkflowStepInfo):
             return False
@@ -409,40 +424,23 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
         return hash(self.fingerprint)
 
     def __repr__(self) -> str:
-        return f"WorkflowStepInfo[{self.name}:{self.fingerprint[:8]}]"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "version": self.version,
-            "format": self.format.identifier,
-            "deterministic": self.deterministic,
-            "cacheable": self.cacheable,
-            "fingerprint": self.fingerprint,
-            "config": self.step.config,
-        }
+        mode = "live" if self.is_live() else "archived"
+        return f"WorkflowStepInfo[{self.name}:{self.fingerprint[:8]}:{mode}]"
 
 
-@dataclasses.dataclass(frozen=True)
-class WorkflowStepRef(Generic[WorkflowStepT], WorkflowStepInfo[WorkflowStepT]):
-    fieldref: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        data = super().to_dict()
-        if self.fieldref is not None:
-            data["fieldref"] = self.fieldref
-        return data
+# WorkflowStepRef has been removed and merged into WorkflowStepInfo.
+# Use WorkflowStepInfo with fieldref parameter instead.
 
 
 @overload
 def step(
     name: str,
     *,
-    version: str | None = ...,
+    version: Optional[str] = ...,
     deterministic: bool = ...,
-    cacheable: bool | None = ...,
+    cacheable: Optional[bool] = ...,
     exist_ok: bool = ...,
-    format: str | Format | None = ...,
+    format: Optional[Union[str, Format]] = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
 
 
@@ -450,101 +448,34 @@ def step(
 def step(
     name: StepFunctionT,
     *,
-    version: str | None = ...,
+    version: Optional[str] = ...,
     deterministic: bool = ...,
-    cacheable: bool | None = ...,
+    cacheable: Optional[bool] = ...,
     exist_ok: bool = ...,
-    format: str | Format | None = ...,
+    format: Optional[Union[str, Format]] = ...,
 ) -> StepFunctionT: ...
 
 
 @overload
 def step(
     *,
-    version: str | None = ...,
+    version: Optional[str] = ...,
     deterministic: bool = ...,
-    cacheable: bool | None = ...,
+    cacheable: Optional[bool] = ...,
     exist_ok: bool = ...,
-    format: str | Format | None = ...,
+    format: Optional[Union[str, Format]] = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
 
 
 def step(
-    name: str | StepFunctionT | None = None,
+    name: Optional[Union[str, StepFunctionT]] = None,
     *,
-    version: str | None = None,
+    version: Optional[str] = None,
     deterministic: bool = True,
-    cacheable: bool | None = None,
+    cacheable: Optional[bool] = None,
     exist_ok: bool = False,
-    format: str | Format | None = None,
-) -> StepFunctionT | Callable[[StepFunctionT], StepFunctionT]:
-    """Decorator to convert a function into a workflow step.
-
-    This is the primary API for defining workflow steps. It wraps a function
-    with caching, versioning, and dependency tracking capabilities.
-
-    Args:
-        name: Optional step name. If not provided, uses function name.
-              Can also be the function itself when used without parentheses.
-        version: Optional version string for cache invalidation.
-                 If None, computed from function source code.
-        deterministic: Whether the function produces deterministic outputs.
-                      Non-deterministic steps are always re-executed.
-        cacheable: Explicit cache control. None means auto-detect from determinism.
-                  False disables caching even for deterministic steps.
-        exist_ok: If True, allow re-registering a step with the same name.
-        format: Serialization format for step outputs. Can be a Format instance
-               or a string identifier. If None, uses AutoFormat.
-
-    Returns:
-        The decorated function (when used with parentheses) or a decorator
-        (when used without).
-
-    Example:
-        >>> from formed import workflow
-        >>>
-        >>> # Simple usage
-        >>> @workflow.step
-        ... def preprocess(data: str) -> dict:
-        ...     return {"processed": data}
-        >>>
-        >>> # With explicit configuration
-        >>> @workflow.step(version="1.0", deterministic=True, cacheable=True)
-        ... def train_model(data: dict, epochs: int = 10) -> dict:
-        ...     # Training logic
-        ...     return {"model": "trained"}
-        >>>
-        >>> # Custom name
-        >>> @workflow.step("custom_name")
-        ... def my_function() -> str:
-        ...     return "result"
-        >>>
-        >>> # Non-deterministic step (always re-executed)
-        >>> @workflow.step(deterministic=False)
-        ... def download_latest() -> dict:
-        ...     # Downloads latest data from web
-        ...     return {"data": "fresh"}
-        >>>
-        >>> # With IGNORE flag for arguments excluded from fingerprint
-        >>> from typing import Annotated
-        >>> from formed.workflow.step import WorkflowStepArgFlag
-        >>>
-        >>> @workflow.step
-        ... def process(
-        ...     data: str,
-        ...     debug: Annotated[bool, WorkflowStepArgFlag.IGNORE] = False
-        ... ) -> dict:
-        ...     # debug changes don't invalidate cache
-        ...     return {"result": data}
-
-    Note:
-        - Steps are registered in the WorkflowStep registry
-        - Fingerprint includes version, source code, and arguments
-        - Dependencies are auto-detected from argument types
-        - Use Annotated[T, WorkflowStepArgFlag.IGNORE] to exclude args from fingerprint
-
-    """
-
+    format: Optional[Union[str, Format]] = None,
+) -> Union[StepFunctionT, Callable[[StepFunctionT], StepFunctionT]]:
     def register(name: str, func: StepFunctionT) -> None:
         step_class = WorkflowStep[Any].from_callable(
             func,
@@ -573,43 +504,19 @@ def step(
     return decorator
 
 
-def use_step_context() -> WorkflowStepContext | None:
-    """Get the current step's execution context.
-
-    This function accesses the context variable set during step execution,
-    providing access to step metadata and state.
-
-    Returns:
-        The WorkflowStepContext if called within a step execution, None otherwise.
-
-    Example:
-        >>> from formed import workflow
-        >>> from formed.workflow.step import use_step_context
-        >>>
-        >>> @workflow.step
-        ... def my_step() -> str:
-        ...     context = use_step_context()
-        ...     if context:
-        ...         print(f"Executing step: {context.info.name}")
-        ...         print(f"Fingerprint: {context.state.fingerprint}")
-        ...     return "result"
-
-    Note:
-        Returns None when called outside of step execution context.
-
-    """
+def use_step_context() -> Optional[WorkflowStepContext]:
     return _STEP_CONTEXT.get()
 
 
 @overload
-def use_step_logger(default: str | Logger) -> Logger: ...
+def use_step_logger(default: Union[str, Logger]) -> Logger: ...
 
 
 @overload
-def use_step_logger(default: None = ...) -> Logger | None: ...
+def use_step_logger(default: None = ...) -> Optional[Logger]: ...
 
 
-def use_step_logger(default: str | Logger | None = None) -> Logger | None:
+def use_step_logger(default: Optional[Union[str, Logger]] = None) -> Optional[Logger]:
     context = use_step_context()
     if context is not None:
         return get_step_logger_from_info(context.info)
@@ -631,3 +538,14 @@ def use_step_workdir() -> Path:
 
 def get_step_logger_from_info(info: WorkflowStepInfo) -> Logger:
     return getLogger(f"formed.workflow.step.{info.name}.{info.fingerprint[:8]}")
+
+
+##
+## Built-in Steps
+##
+
+
+@step("worktop::load_artifact", cacheable=False)
+def load_artifact(path: str | PathLike, format: Format):
+    path = minato.cached_path(path)
+    return format.read(path)

@@ -41,7 +41,7 @@ from collections.abc import Sequence
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
-from typing import ClassVar, TypeVar
+from typing import ClassVar, Optional, TypeVar, Union
 
 from colt import Registrable
 from filelock import FileLock
@@ -50,7 +50,6 @@ from formed.common.logutils import LogCapture
 
 from .cache import FilesystemWorkflowCache, MemoryWorkflowCache, WorkflowCache
 from .callback import MultiWorkflowCallback, WorkflowCallback
-from .colt import COLT_BUILDER
 from .constants import WORKFLOW_DEFAULT_DIRECTORY
 from .executor import (
     WorkflowExecutionContext,
@@ -61,30 +60,18 @@ from .executor import (
 )
 from .graph import WorkflowGraph
 from .step import WorkflowStepContext, WorkflowStepInfo, get_step_logger_from_info
-from .utils import WorkflowJSONEncoder
+from .utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
 logger = getLogger(__name__)
 
-WorkflowOrganizerT = TypeVar("WorkflowOrganizerT", bound="WorkflowOrganizer")
+T_WorkflowOrganizer = TypeVar("T_WorkflowOrganizer", bound="WorkflowOrganizer")
 
 
 class WorkflowOrganizer(Registrable):
-    """Abstract base class for workflow organizers.
-
-    Organizers coordinate workflow execution by managing caches, callbacks,
-    and execution state. They provide the high-level interface for running
-    workflows and accessing execution results.
-
-    Args:
-        cache: Cache for storing step results.
-        callbacks: Optional callback or sequence of callbacks.
-
-    """
-
     def __init__(
         self,
         cache: "WorkflowCache",
-        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None,
+        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]],
     ) -> None:
         if isinstance(callbacks, WorkflowCallback):
             callbacks = [callbacks]
@@ -95,18 +82,8 @@ class WorkflowOrganizer(Registrable):
     def run(
         self,
         executor: "WorkflowExecutor",
-        execution: WorkflowGraph | WorkflowExecutionInfo,
+        execution: Union[WorkflowGraph, WorkflowExecutionInfo],
     ) -> WorkflowExecutionContext:
-        """Run a workflow execution.
-
-        Args:
-            executor: Executor to use for running the workflow.
-            execution: Workflow graph or execution info to run.
-
-        Returns:
-            Execution context containing results and metadata.
-
-        """
         with executor:
             return executor(
                 execution,
@@ -114,98 +91,27 @@ class WorkflowOrganizer(Registrable):
                 callback=self.callback,
             )
 
-    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
-        """Retrieve a previous execution by ID.
-
-        Args:
-            execution_id: Unique execution identifier.
-
-        Returns:
-            Execution context if found, None otherwise.
-
-        """
+    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
         return None
 
     def exists(self, execution_id: WorkflowExecutionID) -> bool:
-        """Check if an execution exists.
-
-        Args:
-            execution_id: Unique execution identifier.
-
-        Returns:
-            True if execution exists.
-
-        """
         return self.get(execution_id) is not None
 
     def remove(self, execution_id: WorkflowExecutionID) -> None:
-        """Remove an execution.
-
-        Args:
-            execution_id: Unique execution identifier.
-
-        """
         pass
 
 
 @WorkflowOrganizer.register("memory")
 class MemoryWorkflowOrganizer(WorkflowOrganizer):
-    """In-memory workflow organizer for testing and development.
-
-    This organizer stores everything in memory and doesn't persist
-    any state to disk. Useful for testing and rapid iteration.
-
-    Args:
-        callbacks: Optional callback or sequence of callbacks.
-
-    Example:
-        >>> organizer = MemoryWorkflowOrganizer()
-        >>> context = organizer.run(executor, graph)
-
-    """
-
     def __init__(
         self,
-        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
+        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
     ) -> None:
         super().__init__(MemoryWorkflowCache(), callbacks)
 
 
 @WorkflowOrganizer.register("filesystem")
 class FilesystemWorkflowOrganizer(WorkflowOrganizer):
-    """Filesystem-based workflow organizer with persistent storage.
-
-    This organizer stores all execution state, logs, and artifacts to
-    the filesystem. It provides persistent storage of workflow results
-    and metadata, with thread-safe execution using file locks.
-
-    Directory structure:
-        {directory}/
-            cache/              # Step result cache
-            executions/         # Execution records
-                {exec_id}/
-                    out.log         # Execution log
-                    execution.json  # Execution metadata
-                    state.json      # Final state
-                    steps/          # Step artifacts
-                        {step_name}/
-                            result      # Step result
-                            step.json   # Step metadata
-                            out.log     # Step log
-
-    Args:
-        directory: Base directory for workflow storage.
-        callbacks: Optional callback or sequence of callbacks.
-
-    Example:
-        >>> organizer = FilesystemWorkflowOrganizer(".formed")
-        >>> context = organizer.run(executor, graph)
-        >>>
-        >>> # Access previous execution
-        >>> old_context = organizer.get(execution_id)
-
-    """
-
     _CACHE_DIRNAME: ClassVar[str] = "cache"
     _EXECUTIONS_DIRNAME: ClassVar[str] = "executions"
     _DEFAULT_DIRECTORY: ClassVar[Path] = WORKFLOW_DEFAULT_DIRECTORY
@@ -221,7 +127,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
         def __init__(self, organizer: "FilesystemWorkflowOrganizer") -> None:
             self._organizer = organizer
-            self._execution_log: LogCapture | None = None
+            self._execution_log: Optional[LogCapture] = None
             self._step_log: dict[WorkflowStepInfo, LogCapture] = {}
 
         def _generate_new_execution_id(self) -> WorkflowExecutionID:
@@ -258,7 +164,8 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                 self._execution_log = LogCapture((execution_directory / self._LOG_FILENAME).open("w"))
                 self._execution_log.start()
 
-                with open(execution_directory / self._EXECUTION_FILENAME, "w") as jsonfile:
+                # Use helper method to save execution info
+                with (execution_directory / self._EXECUTION_FILENAME).open("w") as jsonfile:
                     json.dump(
                         execution_info,
                         jsonfile,
@@ -266,7 +173,9 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                         indent=2,
                         ensure_ascii=False,
                     )
-                with open(execution_directory / self._STATE_FILENAME, "w") as jsonfile:
+
+                # Use helper method to save execution state
+                with (execution_directory / self._STATE_FILENAME).open("w") as jsonfile:
                     json.dump(
                         execution_context.state,
                         jsonfile,
@@ -287,7 +196,9 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                     self._execution_log.stop()
                     self._execution_log.stream.close()
                     self._execution_log = None
-                with open(execution_directory / self._STATE_FILENAME, "w") as jsonfile:
+
+                # Use helper method to save execution state
+                with (execution_directory / self._STATE_FILENAME).open("w") as jsonfile:
                     json.dump(
                         execution_context.state,
                         jsonfile,
@@ -316,7 +227,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
                 with open(step_directory / self._STEP_FILENAME, "w") as jsonfile:
                     json.dump(
-                        step_info.to_dict(),
+                        step_info,
                         jsonfile,
                         cls=WorkflowJSONEncoder,
                         indent=2,
@@ -360,8 +271,8 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
     def __init__(
         self,
-        directory: str | PathLike | None = None,
-        callbacks: WorkflowCallback | Sequence[WorkflowCallback] | None = None,
+        directory: Optional[Union[str, PathLike]] = None,
+        callbacks: Optional[Union[WorkflowCallback, Sequence[WorkflowCallback]]] = None,
     ) -> None:
         self._directory = Path(directory or self._DEFAULT_DIRECTORY).expanduser().resolve().absolute()
 
@@ -383,7 +294,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
     def executions_directory(self) -> Path:
         return self._directory / self._EXECUTIONS_DIRNAME
 
-    def get(self, execution_id: WorkflowExecutionID) -> WorkflowExecutionContext | None:
+    def get(self, execution_id: WorkflowExecutionID) -> Optional[WorkflowExecutionContext]:
         execution_directory = self.executions_directory / execution_id
         if not execution_directory.exists():
             return None
@@ -392,13 +303,14 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
         if not execution_path.exists():
             return None
 
-        with open(execution_path) as jsonfile:
-            execution_info = COLT_BUILDER(json.load(jsonfile), WorkflowExecutionInfo)
+        # Use helper method to load execution info
+        execution_info = WorkflowExecutionInfo.from_json(json.loads(execution_path.read_text()))
 
+        # Use helper method to load execution state
         state_path = execution_directory / self._Callback._STATE_FILENAME
         if state_path.exists():
-            with open(state_path) as jsonfile:
-                execution_state = COLT_BUILDER(json.load(jsonfile), WorkflowExecutionState)
+            with state_path.open("r") as jsonfile:
+                execution_state = json.load(jsonfile, cls=WorkflowJSONDecoder)
         else:
             logger.warning(f"State file not found for execution {execution_id}")
             execution_state = WorkflowExecutionState(execution_id=execution_info.id)

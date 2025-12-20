@@ -15,7 +15,7 @@ import numpy
 from formed.common.base58 import b58encode
 from formed.common.hashutils import hash_object_bytes
 from formed.common.typeutils import is_namedtuple
-from formed.types import IJsonSerializable, IPydanticModel, JsonValue
+from formed.types import IJsonCompatible, IJsonDeserializable, IJsonSerializable, IPydanticModel, JsonValue
 
 _PYTHON_DATA_TYPE_KEY: Final = "__python_type__"
 _PYTHON_DATA_VALUE_KEY: Final = "__python_value__"
@@ -33,6 +33,10 @@ def as_jsonvalue(value: Any) -> JsonValue:
     return cast(JsonValue, json.loads(json.dumps(value, cls=WorkflowJSONEncoder)))
 
 
+def from_jsonvalue(value: JsonValue) -> Any:
+    return WorkflowJSONDecoder()._reconstruct(value)
+
+
 class _JSONDataType(str, enum.Enum):
     CLASS = "class"
     CONTAINER = "container"
@@ -44,16 +48,14 @@ class _JSONDataType(str, enum.Enum):
 
 class WorkflowJSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
-        from .colt import WorkflowRef
-        from .graph import WorkflowGraph
-        from .step import WorkflowStepInfo
-
+        if isinstance(o, IJsonCompatible):
+            return {
+                _PYTHON_DATA_TYPE_KEY: _JSONDataType.PICKLE,
+                _PYTHON_DATA_VALUE_KEY: o.json(),
+                _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
+            }
         if isinstance(o, IJsonSerializable):
             return o.json()
-        if isinstance(o, (WorkflowGraph, WorkflowStepInfo)):
-            return o.to_dict()
-        if isinstance(o, WorkflowRef):
-            return o.config
         if isinstance(o, datetime.datetime):
             return {_PYTHON_DATA_TYPE_KEY: _JSONDataType.DATETIME, _PYTHON_DATA_VALUE_KEY: o.isoformat()}
         if is_namedtuple(o):
@@ -162,7 +164,9 @@ class WorkflowJSONDecoder(json.JSONDecoder):
                     elif field.default_factory is not dataclasses.MISSING:
                         setattr(output, field.name, field.default_factory())
                 return output
-            if hasattr(cls, "model_validate"):
+            if isinstance(cls, type) and issubclass(cls, IJsonDeserializable):
+                return cls.from_json(value)
+            if isinstance(cls, type) and issubclass(cls, IPydanticModel):
                 return cls.model_validate(value)
             return colt.build(value, cls)
         if data_type == _JSONDataType.COUNTER:
