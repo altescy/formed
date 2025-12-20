@@ -22,6 +22,7 @@ from formed.integrations.ml.metrics import Average
 from formed.integrations.torch import (
     BaseTorchModel,
     DataLoader,
+    DefaultTorchTrainingEngine,
     DistributedDataParallelDistributor,
     EarlyStoppingCallback,
     EvaluationCallback,
@@ -120,14 +121,16 @@ def main():
     trainer = TorchTrainer(
         train_dataloader=train_loader,
         val_dataloader=val_loader,
-        optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
+        engine=DefaultTorchTrainingEngine(
+            optimizer=torch.optim.Adam(model.parameters(), lr=5e-1),
+        ),
         distributor=distributor,
         max_epochs=100,  # Large number, will stop early
         eval_strategy="epoch",
         logging_strategy="epoch",
         callbacks=[
             EvaluationCallback(SimpleEvaluator()),
-            EarlyStoppingCallback(patience=args.patience, metric="-loss"),
+            EarlyStoppingCallback(patience=args.patience, metric="-val/loss"),
         ],
     )
 
@@ -142,4 +145,16 @@ def main():
 
 
 if __name__ == "__main__":
+    import logging
+
+    from rich.logging import RichHandler
+
+    from formed.common.rich import STDERR_CONSOLE
+
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[
+            RichHandler(console=STDERR_CONSOLE, rich_tracebacks=True),
+        ],
+    )
     main()

@@ -19,81 +19,70 @@ Example:
     >>> # Simple 3-layer feed-forward network
     >>> ffn = FeedForward(
     ...     input_dim=256,
-    ...     hidden_dim=128,
-    ...     output_dim=64,
-    ...     num_layers=3,
+    ...     hidden_dims=[512, 512, 256],
     ...     dropout=0.1,
     ...     activation=nn.GELU()
     ... )
 
 """
 
+from collections.abc import Sequence
+
 import torch
-import torch.nn as nn
 
 
-class FeedForward(nn.Module):
-    """Multi-layer feed-forward neural network.
+class FeedForward(torch.nn.Module):
+    """
+    A simple feed forward neural network.
 
     Args:
-        input_dim: Input dimension.
-        hidden_dim: Hidden layer dimension.
-        output_dim: Output dimension.
-        num_layers: Number of layers.
-        dropout: Dropout rate (0 means no dropout).
-        activation: Activation module (default: ReLU).
-        layer_norm: Whether to apply layer normalization.
-
-    Example:
-        >>> ffn = FeedForward(
-        ...     input_dim=256,
-        ...     hidden_dim=128,
-        ...     output_dim=64,
-        ...     num_layers=2,
-        ...     dropout=0.1
-        ... )
+        input_dim: The dimension of the input.
+        hidden_dims: A sequence of integers specifying the dimensions of each layer.
+        dropout: The dropout probability. Defaults to `0.0`.
+        activation: The activation function. Defaults to `torch.nn.ReLU()`
 
     """
 
     def __init__(
         self,
         input_dim: int,
-        hidden_dim: int,
-        output_dim: int,
-        num_layers: int = 1,
+        hidden_dims: Sequence[int],
         dropout: float = 0.0,
-        activation: nn.Module = nn.ReLU(),
-        layer_norm: bool = False,
+        activation: torch.nn.Module = torch.nn.ReLU(),
     ) -> None:
         super().__init__()
+        self._input_dim = input_dim
+        self._hidden_dims = hidden_dims
+        self._dropout = dropout
+        self._activation = activation
 
-        layers = []
-        for i in range(num_layers):
-            in_dim = input_dim if i == 0 else hidden_dim
-            out_dim = output_dim if i == num_layers - 1 else hidden_dim
+        layer_dims = [input_dim] + list(hidden_dims)
+        self._layers = torch.nn.ModuleList(
+            [
+                torch.nn.Sequential(
+                    torch.nn.Linear(layer_dims[i], layer_dims[i + 1]),
+                    torch.nn.Dropout(dropout),
+                    activation,
+                )
+                for i in range(len(layer_dims) - 1)
+            ]
+        )
 
-            layers.append(nn.Linear(in_dim, out_dim))
-
-            if i < num_layers - 1:  # No activation/dropout/norm on last layer
-                layers.append(activation)
-                if dropout > 0:
-                    layers.append(nn.Dropout(dropout))
-                if layer_norm:
-                    layers.append(nn.LayerNorm(out_dim))
-
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
-
+    def forward(self, inputs: torch.FloatTensor) -> torch.FloatTensor:
+        """
         Args:
-            x: Input tensor of shape (..., input_dim).
+            inputs: A tensor of shape `(batch_size, ..., input_dim)`.
 
         Returns:
-            Output tensor of shape (..., output_dim).
-
+            A tensor of shape `(batch_size, ..., hidden_dims[-1])`.
         """
-        return self.layers(x)
+        output = inputs
+        for layer in self._layers:
+            output = layer(output)
+        return output
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return super().__call__(x)
+    def get_input_dim(self) -> int:
+        return self._input_dim
+
+    def get_output_dim(self) -> int:
+        return self._hidden_dims[-1]

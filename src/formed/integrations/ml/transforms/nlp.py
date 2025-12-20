@@ -48,6 +48,7 @@ from formed.common.nlputils import punkt_tokenize
 
 from ..types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleModeT, IDSequenceBatch  # noqa: F401
 from .base import BaseTransform, DataModule, Extra, Param
+from .basic import TensorSequenceTransform, TensorTransform
 
 logger = getLogger(__name__)
 
@@ -264,6 +265,10 @@ class TokenSequenceIndexer(
     def batch(self, batch: Sequence[Sequence[str]], /) -> IDSequenceBatch:
         batch_size = len(batch)
         max_length = max(len(tokens) for tokens in batch)
+        if self.bos_token is not None:
+            max_length += 1
+        if self.eos_token is not None:
+            max_length += 1
         ids = numpy.full((batch_size, max_length), self.pad_index, dtype=numpy.int64)
         mask = numpy.zeros((batch_size, max_length), dtype=numpy.bool_)
         for i, tokens in enumerate(batch):
@@ -446,6 +451,8 @@ class Tokenizer(
     surfaces: TokenSequenceIndexer = dataclasses.field(default_factory=TokenSequenceIndexer)
     postags: Extra[TokenSequenceIndexer] = Extra.default(None)
     characters: Extra[TokenCharactersIndexer] = Extra.default(None)
+    text_vector: Extra[TensorTransform] = Extra.default(None)
+    token_vectors: Extra[TensorSequenceTransform] = Extra.default(None)
 
     analyzer: Param[Callable[[str | Sequence[str] | AnalyzedText], AnalyzedText] | None] = Param.default(None)
 

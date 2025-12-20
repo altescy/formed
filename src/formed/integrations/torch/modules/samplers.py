@@ -6,6 +6,11 @@ Key Components:
     - BaseLabelSampler: Abstract base class for label samplers
     - ArgmaxLabelSampler: Selects the label with highest logit
     - MultinomialLabelSampler: Samples from categorical distribution
+    - BaseMultilabelSampler: Abstract base class for multilabel samplers
+    - ThresholdMultilabelSampler: Selects labels above a threshold
+    - TopKMultilabelSampler: Selects top-k labels
+    - BernoulliMultilabelSampler: Samples labels from independent Bernoulli distributions
+
 
 Example:
     >>> from formed.integrations.torch.modules import ArgmaxLabelSampler, MultinomialLabelSampler
@@ -24,14 +29,14 @@ Example:
 """
 
 import abc
-from typing import Generic, TypedDict, TypeVar
+from typing import Generic, Optional, TypedDict, TypeVar
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from colt import Registrable
 
-_ParamsT = TypeVar("_ParamsT", bound=object | None)
+_ParamsT = TypeVar("_ParamsT", bound=Optional[object])
 
 
 class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
@@ -45,7 +50,7 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
     """
 
     @abc.abstractmethod
-    def forward(self, logits: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, params: Optional[_ParamsT] = None) -> torch.Tensor:
         """Sample labels from logits.
 
         Args:
@@ -58,7 +63,7 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         """
         raise NotImplementedError
 
-    def __call__(self, logits: torch.Tensor, params: _ParamsT | None = None) -> torch.Tensor:
+    def __call__(self, logits: torch.Tensor, params: Optional[_ParamsT] = None) -> torch.Tensor:
         return super().__call__(logits, params=params)
 
 
@@ -115,7 +120,7 @@ class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
 
     """
 
-    def forward(self, logits: torch.Tensor, params: MultinomialLabelSamplerParams | None = None) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, params: Optional[MultinomialLabelSamplerParams] = None) -> torch.Tensor:
         """Sample labels from categorical distribution.
 
         Args:
@@ -134,3 +139,151 @@ class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
 
         probs = F.softmax(logits, dim=-1)
         return torch.multinomial(probs.view(-1, probs.shape[-1]), num_samples=1).view(probs.shape[:-1])
+
+
+class BaseMultilabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
+    """Abstract base class for multilabel samplers.
+
+    A MultilabelSampler defines a strategy for sampling multiple labels
+    based on model logits.
+
+    Type Parameters:
+        _ParamsT: Type of additional parameters used during sampling.
+
+    """
+
+    @abc.abstractmethod
+    def forward(self, logits: torch.Tensor, params: Optional[_ParamsT] = None) -> torch.Tensor:
+        """Sample multiple labels from logits.
+
+        Args:
+            logits: Model output logits of shape (..., num_classes).
+            **kwargs: Additional parameters for sampling.
+
+        Returns:
+            Sampled labels of shape (..., num_labels).
+
+        """
+        raise NotImplementedError
+
+    def __call__(self, logits: torch.Tensor, params: Optional[_ParamsT] = None) -> torch.Tensor:
+        return super().__call__(logits, params=params)
+
+
+class ThresholdMultilabelSamplerParams(TypedDict, total=False):
+    """Parameters for ThresholdMultilabelSampler.
+
+    Attributes:
+        threshold: Probability threshold for selecting labels.
+
+    """
+
+    threshold: float
+
+
+@BaseMultilabelSampler.register("threshold")
+class ThresholdMultilabelSampler(BaseMultilabelSampler[ThresholdMultilabelSamplerParams]):
+    """Multilabel sampler that selects labels above a certain threshold.
+
+    Example:
+        >>> sampler = ThresholdMultilabelSampler(threshold=0.5)
+        >>> logits = torch.randn(4, 10)
+        >>> labels = sampler(logits)  # Shape: (4, num_labels)
+
+    """
+
+    def __init__(self, threshold: float = 0.5) -> None:
+        super().__init__()
+        self.threshold = threshold
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        params: Optional[ThresholdMultilabelSamplerParams] = None,
+    ) -> torch.Tensor:
+        """Select labels above the threshold.
+
+        Args:
+            logits: Logits of shape (..., num_classes).
+            params: Optional parameters containing threshold.
+
+        Returns:
+            Labels of shape (..., num_labels).
+
+        """
+        threshold = (params or {}).get("threshold", self.threshold)
+        probs = torch.sigmoid(logits)
+        return (probs >= threshold).float()
+
+
+class TopKMultilabelSamplerParams(TypedDict, total=False):
+    """Parameters for TopKMultilabelSampler.
+
+    Attributes:
+        k: Number of top labels to select.
+
+    """
+
+    k: int
+
+
+@BaseMultilabelSampler.register("topk")
+class TopKMultilabelSampler(BaseMultilabelSampler[TopKMultilabelSamplerParams]):
+    """Multilabel sampler that selects the top-k labels.
+
+    Example:
+        >>> sampler = TopKMultilabelSampler(k=3)
+        >>> logits = torch.randn(4, 10)
+        >>> labels = sampler(logits)  # Shape: (4, num_labels)
+
+    """
+
+    def __init__(self, k: int = 1) -> None:
+        super().__init__()
+        self.k = k
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        params: Optional[TopKMultilabelSamplerParams] = None,
+    ) -> torch.Tensor:
+        """Select the top-k labels.
+
+        Args:
+            logits: Logits of shape (..., num_classes).
+            **kwargs: Ignored.
+
+        Returns:
+            Labels of shape (..., num_labels).
+
+        """
+        k = (params or {}).get("k", self.k)
+        topk_indices = logits.topk(k, dim=-1).indices
+        labels = torch.zeros_like(logits).scatter_(-1, topk_indices, 1.0)
+        return labels
+
+
+@BaseMultilabelSampler.register("bernoulli")
+class BernoulliMultilabelSampler(BaseMultilabelSampler[None]):
+    """Multilabel sampler that samples labels from independent Bernoulli distributions.
+
+    Example:
+        >>> sampler = BernoulliMultilabelSampler()
+        >>> logits = torch.randn(4, 10)
+        >>> labels = sampler(logits)  # Shape: (4, num_labels)
+
+    """
+
+    def forward(self, logits: torch.Tensor, params: None = None) -> torch.Tensor:
+        """Sample labels from Bernoulli distributions.
+
+        Args:
+            logits: Logits of shape (..., num_classes).
+            **kwargs: Ignored.
+
+        Returns:
+            Sampled labels of shape (..., num_labels).
+
+        """
+        probs = torch.sigmoid(logits)
+        return torch.bernoulli(probs)

@@ -1,6 +1,6 @@
 local ref(name) = { type: 'ref', ref: name };
 local evaluator = {
-  type: 'text_classification:ClassificationEvaluator',
+  type: 'textclf.evaluators:ClassificationEvaluator',
   metrics: [
     { type: 'accuracy' },
     { type: 'fbeta' },
@@ -10,24 +10,24 @@ local evaluator = {
 {
   steps: {
     train_dataset: {
-      type: 'generate_sort_detection_dataset',
+      type: 'textclf::generate_sort_detection_dataset',
       num_examples: 1000,
       random_seed: 1,
     },
     val_dataset: {
-      type: 'generate_sort_detection_dataset',
+      type: 'textclf::generate_sort_detection_dataset',
       num_examples: 50,
       random_seed: 2,
     },
     test_dataset: {
-      type: 'generate_sort_detection_dataset',
+      type: 'textclf::generate_sort_detection_dataset',
       num_examples: 50,
       random_seed: 3,
     },
     datamodule: {
       type: 'ml::train_datamodule',
       datamodule: {
-        type: 'text_classification:TextClassificationDataModule',
+        type: 'textclf::text_classification',
         id: {},
         text: {
           type: 'tokenizer',
@@ -38,91 +38,76 @@ local evaluator = {
       dataset: ref('train_dataset'),
     },
     model: {
-      type: 'flax::train',
+      type: 'torch::train',
       model: {
-        type: 'text_classification:TextClassifier',
+        type: 'textclf::torch_text_classifier',
         num_classes: ref('datamodule.label.num_labels'),
         embedder: {
           type: 'analyzed_text',
           surface: {
             type: 'token',
-            vocab_size: ref('datamodule.text.surfaces.vocab_size'),
-            embedding_dim: 32,
+            initializer: {
+              type: 'xavier_uniform',
+              shape: [
+                ref('datamodule.text.surfaces.vocab_size'),  // vocab size
+                32,  // embedding dim
+              ],
+            },
+            padding_idx: ref('datamodule.text.surfaces.pad_index'),
           },
         },
         encoder: {
           type: 'lstm',
-          features: 32,
-          num_layers: 1,
+          input_dim: 32,
+          hidden_dim: 32,
           bidirectional: false,
         },
-        vectorizer: {
-          type: 'boe',
-          pooling: 'last',
-        },
-        loss: {
-          type: 'cross_entropy',
-          weighter: {
-            type: 'balanced_by_distribution',
-            distribution: ref('datamodule.label.distribution'),
-          },
-        },
-        dropout: 0.2,
+        vectorizer: { type: 'boe', pooling: 'last' },
+        dropout: 0.1,
       },
       trainer: {
         train_dataloader: {
           type: 'formed.integrations.ml:DataLoader',
-          sampler: {
-            type: 'basic',
-            batch_size: 32,
-            shuffle: true,
-            drop_last: true,
-          },
+          sampler: { type: 'basic', batch_size: 32, drop_last: true },
           collator: ref('datamodule.batch'),
         },
         val_dataloader: {
           type: 'formed.integrations.ml:DataLoader',
-          sampler: {
-            type: 'formed.integrations.ml:BasicBatchSampler',
-            batch_size: 32,
-            shuffle: false,
-            drop_last: false,
-          },
+          sampler: { type: 'basic', batch_size: 32, drop_last: false },
           collator: ref('datamodule.batch'),
         },
+        engine: {
+          type: 'default',
+          optimizer: { type: 'torch.optim:Adam', lr: 1e-3 },
+        },
         callbacks: [
-          {
-            type: 'evaluation',
-            evaluator: evaluator,
-          },
-          {
-            type: 'early_stopping',
-            patience: 5,
-            metric: 'val/accuracy',
-          },
-          {
-            type: 'mlflow',
-          },
+          { type: 'mlflow' },
+          { type: 'evaluation', evaluator: evaluator },
+          { type: 'early_stopping', patience: 3, metric: '+val/fbeta' },
         ],
+        max_epochs: 10,
+        logging_strategy: 'step',
+        logging_interval: 5,
       },
       train_dataset: ref('train_dataset'),
-      val_dataset: ref('val_dataset'),
+      val_dataset: ref('test_dataset'),
     },
     test_metrics: {
-      type: 'flax::evaluate',
+      type: 'torch::evaluate',
       model: ref('model'),
       evaluator: evaluator,
       dataset: ref('test_dataset'),
       dataloader: {
         type: 'formed.integrations.ml:DataLoader',
         sampler: {
-          type: 'formed.integrations.ml:BasicBatchSampler',
+          type: 'basic',
           batch_size: 32,
           shuffle: false,
           drop_last: false,
         },
         collator: ref('datamodule.batch'),
       },
+      random_seed: 0,
     },
   },
 }

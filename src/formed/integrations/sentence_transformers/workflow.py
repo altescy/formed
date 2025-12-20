@@ -18,9 +18,11 @@ from transformers import PreTrainedTokenizerBase, TrainerCallback
 from transformers.data.data_collator import DataCollator
 from transformers.trainer_utils import EvalPrediction
 
+from formed.types import NotSpecified
 from formed.workflow import Format, step, use_step_workdir
 
 from .types import SentenceTransformerT
+from .utils import load_sentence_transformer
 
 
 @Format.register("sentence_transformer::model")
@@ -132,3 +134,51 @@ def train_sentence_transformer(
     )
     trainer.train()
     return model
+
+
+with suppress(ImportError):
+    from formed.integrations.ml import Param, Tokenizer, TokenSequenceIndexer
+
+    from .analyzers import SentenceTransformerAnalyzer
+
+    @step("sentence_transformers::convert_tokenizer", format="json")
+    def convert_tokenizer(
+        model_name_or_path: str | PathLike,
+        pad_token: str | None | NotSpecified = NotSpecified.VALUE,
+        unk_token: str | None | NotSpecified = NotSpecified.VALUE,
+        bos_token: str | None | NotSpecified = NotSpecified.VALUE,
+        eos_token: str | None | NotSpecified = NotSpecified.VALUE,
+        freeze: bool = True,
+        accessor: str | Callable | None = None,
+    ) -> Tokenizer:
+        model = load_sentence_transformer(model_name_or_path)
+
+        def get_token(given: str | None | NotSpecified, default: Any) -> str | None:
+            if not isinstance(given, NotSpecified):
+                return given
+            if isinstance(default, str):
+                return default
+            return None
+
+        vocab = model.tokenizer.get_vocab().copy()
+        pad_token = get_token(pad_token, getattr(model.tokenizer, "pad_token", None))
+        unk_token = get_token(unk_token, getattr(model.tokenizer, "unk_token", None))
+        bos_token = get_token(bos_token, getattr(model.tokenizer, "bos_token", None))
+        eos_token = get_token(eos_token, getattr(model.tokenizer, "eos_token", None))
+
+        assert isinstance(pad_token, str), "pad_token must be specified or available in the tokenizer"
+
+        surface_indexer = TokenSequenceIndexer(
+            vocab=vocab,
+            pad_token=pad_token,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            freeze=freeze,
+        )
+        analyzer = SentenceTransformerAnalyzer(model_name_or_path)
+        return Tokenizer(
+            surfaces=surface_indexer,
+            analyzer=Param.cast(analyzer),
+            accessor=accessor,
+        )

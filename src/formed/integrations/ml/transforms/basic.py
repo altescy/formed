@@ -36,7 +36,7 @@ from typing import Any, Generic
 import numpy
 from typing_extensions import TypeVar
 
-from ..types import LabelT
+from ..types import LabelT, VariableTensorBatch
 from .base import BaseTransform
 
 logger = getLogger(__name__)
@@ -338,3 +338,145 @@ class TensorTransform(
 
     def batch(self, batch: Sequence[numpy.ndarray], /) -> numpy.ndarray:
         return numpy.stack(batch, axis=0)
+
+
+@BaseTransform.register("variable_tensor")
+class VariableTensorTransform(
+    Generic[_S],
+    BaseTransform[_S, numpy.ndarray, numpy.ndarray, VariableTensorBatch[numpy.ndarray]],
+):
+    """Transform variable-size numpy arrays into padded batched tensors.
+
+    VariableTensorTransform preserves numpy arrays during instance transformation
+    and pads them to the maximum shape in the batch during batching. It returns
+    a TensorBatch containing the padded tensor and a mask indicating valid data.
+
+    Type Parameters:
+        _S: Source data type before accessor
+
+    Example:
+        >>> import numpy as np
+        >>> transform = VariableTensorTransform(accessor="sequences")
+        >>> arr = transform({"sequences": np.array([1, 2, 3])})
+        >>> print(arr)  # np.array([1, 2, 3])
+        >>>
+        >>> batch = transform.batch([
+        ...     np.array([1, 2, 3]),
+        ...     np.array([4, 5]),
+        ...     np.array([6, 7, 8, 9]),
+        ... ])
+        >>> print(batch.tensor)
+        >>> # np.array([
+        >>> #   [1, 2, 3, 0],
+        >>> #   [4, 5, 0, 0],
+        >>> #   [6, 7, 8, 9]
+        >>> # ])
+        >>> print(batch.mask)
+        >>> # np.array([
+        >>> #   [True, True, True, False],
+        >>> #   [True, True, False, False],
+        >>> #   [True, True, True, True]
+        >>> # ])
+
+    Note:
+        - Pads arrays with zeros to match the maximum shape in the batch
+        - Mask indicates which elements are valid (True) vs. padded (False)
+        - Stateless transform, no training required
+
+    """
+
+    def instance(self, value: numpy.ndarray, /) -> numpy.ndarray:
+        return value
+
+    def batch(self, batch: Sequence[numpy.ndarray], /) -> VariableTensorBatch[numpy.ndarray]:
+        if len(batch) == 0:
+            return VariableTensorBatch(
+                tensor=numpy.array([], dtype=numpy.float32),
+                mask=numpy.array([], dtype=numpy.bool_),
+            )
+        max_ndim = max(arr.ndim for arr in batch)
+        max_shape = []
+        for dim in range(max_ndim):
+            dim_sizes = [arr.shape[dim] if dim < arr.ndim else 1 for arr in batch]
+            max_shape.append(max(dim_sizes))
+
+        tensor = numpy.zeros((len(batch), *max_shape), dtype=batch[0].dtype)
+        mask = numpy.zeros((len(batch), *max_shape), dtype=numpy.bool_)
+
+        for i, arr in enumerate(batch):
+            slices = tuple(slice(0, dim_size) for dim_size in arr.shape)
+            tensor[i][slices] = arr
+            mask[i][slices] = True
+
+        return VariableTensorBatch[numpy.ndarray](tensor=tensor, mask=mask)
+
+
+@BaseTransform.register("tensor_sequence")
+class TensorSequenceTransform(
+    Generic[_S],
+    BaseTransform[_S, Sequence[numpy.ndarray], numpy.ndarray, VariableTensorBatch[numpy.ndarray]],
+):
+    """Transform sequences of numpy arrays into padded batched tensors.
+
+    TensorSequenceTransform handles sequences of arrays (e.g., token-level embeddings)
+    by stacking them into a 2D array during instance transformation, then padding
+    across the batch dimension during batching.
+
+    This is useful for token-level features where each token has its own vector,
+    and different instances may have different numbers of tokens.
+
+    Type Parameters:
+        _S: Source data type before accessor
+
+    Example:
+        >>> import numpy as np
+        >>> transform = TensorSequenceTransform(accessor="token_vectors")
+        >>>
+        >>> # Each instance has a sequence of token vectors
+        >>> data1 = {"token_vectors": [np.array([1.0, 2.0]), np.array([3.0, 4.0])]}
+        >>> data2 = {"token_vectors": [np.array([5.0, 6.0])]}
+        >>>
+        >>> instance1 = transform(data1)  # Shape: (2, 2) - 2 tokens, 2 dims
+        >>> instance2 = transform(data2)  # Shape: (1, 2) - 1 token, 2 dims
+        >>>
+        >>> batch = transform.batch([instance1, instance2])
+        >>> print(batch.tensor.shape)  # (2, 2, 2) - batch_size, max_tokens, dims
+        >>> print(batch.mask.shape)    # (2, 2, 2)
+        >>> print(batch.mask[0])  # [[True, True], [True, True]]
+        >>> print(batch.mask[1])  # [[True, True], [False, False]]
+
+    Note:
+        - Converts sequence of arrays to 2D array during instance transformation
+        - Pads to max token count during batching
+        - Mask indicates valid tokens vs. padding
+        - Empty sequences result in empty arrays
+
+    """
+
+    def instance(self, value: Sequence[numpy.ndarray], /) -> numpy.ndarray:
+        if len(value) == 0:
+            return numpy.array([], dtype=numpy.float32)
+        # Stack sequence of arrays into 2D array (num_tokens, embedding_dim)
+        return numpy.stack([numpy.asarray(arr) for arr in value], axis=0)
+
+    def batch(self, batch: Sequence[numpy.ndarray], /) -> VariableTensorBatch[numpy.ndarray]:
+        if len(batch) == 0:
+            return VariableTensorBatch(
+                tensor=numpy.array([], dtype=numpy.float32),
+                mask=numpy.array([], dtype=numpy.bool_),
+            )
+        max_ndim = max(arr.ndim for arr in batch)
+        max_shape = []
+        for dim in range(max_ndim):
+            dim_sizes = [arr.shape[dim] if dim < arr.ndim else 1 for arr in batch]
+            max_shape.append(max(dim_sizes))
+
+        tensor = numpy.zeros((len(batch), *max_shape), dtype=batch[0].dtype)
+        mask = numpy.zeros((len(batch), *max_shape), dtype=numpy.bool_)
+
+        for i, arr in enumerate(batch):
+            slices = tuple(slice(0, dim_size) for dim_size in arr.shape)
+            tensor[i][slices] = arr
+            mask[i][slices] = True
+
+        return VariableTensorBatch[numpy.ndarray](tensor=tensor, mask=mask)

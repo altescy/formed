@@ -3,6 +3,8 @@ from typing import Any, ClassVar, Literal, Protocol, TypeVar, Union, runtime_che
 
 from typing_extensions import Self, TypeAlias
 
+from formed.common.singleton import BaseSingleton
+
 __all__ = [
     "DataContainer",
     "IDataclass",
@@ -23,6 +25,9 @@ JsonValue: TypeAlias = Union[
     float,
     None,
 ]
+
+
+class NotSpecified(BaseSingleton): ...
 
 
 @runtime_checkable

@@ -5,6 +5,7 @@ from typing import Any, Generic
 
 from typing_extensions import TypeVar
 
+from formed.common.dataset import Dataset
 from formed.common.rich import progress
 from formed.workflow import step
 from formed.workflow.format import Format, JsonFormat, PickleFormat
@@ -81,3 +82,20 @@ def train_datamodule_with_instances(
                 yield instance
 
     return DataModuleAndInstances(datamodule=datamodule, instances=generate_instances())
+
+
+@step("ml::generate_instances", format="dataset")
+@step("ml::generate_instances_without_caching", cacheable=False)
+def generate_instances(
+    datamodule: DataModule[AsConverter, InputT, InstanceT],
+    dataset: Iterable[InputT],
+) -> Dataset[InstanceT]:
+    def generator() -> Iterator[InstanceT]:
+        nonlocal datamodule, dataset
+        with progress(dataset, desc="Generating instances") as dataset:
+            for example in dataset:
+                instance = datamodule(example)
+                assert instance is not None
+                yield instance
+
+    return Dataset.from_iterable(generator())

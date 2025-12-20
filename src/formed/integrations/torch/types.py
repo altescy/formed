@@ -6,6 +6,8 @@ data loaders, evaluators, optimizers, and model components.
 
 Key Protocols:
     - IOptimizer: Protocol for torch-compatible optimizers
+    - ILRScheduler: Protocol for learning rate schedulers
+    - IGradScaler: Protocol for gradient scalers (mixed precision training)
     - IDataLoader: Protocol for data loading functions
     - IEvaluator: Protocol for metric computation
     - IIDSequenceBatch: Protocol for tokenized sequence batches
@@ -18,12 +20,13 @@ Type Variables:
 
 """
 
-from collections.abc import Iterator, Sequence
-from typing import Any, Optional, Protocol, TypeAlias, Union, runtime_checkable
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from typing import Any, Optional, Protocol, Union, runtime_checkable
 
 import numpy
 import torch
-from typing_extensions import TypeVar
+from colt import Lazy
+from typing_extensions import TypeAlias, TypeVar
 
 
 @runtime_checkable
@@ -36,10 +39,55 @@ class IOptimizer(Protocol):
         state_dict: Function to get optimizer state.
         load_state_dict: Function to load optimizer state.
 
+    Note:
+        This protocol does not include `param_groups` to maintain compatibility
+        with Colt's isinstance checks during object construction. Access to
+        param_groups should be done by casting to the concrete optimizer type.
+
     """
 
     def zero_grad(self) -> None: ...
     def step(self) -> None: ...
+    def state_dict(self) -> dict[str, Any]: ...
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None: ...
+
+
+@runtime_checkable
+class ILRScheduler(Protocol):
+    """Protocol for torch-compatible learning rate scheduler objects.
+
+    Attributes:
+        step: Function to update learning rates.
+        state_dict: Function to get scheduler state.
+        load_state_dict: Function to load scheduler state.
+
+    """
+
+    def step(self) -> None: ...
+    def state_dict(self) -> dict[str, Any]: ...
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None: ...
+
+
+@runtime_checkable
+class IGradScaler(Protocol):
+    """Protocol for gradient scaler objects used in mixed precision training.
+
+    This protocol supports both torch.cuda.amp.GradScaler and torch.cpu.amp.GradScaler.
+
+    Attributes:
+        scale: Function to scale loss before backward pass.
+        unscale_: Function to unscale gradients before gradient clipping.
+        step: Function to perform optimizer step with unscaling.
+        update: Function to update the scale factor.
+        state_dict: Function to get scaler state.
+        load_state_dict: Function to load scaler state.
+
+    """
+
+    def scale(self, outputs: Any) -> Any: ...
+    def unscale_(self, optimizer: torch.optim.Optimizer) -> None: ...
+    def step(self, optimizer: torch.optim.Optimizer, *args: Any, **kwargs: Any) -> Optional[float]: ...
+    def update(self, new_scale: Optional[Any] = None) -> None: ...
     def state_dict(self) -> dict[str, Any]: ...
     def load_state_dict(self, state_dict: dict[str, Any]) -> None: ...
 
@@ -55,6 +103,9 @@ ModelOutputT = TypeVar("ModelOutputT", default=Any)
 ModelOutputT_contra = TypeVar("ModelOutputT_contra", contravariant=True, default=Any)
 ModelParamsT = TypeVar("ModelParamsT", default=None)
 OptimizerT = TypeVar("OptimizerT", bound=IOptimizer)
+OptimizerFactory = Union[Lazy[IOptimizer], IOptimizer, Callable[[Iterator[torch.nn.Parameter]], IOptimizer]]
+LRSchedulerT = TypeVar("LRSchedulerT", bound=ILRScheduler)
+LRSchedulerFactory: TypeAlias = Union[Lazy[ILRScheduler], ILRScheduler, Callable[[IOptimizer], ILRScheduler]]
 
 
 @runtime_checkable
@@ -83,6 +134,21 @@ class IDataLoader(Protocol[ItemT_contra, ModelInputT_co]):
     """
 
     def __call__(self, data: Sequence[ItemT_contra]) -> IBatchIterator[ModelInputT_co]: ...
+
+
+@runtime_checkable
+class IStreamingDataLoader(Protocol[ItemT_contra, ModelInputT_co]):
+    """Protocol for streaming data loader functions.
+
+    A streaming data loader transforms an iterable of items into an iterable of batched model inputs.
+
+    Type Parameters:
+        ItemT_contra: Contravariant type of dataset items.
+        ModelInputT_co: Covariant type of model input batches.
+
+    """
+
+    def __call__(self, data: Iterable[ItemT_contra]) -> Iterable[ModelInputT_co]: ...
 
 
 @runtime_checkable

@@ -1,25 +1,28 @@
 import abc
 import math
 import random
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
+from functools import partial
 from typing import Generic, TypeVar
 
 from colt import Registrable
 
+from formed.common.attributeutils import xgetattr
+from formed.common.dataset import Dataset
 from formed.common.iterutils import BufferedIterator, SizedIterator
 
 _InputT = TypeVar("_InputT")
 _BatchT = TypeVar("_BatchT")
 
 
-class BaseBatchSampler(Registrable, abc.ABC):
+class BaseBatchSampler(Registrable, abc.ABC, Generic[_InputT]):
     """Abstract base class for batch samplers.
 
     Batch samplers generate sequences of indices for batching data.
     """
 
     @abc.abstractmethod
-    def __call__(self, data: Sequence) -> SizedIterator[Sequence[int]]:
+    def __call__(self, data: Sequence[_InputT]) -> SizedIterator[Sequence[int]]:
         """Generate batch indices from a dataset.
 
         Args:
@@ -32,7 +35,7 @@ class BaseBatchSampler(Registrable, abc.ABC):
 
 
 @BaseBatchSampler.register("basic")
-class BasicBatchSampler(BaseBatchSampler):
+class BasicBatchSampler(BaseBatchSampler[_InputT], Generic[_InputT]):
     """Basic batch sampler that supports shuffling and dropping incomplete batches.
 
     Args:
@@ -61,7 +64,7 @@ class BasicBatchSampler(BaseBatchSampler):
         self._drop_last = drop_last
         self._rng = random.Random(seed)
 
-    def __call__(self, data: Sequence) -> SizedIterator[Sequence[int]]:
+    def __call__(self, data: Sequence[_InputT]) -> SizedIterator[Sequence[int]]:
         """Generate batch indices from a dataset.
 
         Args:
@@ -82,6 +85,71 @@ class BasicBatchSampler(BaseBatchSampler):
         def iterator() -> Iterator[Sequence[int]]:
             for i in range(0, len(indices), self._batch_size):
                 yield indices[i : i + self._batch_size]
+
+        return SizedIterator(iterator(), size)
+
+
+@BaseBatchSampler.register("size_ordered_bucket")
+class SizeOrderedBucketBatchSampler(BaseBatchSampler[_InputT], Generic[_InputT]):
+    """Batch sampler that orders data by size before batching.
+
+    This sampler sorts the dataset based on a specified size attribute,
+    then creates batches of a given size. It can optionally shuffle the
+    batches after creation.
+
+    Args:
+        attribute: Attribute name or callable to determine the size of each item.
+        batch_size: Number of samples per batch. Defaults to 1.
+        shuffle: Whether to shuffle the batches after creation. Defaults to False.
+        drop_last: Whether to drop the last incomplete batch. Defaults to False.
+        seed: Random seed for shuffling. Defaults to 0.
+
+    Examples:
+        >>> sampler = SizeOrderedBatchSampler(size_attr="length", batch_size=16, shuffle=True)
+        >>> dataset = [{"length": i} for i in range(100)]
+        >>> batches = list(sampler(dataset))
+        >>> len(batches)
+        7
+    """
+
+    def __init__(
+        self,
+        attribute: str | Callable[[_InputT], Sized],
+        batch_size: int = 1,
+        shuffle: bool = False,
+        drop_last: bool = False,
+        seed: int = 0,
+    ) -> None:
+        self._attribute = attribute if callable(attribute) else partial(xgetattr, name=attribute)
+        self._batch_size = batch_size
+        self._shuffle = shuffle
+        self._drop_last = drop_last
+        self._rng = random.Random(seed)
+
+    def __call__(self, data: Sequence[_InputT]) -> SizedIterator[Sequence[int]]:
+        """Generate batch indices from a dataset.
+
+        Args:
+            data: The dataset to sample from.
+
+        Returns:
+            A sized iterator of batch indices. Each batch is a sequence of
+            indices into the original dataset.
+        """
+        indices = list(range(len(data)))
+        indices.sort(key=lambda i: len(self._attribute(data[i])))
+
+        if self._drop_last:
+            indices = indices[: len(indices) - len(indices) % self._batch_size]
+
+        size = math.ceil(len(indices) / self._batch_size)
+        bucket = [indices[i : i + self._batch_size] for i in range(0, len(indices), self._batch_size)]
+        if self._shuffle:
+            self._rng.shuffle(bucket)
+
+        def iterator() -> Iterator[Sequence[int]]:
+            for batch in bucket:
+                yield batch
 
         return SizedIterator(iterator(), size)
 
@@ -177,7 +245,7 @@ class DataLoader(Generic[_InputT, _BatchT]):
         self._sampler = sampler
         self._buffer_size = buffer_size
 
-    def __call__(self, data: Sequence[_InputT]) -> SizedIterator[_BatchT]:
+    def __call__(self, data: Iterable[_InputT]) -> SizedIterator[_BatchT]:
         """Create a batched iterator for the given dataset.
 
         Args:
@@ -187,6 +255,8 @@ class DataLoader(Generic[_InputT, _BatchT]):
             A sized iterator that yields batches. If buffer_size > 0, the
             iterator will prefetch batches in a background process.
         """
+        if not isinstance(data, Sequence):
+            data = Dataset.from_iterable(data)
         iterator = BatchIterator(data, self._sampler, self._collator)
         if self._buffer_size > 0:
             iterator = BufferedIterator[_BatchT](iterator, buffer_size=self._buffer_size)

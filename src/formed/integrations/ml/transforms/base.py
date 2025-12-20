@@ -339,6 +339,18 @@ class Param(Generic[_T_co]):
         return cast(Param[_T], default)
 
     @classmethod
+    def cast(cls: type["Param[_T]"], value: _T) -> "Param[_T]":
+        """Wrap a value as a Param field.
+
+        Args:
+            value: The value to wrap as a Param.
+        Returns:
+            A Param field wrapping the given value.
+
+        """
+        return cast(Param[_T], value)
+
+    @classmethod
     def default_factory(
         cls: type["Param[_T]"],
         factory: Callable[[], _T],
@@ -939,6 +951,10 @@ class DataModule(
 
     def _get_input_value(self, data: _T) -> _T | None:
         if self._parent is None:
+            if callable(self.accessor):
+                return self.accessor(data)
+            elif isinstance(self.accessor, str):
+                return xgetattr(data, self.accessor)
             return data
         return super()._get_input_value(data)
 

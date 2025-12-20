@@ -27,15 +27,15 @@ Example:
 
 import abc
 from collections.abc import Sequence
-from typing import Generic, Literal, TypeAlias, TypeVar, cast
+from typing import Generic, Literal, Optional, TypeVar, Union, cast
 
 import torch
 import torch.nn as nn
 from colt import Registrable
+from typing_extensions import TypeAlias
 
 from .types import ModelInputT
 
-_T = TypeVar("_T")
 _TensorT = TypeVar("_TensorT", bound=torch.Tensor)
 _ReduceOp: TypeAlias = Literal["mean", "sum"]
 
@@ -214,7 +214,7 @@ class SingleDeviceDistributor(BaseDistributor[ModelInputT]):
 
     """
 
-    def __init__(self, device: str | torch.device | None = None) -> None:
+    def __init__(self, device: Optional[Union[str, torch.device]] = None) -> None:
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self._device = torch.device(device)
@@ -263,8 +263,8 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
 
     def __init__(
         self,
-        device_ids: list[int] | None = None,
-        output_device: int | None = None,
+        device_ids: Optional[list[int]] = None,
+        output_device: Optional[int] = None,
     ) -> None:
         if device_ids is None:
             device_ids = list(range(torch.cuda.device_count()))
@@ -360,11 +360,11 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
 
     def __init__(
         self,
-        backend: str | None = None,
+        backend: Optional[str] = None,
         init_method: str = "env://",
-        world_size: int | None = None,
-        rank: int | None = None,
-        local_rank: int | None = None,
+        world_size: Optional[int] = None,
+        rank: Optional[int] = None,
+        local_rank: Optional[int] = None,
         find_unused_parameters: bool = False,
         broadcast_buffers: bool = True,
         bucket_cap_mb: int = 25,

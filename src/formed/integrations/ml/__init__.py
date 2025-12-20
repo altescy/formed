@@ -27,10 +27,12 @@ from .transforms import (
     MetadataTransform,
     Param,
     ScalarTransform,
+    TensorSequenceTransform,
     TensorTransform,
     TokenCharactersIndexer,
     Tokenizer,
     TokenSequenceIndexer,
+    VariableTensorTransform,
     register_dataclass,
 )
 from .types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleMode, DataModuleModeT, IDSequenceBatch
@@ -68,9 +70,11 @@ __all__ = [
     "Param",
     "ScalarTransform",
     "TensorTransform",
+    "TensorSequenceTransform",
     "Tokenizer",
     "TokenCharactersIndexer",
     "TokenSequenceIndexer",
+    "VariableTensorTransform",
     "register_dataclass",
     # types
     "AnalyzedText",

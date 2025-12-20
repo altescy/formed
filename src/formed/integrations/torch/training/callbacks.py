@@ -41,7 +41,7 @@ Example:
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, Optional
 
 from colt import Registrable
 
@@ -235,7 +235,7 @@ class EarlyStoppingCallback(TorchTrainingCallback):
     def __init__(
         self,
         patience: int = 5,
-        metric: str = "-loss",
+        metric: str = "-train/loss",
     ) -> None:
         self._patience = patience
         self._metric = metric.lstrip("-+")
@@ -371,7 +371,7 @@ class MlflowCallback(TorchTrainingCallback):
     def __init__(self) -> None:
         from formed.integrations.mlflow.workflow import MlflowLogger
 
-        self._mlflow_logger: MlflowLogger | None = None
+        self._mlflow_logger: Optional[MlflowLogger] = None
 
     def on_training_start(
         self,
@@ -406,8 +406,19 @@ class MlflowCallback(TorchTrainingCallback):
 
         metrics = {prefix + key: value for key, value in metrics.items()}
         if self._mlflow_logger is not None:
+            # Log all metrics
             for key, value in metrics.items():
                 self._mlflow_logger.log_metric(key, value, step=int(state.step))
+
+            # Log learning rate
+            learning_rate = state.get_learning_rate()
+            if learning_rate is not None:
+                self._mlflow_logger.log_metric("learning_rate", learning_rate, step=int(state.step))
+
+            # Log gradient norm
+            gradient_norm = state.get_gradient_norm()
+            if gradient_norm is not None:
+                self._mlflow_logger.log_metric("gradient_norm", gradient_norm, step=int(state.step))
 
     def on_epoch_end(
         self,

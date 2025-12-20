@@ -4,7 +4,10 @@ workflow:
     log_execution_metrics: true
 
 required_modules:
+  - textclf
+  - formed.integrations.datasets
   - formed.integrations.flax
   - formed.integrations.ml
   - formed.integrations.mlflow
-  - text_classification
+  - formed.integrations.torch
+  - formed.integrations.transformers

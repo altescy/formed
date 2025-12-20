@@ -16,6 +16,8 @@ Key Components:
     Classification Metrics:
     - BinaryAccuracy: Binary classification accuracy
     - BinaryFBeta: Binary F-beta score (precision, recall, F1)
+    - BinaryROCAUC: Binary ROC AUC (requires scores)
+    - BinaryPRAUC: Binary PR AUC (Precision-Recall curve, requires scores)
     - MulticlassAccuracy: Multiclass accuracy (micro/macro)
     - MulticlassFBeta: Multiclass F-beta (micro/macro)
     - MultilabelAccuracy: Multilabel accuracy
@@ -205,7 +207,23 @@ class ClassificationInput(Generic[_T]):
     targets: Sequence[_T]
 
 
-class BinaryClassificationMetric(BaseMetric[ClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
+@dataclasses.dataclass
+class BinaryClassificationInput(Generic[BinaryLabelT]):
+    """Input data for binary classification metrics that require probability scores.
+
+    Attributes:
+        predictions: Sequence of predicted labels.
+        scores: Sequence of prediction scores (probabilities for positive class).
+        targets: Sequence of ground truth labels.
+
+    """
+
+    predictions: Sequence[BinaryLabelT]
+    targets: Sequence[BinaryLabelT]
+    scores: Sequence[float] | None = None
+
+
+class BinaryClassificationMetric(BaseMetric[BinaryClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
     """Base class for binary classification metrics.
 
     Binary classification metrics work with two classes (0 and 1, or True/False).
@@ -215,7 +233,7 @@ class BinaryClassificationMetric(BaseMetric[ClassificationInput[BinaryLabelT]], 
 
     """
 
-    Input: type[ClassificationInput[BinaryLabelT]] = ClassificationInput
+    Input: type[BinaryClassificationInput[BinaryLabelT]] = BinaryClassificationInput
 
 
 @BaseMetric.register("binary_accuracy")
@@ -244,7 +262,7 @@ class BinaryAccuracy(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLab
         self._correct = 0
         self._total = 0
 
-    def update(self, inputs: ClassificationInput[BinaryLabelT]) -> None:
+    def update(self, inputs: BinaryClassificationInput[BinaryLabelT]) -> None:
         predictions = inputs.predictions
         targets = inputs.targets
         assert len(predictions) == len(targets), "Predictions and targets must have the same length"
@@ -301,7 +319,7 @@ class BinaryFBeta(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
         self._false_positive = 0
         self._false_negative = 0
 
-    def update(self, inputs: ClassificationInput[BinaryLabelT]) -> None:
+    def update(self, inputs: BinaryClassificationInput[BinaryLabelT]) -> None:
         predictions = inputs.predictions
         targets = inputs.targets
         assert len(predictions) == len(targets), "Predictions and targets must have the same length"
@@ -328,6 +346,193 @@ class BinaryFBeta(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
             fbeta = (1 + beta_sq) * (precision * recall) / (beta_sq * precision + recall)
 
         return {"fbeta": fbeta, "precision": precision, "recall": recall}
+
+
+@BaseMetric.register("binary_roc_auc")
+@BinaryClassificationMetric.register("roc_auc")
+class BinaryROCAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT]):
+    """Binary ROC AUC (Area Under the Receiver Operating Characteristic Curve) metric.
+
+    Computes the area under the ROC curve, which measures the model's ability
+    to distinguish between positive and negative classes across all thresholds.
+    ROC AUC ranges from 0 to 1, where 0.5 represents random guessing and 1.0
+    represents perfect classification.
+
+    Returns:
+        Dictionary with "roc_auc" metric.
+
+    Example:
+        >>> metric = BinaryROCAUC()
+        >>> inputs = BinaryClassificationInputWithScores(
+        ...     predictions=[1, 1, 0, 1],
+        ...     scores=[0.9, 0.8, 0.3, 0.7],
+        ...     targets=[1, 0, 0, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> result = metric.compute()
+        >>> # {"roc_auc": 0.75}
+
+    """
+
+    def __init__(self) -> None:
+        self._scores: list[float] = []
+        self._targets: list[int] = []
+
+    def reset(self) -> None:
+        self._scores = []
+        self._targets = []
+
+    def update(self, inputs: BinaryClassificationInput[BinaryLabelT]) -> None:
+        assert inputs.scores is not None, "Scores are required for ROC AUC computation"
+
+        scores = inputs.scores
+        targets = inputs.targets
+        assert len(scores) == len(targets), "Scores and targets must have the same length"
+
+        for score, target in zip(scores, targets):
+            self._scores.append(score)
+            self._targets.append(1 if target == 1 or target is True else 0)
+
+    def compute(self) -> dict[str, float]:
+        if not self._scores:
+            return {"roc_auc": 0.0}
+
+        # Count total positives and negatives
+        n_pos = sum(self._targets)
+        n_neg = len(self._targets) - n_pos
+
+        if n_pos == 0 or n_neg == 0:
+            return {"roc_auc": 0.0}
+
+        # Sort by scores in descending order, with ties broken by target (negatives first)
+        sorted_pairs = sorted(zip(self._scores, self._targets), key=lambda x: (-x[0], x[1]))
+
+        # Calculate ROC curve points and AUC
+        tp = 0
+        fp = 0
+        prev_tp = 0
+        prev_fp = 0
+        prev_score = float("inf")
+        auc = 0.0
+
+        for score, target in sorted_pairs:
+            # When score changes, add area for previous threshold
+            if score != prev_score:
+                # Add trapezoid area: width * average height
+                auc += (fp - prev_fp) * (tp + prev_tp) / 2.0
+                prev_tp = tp
+                prev_fp = fp
+                prev_score = score
+
+            if target == 1:
+                tp += 1
+            else:
+                fp += 1
+
+        # Add final trapezoid
+        auc += (fp - prev_fp) * (tp + prev_tp) / 2.0
+
+        # Normalize by total area
+        auc /= n_pos * n_neg
+
+        return {"roc_auc": auc}
+
+
+@BaseMetric.register("binary_pr_auc")
+@BinaryClassificationMetric.register("pr_auc")
+class BinaryPRAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT]):
+    """Binary PR AUC (Area Under the Precision-Recall Curve) metric.
+
+    Computes the area under the Precision-Recall curve, which plots precision
+    (y-axis) against recall (x-axis) at different classification thresholds.
+    This metric is particularly useful for imbalanced datasets where ROC AUC
+    might be overly optimistic.
+
+    Unlike ROC AUC which uses false positive rate, PR AUC focuses on the
+    positive class performance, making it more informative when the positive
+    class is rare.
+
+    Returns:
+        Dictionary with "pr_auc" metric.
+
+    Example:
+        >>> metric = BinaryPRAUC()
+        >>> inputs = BinaryClassificationInputWithScores(
+        ...     predictions=[1, 1, 0, 1],
+        ...     scores=[0.9, 0.8, 0.3, 0.7],
+        ...     targets=[1, 0, 0, 1]
+        ... )
+        >>> metric.update(inputs)
+        >>> result = metric.compute()
+        >>> # {"pr_auc": 0.833...}
+
+    """
+
+    def __init__(self) -> None:
+        self._scores: list[float] = []
+        self._targets: list[int] = []
+
+    def reset(self) -> None:
+        self._scores = []
+        self._targets = []
+
+    def update(self, inputs: BinaryClassificationInput[BinaryLabelT]) -> None:
+        assert inputs.scores is not None, "Scores are required for PR AUC computation"
+
+        scores = inputs.scores
+        targets = inputs.targets
+        assert len(scores) == len(targets), "Scores and targets must have the same length"
+
+        for score, target in zip(scores, targets):
+            self._scores.append(score)
+            self._targets.append(1 if target == 1 or target is True else 0)
+
+    def compute(self) -> dict[str, float]:
+        if not self._scores:
+            return {"pr_auc": 0.0}
+
+        # Count total positives
+        n_pos = sum(self._targets)
+        if n_pos == 0:
+            return {"pr_auc": 0.0}
+
+        # Sort by scores in descending order
+        sorted_pairs = sorted(zip(self._scores, self._targets), key=lambda x: (-x[0], x[1]))
+
+        # Calculate precision and recall at each threshold
+        precisions = []
+        recalls = []
+
+        tp = 0
+        fp = 0
+
+        for score, target in sorted_pairs:
+            if target == 1:
+                tp += 1
+            else:
+                fp += 1
+
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / n_pos
+
+            precisions.append(precision)
+            recalls.append(recall)
+
+        # Add point (0, 1) at the beginning if not already there
+        if recalls[0] != 0:
+            recalls.insert(0, 0.0)
+            precisions.insert(0, precisions[0])
+
+        # Calculate AUC using trapezoidal rule
+        auc = 0.0
+        for i in range(len(recalls) - 1):
+            # Width in recall axis
+            width = recalls[i + 1] - recalls[i]
+            # Average height (precision)
+            height = (precisions[i] + precisions[i + 1]) / 2.0
+            auc += width * height
+
+        return {"pr_auc": auc}
 
 
 class MulticlassClassificationMetric(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):

@@ -42,6 +42,7 @@ import cloudpickle
 import colt
 from colt import Registrable
 
+from formed.common.dataset import Dataset
 from formed.types import DataContainer, IDataclass, INamedTuple, IPydanticModel, JsonValue
 
 from .utils import WorkflowJSONDecoder, WorkflowJSONEncoder
@@ -396,6 +397,21 @@ class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
         for subdir in directory.glob("*"):
             artifact[subdir.name] = self._format.read(subdir)
         return artifact
+
+
+@Format.register("dataset")
+class DatasetFormat(Format[Dataset[_T]], Generic[_T]):
+    def write(self, artifact: Dataset[_T], directory: Path) -> None:
+        import shutil
+
+        shutil.copytree(artifact.path, directory / "dataset")
+
+    def read(self, directory: Path) -> Dataset[_T]:
+        return Dataset[_T].from_path(directory / "dataset")
+
+    @classmethod
+    def is_default_of(cls, obj: Any) -> bool:
+        return isinstance(obj, Dataset)
 
 
 @Format.register("auto")

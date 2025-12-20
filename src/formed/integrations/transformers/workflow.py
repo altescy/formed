@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias, TypeVar, cast
 
 import datasets
-import minato
 import torch
 import transformers
 from colt import Lazy
@@ -20,7 +19,10 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
 
 from formed.integrations.datasets.workflow import DatasetFormat
+from formed.types import NotSpecified
 from formed.workflow import Format, step, use_step_workdir
+
+from .utils import load_pretrained_tokenizer, load_pretrained_transformer
 
 DataCollator: TypeAlias = Callable  # NOTE: workaround for type mismatch in transformers
 PretrainedModelT = TypeVar("PretrainedModelT", bound=PreTrainedModel)
@@ -53,13 +55,16 @@ class TransformersPretrainedModelFormat(Generic[PretrainedModelT], Format[Pretra
 @step("transformers::tokenize", format=DatasetFormat())
 def tokenize_dataset(
     dataset: datasets.Dataset | datasets.DatasetDict,
-    tokenizer: PreTrainedTokenizerBase,
+    tokenizer: str | PathLike | PreTrainedTokenizerBase,
     text_column: str = "text",
     padding: bool | Literal["max_length", "longest", "do_not_pad"] = False,
     truncation: bool | Literal["only_first", "only_second", "longest_first", "do_not_truncate"] = False,
     return_special_tokens_mask: bool = False,
     max_length: int | None = None,
 ) -> datasets.Dataset | datasets.DatasetDict:
+    if not isinstance(tokenizer, PreTrainedTokenizerBase):
+        tokenizer = load_pretrained_tokenizer(tokenizer)
+
     def tokenize_function(examples: Mapping[str, Any]) -> Any:
         return tokenizer(
             examples[text_column],
@@ -86,28 +91,20 @@ def load_pretrained_model(
     if isinstance(auto_class, str):
         auto_class = getattr(transformers, auto_class)
     assert isinstance(auto_class, type) and issubclass(auto_class, _BaseAutoModelClass)
-    with suppress(FileNotFoundError):
-        model_name_or_path = minato.cached_path(model_name_or_path)
-    model = auto_class.from_pretrained(model_name_or_path, **kwargs)
-    if submodule:
-        model = getattr(model, submodule)
-    return cast(transformers.PreTrainedModel, model)
+    return load_pretrained_transformer.__wrapped__(
+        model_name_or_path=model_name_or_path,
+        auto_class=auto_class,
+        submodule=submodule,
+        **kwargs,
+    )
 
 
 @step("transformers::load_tokenizer", cacheable=False)
-def load_pretrained_tokenizer(
+def load_pretrained_tokenizer_step(
     pretrained_model_name_or_path: str | PathLike,
-    submodule: str | None = None,
     **kwargs: Any,
 ) -> PreTrainedTokenizerBase:
-    with suppress(FileNotFoundError):
-        pretrained_model_name_or_path = minato.cached_path(pretrained_model_name_or_path)
-    return cast(
-        PreTrainedTokenizerBase,
-        transformers.AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call]
-            str(pretrained_model_name_or_path), **kwargs
-        ),
-    )
+    return load_pretrained_tokenizer(pretrained_model_name_or_path, **kwargs)
 
 
 @step("transformers::train_model", format=TransformersPretrainedModelFormat())
@@ -167,3 +164,54 @@ def train_transformer_model(
     trainer.train()
 
     return model
+
+
+with suppress(ImportError):
+    from formed.integrations.ml import Param, Tokenizer, TokenSequenceIndexer
+
+    from .analyzers import PretrainedTransformerAnalyzer
+
+    @step("transformers::convert_tokenizer", format="json")
+    def convert_tokenizer(
+        tokenizer: str | PathLike | PreTrainedTokenizerBase,
+        pad_token: str | None | NotSpecified = NotSpecified.VALUE,
+        unk_token: str | None | NotSpecified = NotSpecified.VALUE,
+        bos_token: str | None | NotSpecified = NotSpecified.VALUE,
+        eos_token: str | None | NotSpecified = NotSpecified.VALUE,
+        freeze: bool = True,
+        accessor: str | Callable | None = None,
+    ) -> Tokenizer:
+        given_tokenizer = tokenizer
+
+        if isinstance(tokenizer, (str, PathLike)):
+            tokenizer = load_pretrained_tokenizer(tokenizer)
+
+        def get_token(given: str | None | NotSpecified, default: Any) -> str | None:
+            if not isinstance(given, NotSpecified):
+                return given
+            if isinstance(default, str):
+                return default
+            return None
+
+        vocab = tokenizer.get_vocab().copy()
+        pad_token = get_token(pad_token, tokenizer.pad_token)
+        unk_token = get_token(unk_token, tokenizer.unk_token)
+        bos_token = get_token(bos_token, tokenizer.bos_token)
+        eos_token = get_token(eos_token, tokenizer.eos_token)
+
+        assert isinstance(pad_token, str), "pad_token must be specified or available in the tokenizer"
+
+        surface_indexer = TokenSequenceIndexer(
+            vocab=vocab,
+            pad_token=pad_token,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            freeze=freeze,
+        )
+        analyzer = PretrainedTransformerAnalyzer(given_tokenizer)
+        return Tokenizer(
+            surfaces=surface_indexer,
+            analyzer=Param.cast(analyzer),
+            accessor=accessor,
+        )
