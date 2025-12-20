@@ -1,0 +1,8 @@
+workflow:
+  organizer:
+    type: mlflow
+
+required_modules:
+  - formed.integrations.mlflow
+  - formed.integrations.datasets
+  - formed.integrations.transformers
