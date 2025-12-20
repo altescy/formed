@@ -4,7 +4,7 @@ workflow:
     log_execution_metrics: true
 
 required_modules:
+  - textclf
   - formed.integrations.flax
   - formed.integrations.ml
   - formed.integrations.mlflow
-  - text_classification
