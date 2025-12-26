@@ -27,7 +27,6 @@ format:
 docs:
 	$(MKDOCS) build
 
-
 .PHONY: clean
 clean: clean-pyc clean-build
 
