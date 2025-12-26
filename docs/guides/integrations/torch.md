@@ -186,16 +186,15 @@ Models composed from these modules can be fully specified in configuration:
       vocab_size: 10000,
     },
     encoder: {
-      type: 'lstm_sequence_encoder',
+      type: 'lstm',
       hidden_size: 256,
       num_layers: 2,
       bidirectional: true,
     },
     vectorizer: {
-      type: 'bag_of_embeddings_sequence_vectorizer',
+      type: 'bag_of_embeddings',
     },
     feedforward: {
-      type: 'feedforward',
       input_dim: 512,  # 256 * 2 (bidirectional)
       hidden_dims: [256, 128],
       activations: 'relu',
