@@ -3,6 +3,7 @@ PYTHON   := uv run python
 PYTEST   := uv run pytest
 RUFF     := uv run ruff
 PYRIGHT  := uv run pyright
+MKDOCS   := uv run mkdocs
 MODULE   := formed
 
 .PHONY: all
@@ -21,6 +22,11 @@ lint:
 format:
 	PYTHONPATH=$(PWD) $(RUFF) check --select I --fix
 	PYTHONPATH=$(PWD) $(RUFF) format
+
+.PHONY: docs
+docs:
+	$(MKDOCS) build
+
 
 .PHONY: clean
 clean: clean-pyc clean-build
