@@ -85,6 +85,7 @@ nav:
   - Tutorials:
       - Overview: tutorials/index.md
       - Text Classification: tutorials/text_classification.md
+      - Causal LM Finetuning: tutorials/causal_lm_finetuning.md
   - Guides:
       - Overview: guides/index.md
       - Workflow: guides/workflow.md

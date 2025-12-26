@@ -1,4 +1,4 @@
-# Tutorial: Text Classification with PyTorch
+# Text Classification with PyTorch
 
 This tutorial guides you through building a text classification system using formed's PyTorch integration. You'll learn how to compose models from reusable components, manage data transformations, and train models within formed's workflow system.
 
