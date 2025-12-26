@@ -178,18 +178,21 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
     """Unified step info that works for both live and archived steps.
 
     The `step` field determines the mode:
-    - Lazy[WorkflowStepT]: Live mode - can be constructed and executed
-    - WorkflowStepArchive: Archived mode - immutable snapshot from past execution
+
+    - `Lazy[WorkflowStepT]`: Live mode - can be constructed and executed
+    - `WorkflowStepArchive`: Archived mode - immutable snapshot from past execution
 
     Live mode (before execution):
-        - step: Lazy[WorkflowStepT] that can be constructed
-        - dependencies: references to other live WorkflowStepInfo objects
-        - Properties computed from step_class
+
+    - step: `Lazy[WorkflowStepT]` that can be constructed
+    - dependencies: references to other live `WorkflowStepInfo` objects
+    - Properties computed from `step_class`
 
     Archived mode (after execution):
-        - step: WorkflowStepArchive with pre-computed metadata
-        - dependencies: references to other archived WorkflowStepInfo objects
-        - Properties returned from archive
+
+    - step: `WorkflowStepArchive` with pre-computed metadata
+    - dependencies: references to other archived `WorkflowStepInfo` objects
+    - Properties returned from archive
     """
 
     name: str
@@ -355,10 +358,10 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
 
         Args:
             archive: The archived step metadata
-            dependency_map: Map from fingerprint to WorkflowStepInfo for all dependencies
+            dependency_map: Map from fingerprint to `WorkflowStepInfo` for all dependencies
 
         Returns:
-            WorkflowStepInfo in archived mode (step field is WorkflowStepArchive)
+            `WorkflowStepInfo` in archived mode (step field is `WorkflowStepArchive`)
         """
         # Reconstruct dependencies using the dependency_map
         dependencies: set[tuple[StrictParamPath, WorkflowStepInfo]] = set()

@@ -60,7 +60,7 @@ class TrainState:
         """Get state dictionary for serialization.
 
         Returns:
-            Dictionary containing model state, optimizer state, lr_scheduler state (if present), grad_scaler state (if present), and step.
+            Dictionary containing model state, `optimizer` state, `lr_scheduler` state (if present), `grad_scaler` state (if present), and `step`.
 
         """
         state = {
@@ -93,7 +93,7 @@ class TrainState:
         """Get current learning rate from optimizer.
 
         Returns:
-            Current learning rate from the first parameter group, or None if unavailable.
+            Current learning rate from the first parameter group, or `None` if unavailable.
 
         Examples:
             >>> lr = state.get_learning_rate()
@@ -112,7 +112,7 @@ class TrainState:
         """Compute L2 norm of all gradients.
 
         Returns:
-            L2 norm of all parameter gradients, or None if no gradients are available.
+            L2 norm of all parameter gradients, or `None` if no gradients are available.
 
         Examples:
             >>> grad_norm = state.get_gradient_norm()
@@ -121,7 +121,7 @@ class TrainState:
 
         Note:
             This method computes the gradient norm on-demand. It should be called
-            after backward() but before optimizer.step() or zero_grad() to get
+            after `backward()` but before optimizer.step() or `zero_grad()` to get
             meaningful results.
 
         """

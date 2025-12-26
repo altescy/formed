@@ -6,10 +6,10 @@ such as causal masking for autoregressive models or sliding window attention
 for long sequences.
 
 Key Components:
-    - BaseAttentionMask: Abstract base class for attention mask generators
-    - CausalMask: Generates causal (autoregressive) attention masks
-    - SlidingWindowAttentionMask: Generates sliding window attention masks
-    - CombinedMask: Combines multiple attention masks into a single mask
+    - `BaseAttentionMask`: Abstract base class for attention mask generators
+    - `CausalMask`: Generates causal (autoregressive) attention masks
+    - `SlidingWindowAttentionMask`: Generates sliding window attention masks
+    - `CombinedMask`: Combines multiple attention masks into a single mask
 
 
 Features:
@@ -44,13 +44,14 @@ class BaseAttentionMask(Registrable, abc.ABC):
     Attention masks control which positions can attend to which other positions
     in transformer models.
 
-    All attention masks must return a mask of shape (seq_len, seq_len) or
-    (batch_size, seq_len, seq_len) using float values where:
-    - 0.0 indicates positions that CAN be attended to
-    - float('-inf') indicates positions that should NOT be attended to
+    All attention masks must return a mask of shape `(seq_len, seq_len)` or
+    `(batch_size, seq_len, seq_len)` using float values where:
+
+    - `0.0` indicates positions that CAN be attended to
+    - `float('-inf')` indicates positions that should NOT be attended to
 
     This standardized format ensures compatibility with PyTorch's
-    TransformerEncoder.mask parameter.
+    `TransformerEncoder.mask` parameter.
 
     """
 
@@ -68,14 +69,14 @@ class BaseAttentionMask(Registrable, abc.ABC):
             seq_len: Sequence length.
             batch_size: Batch size.
             device: Device to create mask on.
-            padding_mask: Optional padding mask of shape (batch_size, seq_len).
+            padding_mask: Optional padding mask of shape `(batch_size, seq_len)`.
                          True/1 indicates valid positions, False/0 indicates padding.
 
         Returns:
-            Attention mask of shape (seq_len, seq_len) or (batch_size, seq_len, seq_len).
+            Attention mask of shape `(seq_len, seq_len)` or `(batch_size, seq_len, seq_len)`.
             None if no masking is needed.
-            Uses float values: 0.0 for positions that can be attended to,
-            float('-inf') for positions that should NOT be attended to.
+            Uses float values: `0.0` for positions that can be attended to,
+            `float('-inf')` for positions that should NOT be attended to.
 
         """
         ...
@@ -130,7 +131,7 @@ class SlidingWindowAttentionMask(BaseAttentionMask):
 
     Args:
         window_size: Size of the attention window on each side.
-                     Total window is (2 * window_size + 1) centered on each position.
+                     Total window is `(2 * window_size + 1)` centered on each position.
 
     Examples:
         >>> # Window size of 1 means each position can attend to itself and
@@ -185,7 +186,7 @@ class CombinedMask(BaseAttentionMask):
     """Combines multiple attention masks.
 
     Applies multiple masks in sequence and combines their results.
-    A position is masked if ANY mask blocks it (logical OR for -inf values).
+    A position is masked if ANY mask blocks it (logical OR for `-inf` values).
 
     Args:
         masks: List of attention masks to combine.
@@ -217,8 +218,8 @@ class CombinedMask(BaseAttentionMask):
             padding_mask: Optional padding mask.
 
         Returns:
-            Combined attention mask of shape (seq_len, seq_len) or
-            (batch_size, seq_len, seq_len), or None if all masks return None.
+            Combined attention mask of shape `(seq_len, seq_len)` or
+            `(batch_size, seq_len, seq_len)`, or `None` if all masks return `None`.
 
         """
         generated_masks = []

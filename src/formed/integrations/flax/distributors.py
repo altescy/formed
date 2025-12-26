@@ -4,9 +4,9 @@ This module provides abstractions for distributed training across multiple devic
 supporting both single-device and data-parallel training strategies.
 
 Key Components:
-    - BaseDistributor: Abstract interface for device distribution strategies
-    - SingleDeviceDistributor: No-op distributor for single-device training
-    - DataParallelDistributor: Data-parallel training using JAX pmap
+    - `BaseDistributor`: Abstract interface for device distribution strategies
+    - `SingleDeviceDistributor`: No-op distributor for single-device training
+    - `DataParallelDistributor`: Data-parallel training using JAX pmap
 
 Features:
     - Transparent device sharding and replication
@@ -115,7 +115,7 @@ class BaseDistributor(Registrable, abc.ABC, Generic[ModelInputT]):
 
         Args:
             array: Array to reduce.
-            op: Reduction operation ("mean" or "sum").
+            op: Reduction operation (`"mean"` or `"sum"`).
 
         Returns:
             Reduced array.
@@ -258,7 +258,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
 
         Args:
             array: Array to reduce across device dimension.
-            op: Reduction operation - "sum" or "mean".
+            op: Reduction operation - `"sum"` or `"mean"`.
 
         Returns:
             Reduced array.

@@ -5,9 +5,10 @@ workflow execution events. Callbacks can be used for logging, metrics collection
 checkpointing, or custom workflow orchestration logic.
 
 Key Components:
-    - WorkflowCallback: Abstract base class for all callbacks
-    - EmptyWorkflowCallback: No-op callback
-    - MultiWorkflowCallback: Combines multiple callbacks
+
+    - `WorkflowCallback`: Abstract base class for all callbacks
+    - `EmptyWorkflowCallback`: No-op callback
+    - `MultiWorkflowCallback`: Combines multiple callbacks
 
 Features:
     - Hook points at execution and step start/end

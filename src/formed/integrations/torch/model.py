@@ -52,8 +52,8 @@ class BaseTorchModel(
         ModelParamsT: Type of additional parameters (typically None or a dataclass).
 
     Note:
-        Subclasses should implement forward() to define the forward pass.
-        Models are automatically compatible with TorchTrainer when registered.
+        Subclasses should implement `forward()` to define the forward pass.
+        Models are automatically compatible with `TorchTrainer` when registered.
 
     """
 

@@ -112,17 +112,17 @@ class TorchTrainer(
     Args:
         train_dataloader: Data loader for training dataset.
         val_dataloader: Optional data loader for validation dataset.
-        engine: Training engine (defaults to DefaultTorchTrainingEngine).
+        engine: Training engine (defaults to `DefaultTorchTrainingEngine`).
         callbacks: Sequence of training callbacks.
-        distributor: Device distributor (defaults to SingleDeviceDistributor).
+        distributor: Device distributor (defaults to `SingleDeviceDistributor`).
         max_epochs: Maximum number of training epochs.
-        eval_strategy: When to evaluate - "epoch" or "step".
+        eval_strategy: When to evaluate - `"epoch"` or `"step"`.
         eval_interval: Evaluation interval (epochs or steps).
-        logging_strategy: When to log - "epoch" or "step".
+        logging_strategy: When to log - `"epoch"` or `"step"`.
         logging_interval: Logging interval (epochs or steps).
         logging_first_step: Whether to log after the first training step.
-        train_prefix: Prefix for training metrics logging. Default is "train/".
-        val_prefix: Prefix for validation metrics logging. Default is "val/".
+        train_prefix: Prefix for training metrics logging. Default is `"train/"`.
+        val_prefix: Prefix for validation metrics logging. Default is `"val/"`.
 
     Examples:
         >>> engine = DefaultTorchTrainingEngine(
@@ -195,7 +195,7 @@ class TorchTrainer(
             Final training state with trained parameters.
 
         Raises:
-            ValueError: If val_dataset is provided but val_dataloader is not.
+            ValueError: If `val_dataset` is provided but `val_dataloader` is not.
 
         Examples:
             >>> state = trainer.train(

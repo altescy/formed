@@ -6,10 +6,10 @@ monitor metrics, save checkpoints, implement early stopping, and integrate
 with experiment tracking systems.
 
 Key Components:
-    - TorchTrainingCallback: Base class for all callbacks
-    - EvaluationCallback: Computes metrics using custom evaluators
-    - EarlyStoppingCallback: Stops training based on metric improvements
-    - MlflowCallback: Logs metrics to MLflow
+    - `TorchTrainingCallback`: Base class for all callbacks
+    - `EvaluationCallback`: Computes metrics using custom evaluators
+    - `EarlyStoppingCallback`: Stops training based on metric improvements
+    - `MlflowCallback`: Logs metrics to MLflow
 
 Features:
     - Hook points at training/epoch/batch start and end
@@ -64,15 +64,15 @@ class TorchTrainingCallback(Registrable):
     custom behavior such as logging, checkpointing, or early stopping.
 
     Hook execution order:
-        1. on_training_start - once at the beginning
-        2. on_epoch_start - at the start of each epoch
-        3. on_batch_start - before each training batch
-        4. on_batch_end - after each training batch
-        5. on_eval_start - before evaluation (returns evaluator)
-        6. on_eval_end - after evaluation with computed metrics
-        7. on_log - when metrics are logged
-        8. on_epoch_end - at the end of each epoch
-        9. on_training_end - once at the end (can modify final state)
+        1. `on_training_start` - once at the beginning
+        2. `on_epoch_start` - at the start of each epoch
+        3. `on_batch_start` - before each training batch
+        4. `on_batch_end` - after each training batch
+        5. `on_eval_start` - before evaluation (returns evaluator)
+        6. `on_eval_end` - after evaluation with computed metrics
+        7. `on_log` - when metrics are logged
+        8. `on_epoch_end` - at the end of each epoch
+        9. `on_training_end` - once at the end (can modify final state)
 
     Examples:
         >>> @TorchTrainingCallback.register("my_callback")
@@ -183,7 +183,7 @@ class EvaluationCallback(TorchTrainingCallback, Generic[ModelInputT, ModelOutput
     metric accumulation.
 
     Args:
-        evaluator: Evaluator implementing the IEvaluator protocol.
+        evaluator: Evaluator implementing the `IEvaluator` protocol.
 
     Examples:
         >>> from formed.integrations.ml.metrics import MulticlassAccuracy
@@ -216,8 +216,8 @@ class EarlyStoppingCallback(TorchTrainingCallback):
 
     Args:
         patience: Number of evaluations without improvement before stopping.
-        metric: Metric to monitor. Prefix with "-" to maximize (e.g., "-loss"),
-            or "+" to minimize (e.g., "+error"). Default is "-loss".
+        metric: Metric to monitor. Prefix with `-` to maximize (e.g., `"-loss"`),
+            or `+` to minimize (e.g., `"+error"`). Default is `"-loss"`.
 
     Examples:
         >>> # Stop if validation loss doesn't improve for 5 evaluations

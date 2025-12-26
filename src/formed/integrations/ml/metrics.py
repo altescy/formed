@@ -6,39 +6,44 @@ a common interface with reset, update, and compute methods.
 
 Key Components:
     Base Classes:
-    - BaseMetric: Abstract base for all metrics
-    - BinaryClassificationMetric: Base for binary classification metrics
-    - MulticlassClassificationMetric: Base for multiclass metrics
-    - MultilabelClassificationMetric: Base for multilabel metrics
-    - RegressionMetric: Base for regression metrics
-    - RankingMetric: Base for ranking metrics
+
+    - `BaseMetric`: Abstract base for all metrics
+    - `BinaryClassificationMetric`: Base for binary classification metrics
+    - `MulticlassClassificationMetric`: Base for multiclass metrics
+    - `MultilabelClassificationMetric`: Base for multilabel metrics
+    - `RegressionMetric`: Base for regression metrics
+    - `RankingMetric`: Base for ranking metrics
 
     Classification Metrics:
-    - BinaryAccuracy: Binary classification accuracy
-    - BinaryFBeta: Binary F-beta score (precision, recall, F1)
-    - BinaryROCAUC: Binary ROC AUC (requires scores)
-    - BinaryPRAUC: Binary PR AUC (Precision-Recall curve, requires scores)
-    - MulticlassAccuracy: Multiclass accuracy (micro/macro)
-    - MulticlassFBeta: Multiclass F-beta (micro/macro)
-    - MultilabelAccuracy: Multilabel accuracy
-    - MultilabelFBeta: Multilabel F-beta
+
+    - `BinaryAccuracy`: Binary classification accuracy
+    - `BinaryFBeta`: Binary F-beta score (precision, recall, F1)
+    - `BinaryROCAUC`: Binary ROC AUC (requires scores)
+    - `BinaryPRAUC`: Binary PR AUC (Precision-Recall curve, requires scores)
+    - `MulticlassAccuracy`: Multiclass accuracy (micro/macro)
+    - `MulticlassFBeta`: Multiclass F-beta (micro/macro)
+    - `MultilabelAccuracy`: Multilabel accuracy
+    - `MultilabelFBeta`: Multilabel F-beta
 
     Regression Metrics:
-    - MeanAbsoluteError: MAE metric
-    - MeanSquaredError: MSE metric
+
+    - `MeanAbsoluteError`: MAE metric
+    - `MeanSquaredError`: MSE metric
 
     Ranking Metrics:
-    - MeanAveragePrecision: MAP metric
-    - NDCG: Normalized Discounted Cumulative Gain
+
+    - `MeanAveragePrecision`: MAP metric
+    - `NDCG`: Normalized Discounted Cumulative Gain
 
     Utility Metrics:
-    - Average: Simple averaging metric
-    - EmptyMetric: No-op metric
+
+    - `Average`: Simple averaging metric
+    - `EmptyMetric`: No-op metric
 
 Features:
     - Stateful metrics with accumulation across batches
     - Support for micro and macro averaging
-    - Flexible label types (int, str, bool)
+    - Flexible label types (`int`, `str`, `bool`)
     - Registrable for configuration-based instantiation
 
 Examples:
@@ -226,10 +231,10 @@ class BinaryClassificationInput(Generic[BinaryLabelT]):
 class BinaryClassificationMetric(BaseMetric[BinaryClassificationInput[BinaryLabelT]], Generic[BinaryLabelT]):
     """Base class for binary classification metrics.
 
-    Binary classification metrics work with two classes (0 and 1, or True/False).
+    Binary classification metrics work with two classes (`0 and `1``, or `True`/`False`).
 
     Type Parameters:
-        BinaryLabelT: Type of labels (int, bool, etc.).
+        BinaryLabelT: Type of labels (`int`, `bool`, etc.).
 
     """
 
@@ -288,12 +293,12 @@ class BinaryFBeta(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
 
     Args:
         beta: Weight of recall relative to precision. Common values:
-            - 1.0: F1 score (balanced)
-            - 0.5: F0.5 (emphasizes precision)
-            - 2.0: F2 (emphasizes recall)
+            - `1.0`: F1 score (balanced)
+            - `0.5`: F0.5 (emphasizes precision)
+            - `2.0`: F2 (emphasizes recall)
 
     Returns:
-        Dictionary with "fbeta", "precision", and "recall" metrics.
+        Dictionary with `"fbeta"`, `"precision"`, and `"recall"` metrics.
 
     Examples:
         >>> # F1 score (beta=1.0)
@@ -359,7 +364,7 @@ class BinaryROCAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabel
     represents perfect classification.
 
     Returns:
-        Dictionary with "roc_auc" metric.
+        Dictionary with `"roc_auc"` metric.
 
     Examples:
         >>> metric = BinaryROCAUC()
@@ -453,7 +458,7 @@ class BinaryPRAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
     class is rare.
 
     Returns:
-        Dictionary with "pr_auc" metric.
+        Dictionary with `"pr_auc"` metric.
 
     Examples:
         >>> metric = BinaryPRAUC()
@@ -542,7 +547,7 @@ class MulticlassClassificationMetric(BaseMetric[ClassificationInput[LabelT]], Ge
     both micro and macro averaging strategies.
 
     Type Parameters:
-        LabelT: Type of labels (int, str, etc.).
+        LabelT: Type of labels (`int`, `str`, etc.).
 
     """
 
@@ -559,8 +564,8 @@ class MulticlassAccuracy(MulticlassClassificationMetric[LabelT], Generic[LabelT]
 
     Args:
         average: Averaging strategy:
-            - "micro": Overall accuracy across all samples
-            - "macro": Average of per-class accuracies
+            - `"micro"`: Overall accuracy across all samples
+            - `"macro"`: Average of per-class accuracies
 
     Examples:
         >>> # Micro averaging (overall accuracy)
@@ -625,10 +630,10 @@ class MulticlassFBeta(MulticlassClassificationMetric[LabelT], Generic[LabelT]):
     with support for micro and macro averaging.
 
     Args:
-        beta: Weight of recall relative to precision (default: 1.0 for F1).
+        beta: Weight of recall relative to precision (default: `1.0` for F1).
         average: Averaging strategy:
-            - "micro": Compute globally across all classes
-            - "macro": Compute per-class then average
+            - `"micro"`: Compute globally across all classes
+            - `"macro"`: Compute per-class then average
 
     Returns:
         Dictionary with "fbeta", "precision", and "recall" metrics.

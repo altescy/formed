@@ -17,11 +17,12 @@ class WorkflowStepArchive(NamedTuple):
     """Archived snapshot of a WorkflowStep's execution-time metadata.
 
     This structure captures all information needed to:
-    1. Look up cached results (fingerprint, format_identifier)
-    2. Understand what ran (version, source_hash, config)
-    3. Reconstruct dependency references (dependency_fingerprints)
 
-    All steps are stored flat in WorkflowGraphArchive.steps, and dependencies
+    1. Look up cached results (`fingerprint`, `format_identifier`)
+    2. Understand what ran (`version`, `source_hash`, `config`)
+    3. Reconstruct dependency references (`dependency_fingerprints`)
+
+    All steps are stored flat in `WorkflowGraphArchive.steps`, and dependencies
     are referenced by fingerprint rather than nested recursively.
     """
 
@@ -66,7 +67,7 @@ class WorkflowGraphArchive(NamedTuple):
     """Archived snapshot of a WorkflowGraph's execution-time state.
 
     All steps are stored flat here (not nested). Dependencies between steps
-    are represented by fingerprints in WorkflowStepArchive.dependency_fingerprints.
+    are represented by fingerprints in `WorkflowStepArchive.dependency_fingerprints`.
     """
 
     # Map from step name to its archive

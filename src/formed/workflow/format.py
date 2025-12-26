@@ -5,11 +5,11 @@ workflow step results. Multiple formats support different data types and
 use cases.
 
 Key Components:
-    - Format: Abstract base class for all formats
-    - PickleFormat: Universal format using cloudpickle
-    - JsonFormat: JSON format for JSON-serializable data
-    - MappingFormat: JSON format for mappings/dicts
-    - AutoFormat: Automatically selects appropriate format
+    - `Format`: Abstract base class for all formats
+    - `PickleFormat`: Universal format using cloudpickle
+    - `JsonFormat`: JSON format for JSON-serializable data
+    - `MappingFormat`: JSON format for mappings/dicts
+    - `AutoFormat`: Automatically selects appropriate format
 
 Features:
     - Support for iterators and streaming data
@@ -230,7 +230,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     def write(self, artifact: _JsonFormattableT, directory: Path) -> None:
         """Write JSON-serializable artifact to directory.
 
-        Writes artifact.json for single objects or artifact.jsonl for
+        Writes artifact.json for single objects or `artifact.jsonl` for
         iterators. Also writes metadata.json containing type information
         for reconstruction.
 
@@ -267,8 +267,8 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     def read(self, directory: Path) -> _JsonFormattableT:
         """Read JSON artifact from directory.
 
-        Reads artifact.json or artifact.jsonl and reconstructs the
-        original type using metadata.json if available.
+        Reads `artifact.json` or artifact.jsonl and reconstructs the
+        original type using `metadata.json` if available.
 
         Args:
             directory: Directory to read from.

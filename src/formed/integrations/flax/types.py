@@ -5,11 +5,11 @@ used throughout the Flax integration, providing type-safe interfaces for
 data loaders, evaluators, optimizers, and model components.
 
 Key Protocols:
-    - IOptimizer: Protocol for optax-compatible optimizers
-    - IDataLoader: Protocol for data loading functions
-    - IEvaluator: Protocol for metric computation
-    - IIDSequenceBatch: Protocol for tokenized sequence batches
-    - IAnalyzedTextBatch: Protocol for analyzed text with multiple features
+    - `IOptimizer`: Protocol for optax-compatible optimizers
+    - `IDataLoader`: Protocol for data loading functions
+    - `IEvaluator`: Protocol for metric computation
+    - `IIDSequenceBatch`: Protocol for tokenized sequence batches
+    - `IAnalyzedTextBatch`: Protocol for analyzed text with multiple features
 
 Type Variables:
     - ModelInputT/ModelOutputT: Model input/output types

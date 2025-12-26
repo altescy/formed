@@ -168,7 +168,7 @@ def evaluate_torch_model(
         dataloader: DataLoader to convert items to model inputs.
         params: Optional model parameters to use for evaluation.
         random_seed: Optional random seed for reproducibility.
-        device: Optional device (e.g., "cpu", "cuda") to run evaluation on.
+        device: Optional device (e.g., `"cpu"`, `"cuda"`) to run evaluation on.
 
     Returns:
         Dictionary of computed evaluation metrics.

@@ -228,10 +228,10 @@ class DataLoader(Generic[_InputT, _BatchT]):
         ...         pass
 
     Note:
-        When using buffering (buffer_size > 0), the collator function and
+        When using buffering (`buffer_size > 0`), the collator function and
         any objects it references must be picklable, as they will be passed
         to a background process. Also, it's recommended to use the loader
-        with a context manager (closing) to ensure proper cleanup of the
+        with a context manager (`closing`) to ensure proper cleanup of the
         background process.
     """
 
@@ -252,7 +252,7 @@ class DataLoader(Generic[_InputT, _BatchT]):
             data: The dataset to create batches from.
 
         Returns:
-            A sized iterator that yields batches. If buffer_size > 0, the
+            A sized iterator that yields batches. If `buffer_size > 0`, the
             iterator will prefetch batches in a background process.
         """
         if not isinstance(data, Sequence):

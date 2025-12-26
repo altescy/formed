@@ -14,12 +14,12 @@ def use_device(device: str | torch.device | None = None) -> Iterator[torch.devic
     """Context manager to set and restore the default PyTorch device.
 
     This context manager allows temporarily setting the default device
-    used in PyTorch operations (e.g., in ensure_torch_tensor). It saves
+    used in PyTorch operations (e.g., in `ensure_torch_tensor`). It saves
     the current device on entry and restores it on exit.
 
     Args:
         device: Device to use within the context. Can be a torch.device,
-            a string like "cuda:0" or "cpu", or None.
+            a string like `"cuda:0"` or `"cpu"`, or None.
 
     Yields:
         The current device within the context.
@@ -54,7 +54,7 @@ def get_device() -> torch.device | None:
     """Get the current default PyTorch device from context.
 
     Returns:
-        The current device set in the context, or None if not set.
+        The current device set in the context, or `None` if not set.
 
     Examples:
         >>> from formed.integrations.torch import use_device, get_device

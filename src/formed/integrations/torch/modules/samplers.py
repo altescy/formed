@@ -3,13 +3,13 @@
 This module provides samplers that convert model logits into discrete labels.
 
 Key Components:
-    - BaseLabelSampler: Abstract base class for label samplers
-    - ArgmaxLabelSampler: Selects the label with highest logit
-    - MultinomialLabelSampler: Samples from categorical distribution
-    - BaseMultilabelSampler: Abstract base class for multilabel samplers
-    - ThresholdMultilabelSampler: Selects labels above a threshold
-    - TopKMultilabelSampler: Selects top-k labels
-    - BernoulliMultilabelSampler: Samples labels from independent Bernoulli distributions
+    - `BaseLabelSampler`: Abstract base class for label samplers
+    - `ArgmaxLabelSampler`: Selects the label with highest logit
+    - `MultinomialLabelSampler`: Samples from categorical distribution
+    - `BaseMultilabelSampler`: Abstract base class for multilabel samplers
+    - `ThresholdMultilabelSampler`: Selects labels above a threshold
+    - `TopKMultilabelSampler`: Selects top-k labels
+    - `BernoulliMultilabelSampler`: Samples labels from independent Bernoulli distributions
 
 
 Examples:
@@ -54,11 +54,11 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         """Sample labels from logits.
 
         Args:
-            logits: Model output logits of shape (..., num_classes).
+            logits: Model output logits of shape `(..., num_classes)`.
             **kwargs: Additional parameters for sampling.
 
         Returns:
-            Sampled labels of shape (...).
+            Sampled labels of shape `(...)`.
 
         """
         raise NotImplementedError
@@ -82,11 +82,11 @@ class ArgmaxLabelSampler(BaseLabelSampler[None]):
         """Select the argmax label.
 
         Args:
-            logits: Logits of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
             **kwargs: Ignored.
 
         Returns:
-            Labels of shape (...).
+            Labels of shape `(...)`.
 
         """
         return logits.argmax(dim=-1)
@@ -124,13 +124,13 @@ class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
         """Sample labels from categorical distribution.
 
         Args:
-            logits: Logits of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
             temperature: Sampling temperature to control randomness.
                 Higher temperature = more random, lower = more deterministic.
             **kwargs: Ignored.
 
         Returns:
-            Sampled labels of shape (...).
+            Sampled labels of shape `(...)`.
 
         """
         temperature = params.get("temperature", 1.0) if params is not None else 1.0
@@ -157,11 +157,11 @@ class BaseMultilabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         """Sample multiple labels from logits.
 
         Args:
-            logits: Model output logits of shape (..., num_classes).
+            logits: Model output logits of shape `(..., num_classes)`.
             **kwargs: Additional parameters for sampling.
 
         Returns:
-            Sampled labels of shape (..., num_labels).
+            Sampled labels of shape `(..., num_labels)`.
 
         """
         raise NotImplementedError
@@ -204,11 +204,11 @@ class ThresholdMultilabelSampler(BaseMultilabelSampler[ThresholdMultilabelSample
         """Select labels above the threshold.
 
         Args:
-            logits: Logits of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
             params: Optional parameters containing threshold.
 
         Returns:
-            Labels of shape (..., num_labels).
+            Labels of shape `(..., num_labels)`.
 
         """
         threshold = (params or {}).get("threshold", self.threshold)
@@ -250,11 +250,11 @@ class TopKMultilabelSampler(BaseMultilabelSampler[TopKMultilabelSamplerParams]):
         """Select the top-k labels.
 
         Args:
-            logits: Logits of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
             **kwargs: Ignored.
 
         Returns:
-            Labels of shape (..., num_labels).
+            Labels of shape `(..., num_labels)`.
 
         """
         k = (params or {}).get("k", self.k)
@@ -278,11 +278,11 @@ class BernoulliMultilabelSampler(BaseMultilabelSampler[None]):
         """Sample labels from Bernoulli distributions.
 
         Args:
-            logits: Logits of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
             **kwargs: Ignored.
 
         Returns:
-            Sampled labels of shape (..., num_labels).
+            Sampled labels of shape `(..., num_labels)`.
 
         """
         probs = torch.sigmoid(logits)

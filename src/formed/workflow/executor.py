@@ -4,10 +4,10 @@ This module provides the execution engine for workflows, coordinating step execu
 caching, callbacks, and state management.
 
 Key Components:
-    - WorkflowExecutor: Abstract base for execution engines
-    - DefaultWorkflowExecutor: Default sequential execution implementation
-    - WorkflowExecutionContext: Runtime context for workflow execution
-    - WorkflowExecutionInfo: Metadata about workflow execution
+    - `WorkflowExecutor`: Abstract base for execution engines
+    - `DefaultWorkflowExecutor`: Default sequential execution implementation
+    - `WorkflowExecutionContext`: Runtime context for workflow execution
+    - `WorkflowExecutionInfo`: Metadata about workflow execution
 
 Features:
     - Sequential step execution with dependency resolution
@@ -108,12 +108,12 @@ class WorkflowExecutionInfo:
     def json(self) -> dict[str, JsonValue]:
         """Convert to JSON-serializable dict.
 
-        Returns a dict that may contain types requiring WorkflowJSONEncoder
+        Returns a dict that may contain types requiring `WorkflowJSONEncoder`
         for proper serialization (e.g., datetime, git info).
 
-        Usage:
-            data = execution_info.to_json_dict()
-            json.dump(data, file, cls=WorkflowJSONEncoder)
+        Examples:
+            >>> data = execution_info.to_json_dict()
+            >>> json.dump(data, file, cls=WorkflowJSONEncoder)
         """
         return {
             "format_version": "2.0",
@@ -128,9 +128,9 @@ class WorkflowExecutionInfo:
 
         Validates format version and reconstructs all fields.
 
-        Usage:
-            data = json.load(file, cls=WorkflowJSONDecoder)
-            execution_info = WorkflowExecutionInfo.from_json_dict(data)
+        Examples:
+            >>> data = json.load(file, cls=WorkflowJSONDecoder)
+            >>> execution_info = WorkflowExecutionInfo.from_json_dict(data)
         """
 
         if data.get("format_version") != "2.0":
