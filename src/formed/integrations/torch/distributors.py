@@ -13,7 +13,7 @@ Features:
     - Reduction operations (mean, sum) across devices
     - Compatible with TorchTrainer
 
-Example:
+Examples:
     >>> from formed.integrations.torch import DataParallelDistributor
     >>> import torch
     >>>
@@ -208,7 +208,7 @@ class SingleDeviceDistributor(BaseDistributor[ModelInputT]):
     Args:
         device: Device to use (default: "cuda" if available, else "cpu").
 
-    Example:
+    Examples:
         >>> distributor = SingleDeviceDistributor(device="cuda:0")
         >>> model = model.to(distributor.device)
 
@@ -249,7 +249,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
         device_ids: List of GPU device IDs to use. Defaults to all available GPUs.
         output_device: Device for outputs. Defaults to device_ids[0].
 
-    Example:
+    Examples:
         >>> # Train on GPUs 0 and 1 with data parallelism
         >>> distributor = DataParallelDistributor(device_ids=[0, 1])
         >>>
@@ -339,7 +339,7 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
         - MASTER_ADDR: Address of the master node
         - MASTER_PORT: Port of the master node
 
-    Example:
+    Examples:
         >>> # On each process, initialize the distributor
         >>> distributor = DistributedDataParallelDistributor(
         ...     backend="nccl",

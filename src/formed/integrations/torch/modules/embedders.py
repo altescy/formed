@@ -15,7 +15,7 @@ Features:
     - Configurable vectorization for character-level embeddings
     - Concatenation of multiple embedding types
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import TokenEmbedder, AnalyzedTextEmbedder
     >>> import torch.nn as nn
     >>>
@@ -163,7 +163,7 @@ class PassThroughEmbedder(BaseEmbedder[IVariableTensorBatch[TensorCompatibleT]])
     This embedder is useful when the input tensors are already in the desired
     embedding format. It simply returns the input tensors and their masks.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules import PassThroughEmbedder
         >>>
         >>> embedder = PassThroughEmbedder()
@@ -202,7 +202,7 @@ class TokenEmbedder(BaseEmbedder["IIDSequenceBatch"]):
         padding_idx: Index of the padding token (default: 0).
         vectorizer: Optional vectorizer for 3D inputs (character sequences).
 
-    Example:
+    Examples:
         >>> # Simple word embeddings
         >>> embedder = TokenEmbedder(vocab_size=10000, embedding_dim=128)
         >>> output = embedder(word_ids_batch)
@@ -289,7 +289,7 @@ class PretrainedTransformerEmbedder(BaseEmbedder[IIDSequenceBatch]):
         freeze: If True, freezes all model parameters (no gradient computation).
         **kwargs: Additional keyword arguments passed to the model loader.
 
-    Example:
+    Examples:
         >>> # Load a pretrained BERT model
         >>> embedder = PretrainedTransformerEmbedder(
         ...     model="bert-base-uncased",
@@ -420,7 +420,7 @@ class AnalyzedTextEmbedder(BaseEmbedder["IAnalyzedTextBatch"]):
     Raises:
         ValueError: If all embedders are None (at least one is required).
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules import (
         ...     AnalyzedTextEmbedder,
         ...     TokenEmbedder

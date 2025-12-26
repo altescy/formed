@@ -16,7 +16,7 @@ Features:
     - Automatic padding and masking
     - Reconstruction support (indices -> tokens)
 
-Example:
+Examples:
     >>> from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
     >>>
     >>> # Simple tokenization
@@ -89,7 +89,7 @@ class TokenSequenceIndexer(
         bos_index: Index of BOS token (if set).
         eos_index: Index of EOS token (if set).
 
-    Example:
+    Examples:
         >>> # Build vocabulary with filtering
         >>> indexer = TokenSequenceIndexer(
         ...     unk_token="<UNK>",
@@ -312,7 +312,7 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
         min_characters: Minimum character length per token (for padding).
         (inherits all attributes from TokenSequenceIndexer)
 
-    Example:
+    Examples:
         >>> indexer = TokenCharactersIndexer(
         ...     unk_token="<UNK>",
         ...     bos_token="<BOS>",
@@ -410,7 +410,7 @@ class Tokenizer(
         characters: Optional character-level indexer for tokens.
         analyzer: Optional custom text analyzer/tokenizer function.
 
-    Example:
+    Examples:
         >>> # Basic tokenization
         >>> tokenizer = Tokenizer(
         ...     surfaces=TokenSequenceIndexer(unk_token="<UNK>")

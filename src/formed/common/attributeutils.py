@@ -9,7 +9,7 @@ Key Features:
     - Wildcard pattern for mapping over sequences
     - Default value support
 
-Example:
+Examples:
     >>> from formed.common.attributeutils import xgetattr
     >>>
     >>> # Nested attribute access
@@ -57,7 +57,7 @@ def xgetattr(
     Raises:
         AttributeError: If attribute not found and no default specified.
 
-    Example:
+    Examples:
         >>> # Nested object access
         >>> class User:
         ...     def __init__(self, name):

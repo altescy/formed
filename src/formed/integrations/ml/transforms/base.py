@@ -17,7 +17,7 @@ Design Patterns:
     - Mode-based behavior (AsInstance, AsBatch, AsConverter)
     - Automatic JAX pytree registration for compatibility with jax.jit/jax.vmap
 
-Example:
+Examples:
     >>> from formed.integrations.ml import DataModule, TensorTransform, LabelIndexer, Extra
     >>>
     >>> class MyDataModule(DataModule[DataModuleModeT, dict, ...]):
@@ -135,7 +135,7 @@ def register_dataclass(cls: _TypeT) -> _TypeT:
         - Registration is idempotent; registering twice has no effect.
         - If the class is a DataModule, recursively registers nested dataclasses.
 
-    Example:
+    Examples:
         >>> @dataclasses.dataclass
         ... class MyData:
         ...     values: list[float]
@@ -446,7 +446,7 @@ class BaseTransform(
         instance: Transform a single data point to its instance representation.
         batch: Collate a sequence of instances into a batched representation.
 
-    Example:
+    Examples:
         >>> class LowercaseTransform(BaseTransform[dict, str, str, list[str]]):
         ...     def instance(self, text: str) -> str:
         ...         return text.lower()
@@ -604,7 +604,7 @@ class BaseTransform(
         Yields:
             None
 
-        Example:
+        Examples:
             >>> indexer = TokenSequenceIndexer()
             >>> with indexer.train():
             ...     # Build vocabulary from training data
@@ -735,9 +735,9 @@ class DataModule(
         - Extra fields: Optional transforms (e.g., labels for test data)
         - Param fields: Non-transformed parameters that pass through unchanged
 
-    Example:
+    Examples:
         >>> @dataclasses.dataclass
-        ... class TextExample:
+        ... class TextExamples:
         ...     text: str
         ...     label: Optional[str] = None
         >>>
@@ -831,7 +831,7 @@ class DataModule(
         Yields:
             None
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> with dm.train():
             ...     instances = [dm.instance(example) for example in train_data]
@@ -861,7 +861,7 @@ class DataModule(
         Returns:
             A DataModule in AsInstance mode with transformed fields.
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> instance = dm.instance({"text": "hello world", "label": "positive"})
             >>> print(instance.text.surfaces)  # Tokenized text
@@ -906,7 +906,7 @@ class DataModule(
         Returns:
             A DataModule in AsBatch mode with batched tensor fields.
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> instances = [dm.instance(ex) for ex in examples]
             >>> batch = dm.batch(instances)

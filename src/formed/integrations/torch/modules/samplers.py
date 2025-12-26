@@ -12,7 +12,7 @@ Key Components:
     - BernoulliMultilabelSampler: Samples labels from independent Bernoulli distributions
 
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import ArgmaxLabelSampler, MultinomialLabelSampler
     >>> import torch
     >>>
@@ -71,7 +71,7 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
 class ArgmaxLabelSampler(BaseLabelSampler[None]):
     """Label sampler that selects the label with the highest logit.
 
-    Example:
+    Examples:
         >>> sampler = ArgmaxLabelSampler()
         >>> logits = torch.randn(4, 10)
         >>> labels = sampler(logits)  # Shape: (4,)
@@ -108,7 +108,7 @@ class MultinomialLabelSamplerParams(TypedDict, total=False):
 class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
     """Label sampler that samples labels from a multinomial distribution.
 
-    Example:
+    Examples:
         >>> sampler = MultinomialLabelSampler()
         >>> logits = torch.randn(4, 10)
         >>>
@@ -185,7 +185,7 @@ class ThresholdMultilabelSamplerParams(TypedDict, total=False):
 class ThresholdMultilabelSampler(BaseMultilabelSampler[ThresholdMultilabelSamplerParams]):
     """Multilabel sampler that selects labels above a certain threshold.
 
-    Example:
+    Examples:
         >>> sampler = ThresholdMultilabelSampler(threshold=0.5)
         >>> logits = torch.randn(4, 10)
         >>> labels = sampler(logits)  # Shape: (4, num_labels)
@@ -231,7 +231,7 @@ class TopKMultilabelSamplerParams(TypedDict, total=False):
 class TopKMultilabelSampler(BaseMultilabelSampler[TopKMultilabelSamplerParams]):
     """Multilabel sampler that selects the top-k labels.
 
-    Example:
+    Examples:
         >>> sampler = TopKMultilabelSampler(k=3)
         >>> logits = torch.randn(4, 10)
         >>> labels = sampler(logits)  # Shape: (4, num_labels)
@@ -267,7 +267,7 @@ class TopKMultilabelSampler(BaseMultilabelSampler[TopKMultilabelSamplerParams]):
 class BernoulliMultilabelSampler(BaseMultilabelSampler[None]):
     """Multilabel sampler that samples labels from independent Bernoulli distributions.
 
-    Example:
+    Examples:
         >>> sampler = BernoulliMultilabelSampler()
         >>> logits = torch.randn(4, 10)
         >>> labels = sampler(logits)  # Shape: (4, num_labels)

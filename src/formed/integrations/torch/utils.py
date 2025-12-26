@@ -50,7 +50,7 @@ def ensure_torch_tensor(
     Returns:
         PyTorch tensor on the specified device with the specified dtype.
 
-    Example:
+    Examples:
         >>> import numpy as np
         >>> from formed.integrations.torch import ensure_torch_tensor, use_device
         >>> arr = np.array([1, 2, 3])

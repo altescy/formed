@@ -7,7 +7,7 @@ Key Components:
     - BaseClassificationLoss: Abstract base class for classification losses
     - CrossEntropyLoss: Standard cross-entropy loss with optional weighting
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import CrossEntropyLoss
     >>> import torch
     >>>
@@ -78,7 +78,7 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
         weighter: An optional label weighter to assign weights to each class.
         reduce: Reduction method - "mean" or "sum".
 
-    Example:
+    Examples:
         >>> loss_fn = CrossEntropyLoss()
         >>> logits = torch.randn(4, 10)
         >>> labels = torch.randint(0, 10, (4,))
@@ -144,7 +144,7 @@ class BCEWithLogitsLoss(BaseClassificationLoss[_ParamsT]):
         reduce: Reduction method - "mean" or "sum".
         pos_weight: Optional weight for positive examples per class.
 
-    Example:
+    Examples:
         >>> loss_fn = BCEWithLogitsLoss()
         >>> logits = torch.randn(4, 10)  # (batch_size, num_classes)
         >>> labels = torch.randint(0, 2, (4, 10)).float()  # (batch_size, num_classes)
@@ -236,7 +236,7 @@ class MeanSquaredErrorLoss(BaseRegressionLoss[_ParamsT]):
     Args:
         reduce: Reduction method - "mean" or "sum".
 
-    Example:
+    Examples:
         >>> loss_fn = MeanSquaredErrorLoss()
         >>> predictions = torch.randn(4)
         >>> labels = torch.randn(4)

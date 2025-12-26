@@ -3,7 +3,7 @@
 This module provides the DAG class for representing and manipulating directed acyclic
 graphs. It's used primarily for workflow dependency visualization and analysis.
 
-Example:
+Examples:
     >>> # Create a simple DAG
     >>> dag = DAG({
     ...     "train": {"preprocess", "load_data"},
@@ -39,7 +39,7 @@ class DAG(Generic[NodeT]):
     Attributes:
         _dependencies: Mapping from each node to its set of dependency nodes.
 
-    Example:
+    Examples:
         >>> # Define workflow dependencies
         >>> dag = DAG({
         ...     "step3": {"step1", "step2"},
@@ -132,7 +132,7 @@ class DAG(Generic[NodeT]):
         Returns:
             Set of DAG objects, each representing one weakly connected component.
 
-        Example:
+        Examples:
             >>> # Graph with two disconnected components
             >>> dag = DAG({
             ...     "a": {"b"},
@@ -183,7 +183,7 @@ class DAG(Generic[NodeT]):
             output: Text stream to write visualization to. Defaults to stdout.
             rename: Function to convert nodes to display strings. Defaults to str().
 
-        Example:
+        Examples:
             >>> dag = DAG({
             ...     "train": {"preprocess"},
             ...     "preprocess": {"load"},

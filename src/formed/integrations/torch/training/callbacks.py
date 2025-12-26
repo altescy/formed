@@ -19,7 +19,7 @@ Features:
     - MLflow integration
     - Extensible for custom callbacks
 
-Example:
+Examples:
     >>> from formed.integrations.torch import (
     ...     TorchTrainer,
     ...     EarlyStoppingCallback,
@@ -74,7 +74,7 @@ class TorchTrainingCallback(Registrable):
         8. on_epoch_end - at the end of each epoch
         9. on_training_end - once at the end (can modify final state)
 
-    Example:
+    Examples:
         >>> @TorchTrainingCallback.register("my_callback")
         ... class MyCallback(TorchTrainingCallback):
         ...     def on_epoch_end(self, trainer, model, state, epoch):
@@ -185,7 +185,7 @@ class EvaluationCallback(TorchTrainingCallback, Generic[ModelInputT, ModelOutput
     Args:
         evaluator: Evaluator implementing the IEvaluator protocol.
 
-    Example:
+    Examples:
         >>> from formed.integrations.ml.metrics import MulticlassAccuracy
         >>>
         >>> evaluator = MulticlassAccuracy()
@@ -219,7 +219,7 @@ class EarlyStoppingCallback(TorchTrainingCallback):
         metric: Metric to monitor. Prefix with "-" to maximize (e.g., "-loss"),
             or "+" to minimize (e.g., "+error"). Default is "-loss".
 
-    Example:
+    Examples:
         >>> # Stop if validation loss doesn't improve for 5 evaluations
         >>> callback = EarlyStoppingCallback(patience=5, metric="-val/loss")
         >>>
@@ -353,7 +353,7 @@ class MlflowCallback(TorchTrainingCallback):
     This callback automatically logs training and validation metrics to
     MLflow when used within a workflow step that has MLflow tracking enabled.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch import TorchTrainer, MlflowCallback
         >>>
         >>> trainer = TorchTrainer(

@@ -10,7 +10,7 @@ Key Features:
     - Generic type support for inputs, outputs, and parameters
     - Compatible with TorchTrainer for end-to-end training
 
-Example:
+Examples:
     >>> from formed.integrations.torch import BaseTorchModel
     >>> import torch
     >>> import torch.nn as nn

@@ -1,0 +1,39 @@
+# Flax
+
+- [Distributors](#formed.integrations.flax.distributors)
+- [Model](#formed.integrations.flax.model)
+- Modules
+    - [Embedders](#formed.integrations.flax.modules.embedders)
+    - [Encoders](#formed.integrations.flax.modules.encoders)
+    - [Feedforward](#formed.integrations.flax.modules.feedforward)
+    - [Losses](#formed.integrations.flax.modules.losses)
+    - [Samplers](#formed.integrations.flax.modules.samplers)
+    - [Vectorizers](#formed.integrations.flax.modules.vectorizers)
+    - [Weighters](#formed.integrations.flax.modules.weighters)
+- Training
+    - [Callbacks](#formed.integrations.flax.training.callbacks)
+    - [Engine](#formed.integrations.flax.training.engine)
+    - [Exceptions](#formed.integrations.flax.training.exceptions)
+    - [State](#formed.integrations.flax.training.state)
+    - [Trainer](#formed.integrations.flax.training.trainer)
+- [Random](#formed.integrations.flax.random)
+- [Utils](#formed.integrations.flax.utils)
+- [Workflow](#formed.integrations.flax.workflow)
+
+::: formed.integrations.flax.distributors
+::: formed.integrations.flax.model
+::: formed.integrations.flax.modules.embedders
+::: formed.integrations.flax.modules.encoders
+::: formed.integrations.flax.modules.feedforward
+::: formed.integrations.flax.modules.losses
+::: formed.integrations.flax.modules.samplers
+::: formed.integrations.flax.modules.vectorizers
+::: formed.integrations.flax.modules.weighters
+::: formed.integrations.flax.training.callbacks
+::: formed.integrations.flax.training.engine
+::: formed.integrations.flax.training.exceptions
+::: formed.integrations.flax.training.state
+::: formed.integrations.flax.training.trainer
+::: formed.integrations.flax.random
+::: formed.integrations.flax.utils
+::: formed.integrations.flax.workflow

@@ -33,7 +33,7 @@ Performance:
     - Need maximum read/write speed
     - Single-process access only
 
-Example:
+Examples:
     >>> from formed.common.dataset import Dataset
     >>>
     >>> # Create temporary dataset (auto-deleted when all references gone)
@@ -536,7 +536,7 @@ class Dataset(Sequence[T]):
         Returns:
             A new Dataset containing all items from the iterable.
 
-        Example:
+        Examples:
             >>> data = [1, 2, 3, 4, 5]
             >>> dataset = Dataset.from_iterable(data, path="/tmp/numbers")
             >>> len(dataset)
@@ -567,7 +567,7 @@ class Dataset(Sequence[T]):
         Raises:
             FileNotFoundError: If the path doesn't exist.
 
-        Example:
+        Examples:
             >>> # Create dataset
             >>> dataset1 = Dataset[str](path="/tmp/mydata")
             >>> dataset1.append("hello")

@@ -17,7 +17,7 @@ Features:
     - Support for batch-wise and sequence-wise masks
     - Easily extensible via registration system for custom masks
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import CausalMask
     >>>
     >>> # Create a causal mask generator
@@ -88,7 +88,7 @@ class CausalMask(BaseAttentionMask):
     Causal masks ensure that each position can only attend to itself
     and previous positions, enabling autoregressive generation.
 
-    Example:
+    Examples:
         >>> masks = CausalMask()
         >>> mask = masks(seq_len=4, batch_size=1, device=torch.device('cpu'))
         >>> # mask[i, j] = 0.0 if j <= i else float('-inf')
@@ -132,7 +132,7 @@ class SlidingWindowAttentionMask(BaseAttentionMask):
         window_size: Size of the attention window on each side.
                      Total window is (2 * window_size + 1) centered on each position.
 
-    Example:
+    Examples:
         >>> # Window size of 1 means each position can attend to itself and
         >>> # one position on each side
         >>> mask_gen = SlidingWindowAttentionMask(window_size=1)
@@ -190,7 +190,7 @@ class CombinedMask(BaseAttentionMask):
     Args:
         masks: List of attention masks to combine.
 
-    Example:
+    Examples:
         >>> # Combine multiple structural masks
         >>> mask1 = CausalMask()
         >>> mask2 = SomeOtherMask()

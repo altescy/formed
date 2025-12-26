@@ -9,7 +9,7 @@ Key Features:
     - BLAKE2b hashing for cryptographic strength
     - MurmurHash3 for string hashing (non-cryptographic)
 
-Example:
+Examples:
     >>> from formed.common.hashutils import hash_object, murmurhash3
     >>>
     >>> # Hash complex objects
@@ -41,7 +41,7 @@ def hash_object_bytes(o: Any) -> bytes:
     Returns:
         The BLAKE2b hash digest as bytes.
 
-    Example:
+    Examples:
         >>> obj = {"key": "value", "nested": [1, 2, 3]}
         >>> hash_bytes = hash_object_bytes(obj)
         >>> len(hash_bytes)  # BLAKE2b produces 64 bytes
@@ -67,7 +67,7 @@ def hash_object(o: Any) -> int:
     Returns:
         The hash as a large integer.
 
-    Example:
+    Examples:
         >>> config1 = {"model": "bert"}
         >>> config2 = {"model": "gpt"}
         >>> hash_object(config1) != hash_object(config2)
@@ -91,7 +91,7 @@ def murmurhash3(key: str, seed: int = 0) -> int:
     Returns:
         A 32-bit unsigned integer hash value.
 
-    Example:
+    Examples:
         >>> # Hash strings quickly
         >>> murmurhash3("token")
         123456789  # Example value

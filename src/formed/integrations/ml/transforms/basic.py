@@ -9,7 +9,7 @@ Available Transforms:
     - ScalarTransform: Convert scalar values to numpy arrays
     - TensorTransform: Convert numpy arrays to batched tensors
 
-Example:
+Examples:
     >>> from formed.integrations.ml import LabelIndexer, ScalarTransform
     >>>
     >>> # Label indexing with vocabulary building
@@ -62,7 +62,7 @@ class MetadataTransform(
         _S: Source data type before accessor
         _T: Value type (same as instance and element of batch)
 
-    Example:
+    Examples:
         >>> transform = MetadataTransform(accessor="id")
         >>> instance = transform({"id": "example_001"})  # Returns "example_001"
         >>> batch = transform.batch(["example_001", "example_002", "example_003"])
@@ -104,7 +104,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
         occurrences: Dictionary mapping labels to their occurrence counts.
         distribution: Smoothed probability distribution over labels.
 
-    Example:
+    Examples:
         >>> # Dynamic vocabulary building
         >>> indexer = LabelIndexer()
         >>> with indexer.train():
@@ -252,7 +252,7 @@ class LabelIndexer(BaseTransform[_S, LabelT, int, numpy.ndarray], Generic[_S, La
         Returns:
             List of labels corresponding to the indices.
 
-        Example:
+        Examples:
             >>> indexer = LabelIndexer(label2id=[("cat", 0), ("dog", 1)])
             >>> indices = numpy.array([0, 1, 0])
             >>> labels = indexer.reconstruct(indices)
@@ -276,7 +276,7 @@ class ScalarTransform(
     Type Parameters:
         _S: Source data type before accessor
 
-    Example:
+    Examples:
         >>> transform = ScalarTransform(accessor="score")
         >>> value = transform({"score": 0.85})  # Returns 0.85
         >>> batch = transform.batch([0.85, 0.92, 0.78])
@@ -311,7 +311,7 @@ class TensorTransform(
     Type Parameters:
         _S: Source data type before accessor
 
-    Example:
+    Examples:
         >>> import numpy as np
         >>> transform = TensorTransform(accessor="features")
         >>> arr = transform({"features": np.array([1.0, 2.0, 3.0])})
@@ -354,7 +354,7 @@ class VariableTensorTransform(
     Type Parameters:
         _S: Source data type before accessor
 
-    Example:
+    Examples:
         >>> import numpy as np
         >>> transform = VariableTensorTransform(accessor="sequences")
         >>> arr = transform({"sequences": np.array([1, 2, 3])})
@@ -428,7 +428,7 @@ class TensorSequenceTransform(
     Type Parameters:
         _S: Source data type before accessor
 
-    Example:
+    Examples:
         >>> import numpy as np
         >>> transform = TensorSequenceTransform(accessor="token_vectors")
         >>>

@@ -15,7 +15,7 @@ Features:
     - Separate train and eval steps
     - Compatible with FlaxTrainer and distributors
 
-Example:
+Examples:
     >>> from formed.integrations.flax import DefaultFlaxTrainingEngine
     >>>
     >>> # Create engine with custom loss accessor
@@ -136,7 +136,7 @@ class DefaultFlaxTrainingEngine(FlaxTrainingEngine[ModelInputT, ModelOutputT, Mo
             callable that extracts loss from model output.
         optimizer: Optax optimizer or transformation.
 
-    Example:
+    Examples:
         >>> # Use output.loss attribute
         >>> engine = DefaultFlaxTrainingEngine(loss="loss")
         >>>

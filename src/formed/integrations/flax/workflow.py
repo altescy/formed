@@ -4,7 +4,7 @@ This module provides workflow steps for training Flax models, allowing
 them to be integrated into the formed workflow system with automatic
 caching and dependency tracking.
 
-Example:
+Examples:
     >>> from formed.integrations.flax import train_flax_model
     >>>
     >>> # In workflow configuration (jsonnet):
@@ -110,7 +110,7 @@ def train_flax_model(
     Returns:
         Trained Flax model with updated parameters.
 
-    Example:
+    Examples:
         >>> # Use in Python code
         >>> trained_model = train_flax_model(
         ...     model=my_model,

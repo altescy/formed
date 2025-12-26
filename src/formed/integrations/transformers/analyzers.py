@@ -6,7 +6,7 @@ from the Hugging Face transformers library to tokenize text into surface forms.
 Available Classes:
     - PretrainedAnalyzer: Analyzer using pretrained transformer tokenizers
 
-Example:
+Examples:
     >>> from formed.integrations.transformers.analyzers import PretrainedAnalyzer
     >>>
     >>> # Initialize with model name
@@ -39,7 +39,7 @@ class PretrainedTransformerAnalyzer:
         tokenizer: Either a tokenizer name/path string or a PreTrainedTokenizerBase instance.
             If a string, the tokenizer will be loaded using AutoTokenizer.
 
-    Example:
+    Examples:
         >>> # Initialize with model name
         >>> analyzer = PretrainedAnalyzer("bert-base-uncased")
         >>> result = analyzer("Hello, world!")

@@ -41,7 +41,7 @@ Features:
     - Flexible label types (int, str, bool)
     - Registrable for configuration-based instantiation
 
-Example:
+Examples:
     >>> from formed.integrations.ml.metrics import MulticlassAccuracy, ClassificationInput
     >>>
     >>> # Create metric
@@ -86,7 +86,7 @@ class BaseMetric(Registrable, Generic[_T], abc.ABC):
     Type Parameters:
         _T: Type of input data for this metric.
 
-    Example:
+    Examples:
         >>> @BaseMetric.register("my_metric")
         ... class MyMetric(BaseMetric[MyInputType]):
         ...     def reset(self):
@@ -168,7 +168,7 @@ class Average(BaseMetric[Sequence[float]]):
     Args:
         name: Name for the metric in output dictionary.
 
-    Example:
+    Examples:
         >>> metric = Average(name="loss")
         >>> metric.update([1.0, 2.0, 3.0])
         >>> metric.update([4.0, 5.0])
@@ -243,7 +243,7 @@ class BinaryAccuracy(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLab
 
     Computes the fraction of correct predictions.
 
-    Example:
+    Examples:
         >>> metric = BinaryAccuracy()
         >>> inputs = ClassificationInput(
         ...     predictions=[1, 0, 1, 1],
@@ -295,7 +295,7 @@ class BinaryFBeta(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
     Returns:
         Dictionary with "fbeta", "precision", and "recall" metrics.
 
-    Example:
+    Examples:
         >>> # F1 score (beta=1.0)
         >>> metric = BinaryFBeta(beta=1.0)
         >>> inputs = ClassificationInput(
@@ -361,7 +361,7 @@ class BinaryROCAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabel
     Returns:
         Dictionary with "roc_auc" metric.
 
-    Example:
+    Examples:
         >>> metric = BinaryROCAUC()
         >>> inputs = BinaryClassificationInputWithScores(
         ...     predictions=[1, 1, 0, 1],
@@ -455,7 +455,7 @@ class BinaryPRAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
     Returns:
         Dictionary with "pr_auc" metric.
 
-    Example:
+    Examples:
         >>> metric = BinaryPRAUC()
         >>> inputs = BinaryClassificationInputWithScores(
         ...     predictions=[1, 1, 0, 1],
@@ -562,7 +562,7 @@ class MulticlassAccuracy(MulticlassClassificationMetric[LabelT], Generic[LabelT]
             - "micro": Overall accuracy across all samples
             - "macro": Average of per-class accuracies
 
-    Example:
+    Examples:
         >>> # Micro averaging (overall accuracy)
         >>> metric = MulticlassAccuracy(average="micro")
         >>> inputs = ClassificationInput(
@@ -633,7 +633,7 @@ class MulticlassFBeta(MulticlassClassificationMetric[LabelT], Generic[LabelT]):
     Returns:
         Dictionary with "fbeta", "precision", and "recall" metrics.
 
-    Example:
+    Examples:
         >>> metric = MulticlassFBeta(beta=1.0, average="macro")
         >>> inputs = ClassificationInput(
         ...     predictions=[0, 1, 2, 1],

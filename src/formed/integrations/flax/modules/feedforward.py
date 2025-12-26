@@ -14,7 +14,7 @@ Features:
     - Dense residual connections
     - Efficient implementation using scan
 
-Example:
+Examples:
     >>> from formed.integrations.flax.modules import FeedForward
     >>> from flax import nnx
     >>> import jax.nn
@@ -115,7 +115,7 @@ class FeedForward(nnx.Module):
             - "dense": Dense connections (each layer receives sum of all previous)
         rngs: Random number generators (can be int seed or nnx.Rngs).
 
-    Example:
+    Examples:
         >>> # Simple 3-layer network
         >>> ffn = FeedForward(features=256, num_layers=3, rngs=0)
         >>> output = ffn(x)

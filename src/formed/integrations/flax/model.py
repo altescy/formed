@@ -10,7 +10,7 @@ Key Features:
     - Generic type support for inputs, outputs, and parameters
     - Compatible with FlaxTrainer for end-to-end training
 
-Example:
+Examples:
     >>> from formed.integrations.flax import BaseFlaxModel
     >>> from flax import nnx
     >>> import jax

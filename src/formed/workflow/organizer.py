@@ -15,7 +15,7 @@ Features:
     - Thread-safe execution with file locking
     - Automatic log capture and organization
 
-Example:
+Examples:
     >>> from formed.workflow import FilesystemWorkflowOrganizer, DefaultWorkflowExecutor
     >>>
     >>> # Create filesystem organizer

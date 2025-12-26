@@ -14,7 +14,7 @@ Features:
     - Cycle-based decay multiplier
     - Compatible with Colt registration system
 
-Example:
+Examples:
     >>> from formed.integrations.torch.schedulers import CosineLRScheduler
     >>>
     >>> scheduler = CosineLRScheduler(
@@ -59,7 +59,7 @@ class CosineLRScheduler(optim.lr_scheduler.LRScheduler):
         t_in_epochs: If True, t values are in epochs; otherwise in iterations. Default: True.
         last_epoch: The index of last epoch. Default: -1.
 
-    Example:
+    Examples:
         >>> # Create scheduler with 100 epoch cycles and 5 epoch warmup
         >>> scheduler = CosineLRScheduler(
         ...     optimizer,

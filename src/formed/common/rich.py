@@ -70,7 +70,7 @@ class BrailleCanvas:
         width: Canvas width in pixels (not characters).
         height: Canvas height in pixels (not characters).
 
-    Example:
+    Examples:
         >>> canvas = BrailleCanvas(80, 40)
         >>> canvas.set_pixel(10, 10)
         >>> canvas.draw_line(0, 0, 79, 39)
@@ -328,7 +328,7 @@ class BraillePlot:
         x_range: Tuple of (min, max) for x-axis data range.
         y_range: Tuple of (min, max) for y-axis data range.
 
-    Example:
+    Examples:
         >>> plot = BraillePlot(40, 20)
         >>> x = [0, 1, 2, 3, 4, 5]
         >>> y = [0, 1, 4, 9, 16, 25]

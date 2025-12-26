@@ -15,7 +15,7 @@ Features:
     - Composable callback system
     - Registrable for configuration-based instantiation
 
-Example:
+Examples:
     >>> from formed.workflow import WorkflowCallback
     >>>
     >>> @WorkflowCallback.register("custom")
@@ -51,7 +51,7 @@ class WorkflowCallback(Registrable):
         3. on_step_end - after each step execution
         4. on_execution_end - once at workflow end
 
-    Example:
+    Examples:
         >>> class LoggingCallback(WorkflowCallback):
         ...     def on_execution_start(self, execution_context):
         ...         print("Workflow started")
@@ -136,7 +136,7 @@ class MultiWorkflowCallback(WorkflowCallback):
     Args:
         callbacks: Sequence of callbacks to execute.
 
-    Example:
+    Examples:
         >>> callback1 = LoggingCallback()
         >>> callback2 = MetricsCallback()
         >>> multi = MultiWorkflowCallback([callback1, callback2])

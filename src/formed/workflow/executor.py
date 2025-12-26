@@ -16,7 +16,7 @@ Features:
     - Execution state tracking
     - Git and environment metadata capture
 
-Example:
+Examples:
     >>> from formed.workflow import WorkflowGraph, DefaultWorkflowExecutor
     >>> from formed.workflow.cache import FilesystemWorkflowCache
     >>>

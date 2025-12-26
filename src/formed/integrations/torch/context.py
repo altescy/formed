@@ -24,7 +24,7 @@ def use_device(device: str | torch.device | None = None) -> Iterator[torch.devic
     Yields:
         The current device within the context.
 
-    Example:
+    Examples:
         >>> import torch
         >>> from formed.integrations.torch import use_device, ensure_torch_tensor
         >>> import numpy as np
@@ -56,7 +56,7 @@ def get_device() -> torch.device | None:
     Returns:
         The current device set in the context, or None if not set.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch import use_device, get_device
         >>> with use_device("cuda:0"):
         ...     print(get_device())

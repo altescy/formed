@@ -13,28 +13,27 @@ from formed.workflow.format import Format, JsonFormat, PickleFormat
 from .transforms import DataModule
 from .types import AsConverter, AsInstance
 
-InputT = TypeVar("InputT", default=Any)
-InstanceT = TypeVar("InstanceT", bound=DataModule[AsInstance], default=Any)
-DataModuleT = TypeVar("DataModuleT", bound=DataModule[AsConverter], default=Any)
+_InputT = TypeVar("_InputT", default=Any)
+_InstanceT = TypeVar("_InstanceT", bound=DataModule[AsInstance], default=Any)
 
 
 @dataclasses.dataclass(frozen=True)
-class DataModuleAndInstances(Generic[InputT, InstanceT]):
-    datamodule: DataModule[AsConverter, InputT, InstanceT]
-    instances: Iterable[InstanceT]
+class DataModuleAndInstances(Generic[_InputT, _InstanceT]):
+    datamodule: DataModule[AsConverter, _InputT, _InstanceT]
+    instances: Iterable[_InstanceT]
 
 
 @Format.register("ml::datamodule_and_dataset")
 class DataModuleAndInstancesFormat(
-    Format[DataModuleAndInstances[InputT, InstanceT]],
-    Generic[InputT, InstanceT],
+    Format[DataModuleAndInstances[_InputT, _InstanceT]],
+    Generic[_InputT, _InstanceT],
 ):
-    _INSTANCES_FORMAT = PickleFormat[Iterable[InstanceT]]()
-    _DATAMODULE_FORMAT = JsonFormat[DataModule[AsConverter, InputT]]()
+    _INSTANCES_FORMAT = PickleFormat[Iterable[_InstanceT]]()
+    _DATAMODULE_FORMAT = JsonFormat[DataModule[AsConverter, _InputT]]()
 
     def write(
         self,
-        artifact: DataModuleAndInstances[InputT, InstanceT],
+        artifact: DataModuleAndInstances[_InputT, _InstanceT],
         directory: Path,
     ) -> None:
         instances_path = directory / "instances"
@@ -46,7 +45,7 @@ class DataModuleAndInstancesFormat(
         self._INSTANCES_FORMAT.write(artifact.instances, instances_path)
         self._DATAMODULE_FORMAT.write(artifact.datamodule, datamodule_path)
 
-    def read(self, directory: Path) -> DataModuleAndInstances[InputT, InstanceT]:
+    def read(self, directory: Path) -> DataModuleAndInstances[_InputT, _InstanceT]:
         instances_path = directory / "instances"
         datamodule_path = directory / "datamodule"
 
@@ -58,9 +57,9 @@ class DataModuleAndInstancesFormat(
 
 @step("ml::train_datamodule", format="json")
 def train_datamodule(
-    datamodule: DataModule[AsConverter, InputT],
-    dataset: Iterable[InputT],
-) -> DataModule[AsConverter, InputT]:
+    datamodule: DataModule[AsConverter, _InputT],
+    dataset: Iterable[_InputT],
+) -> DataModule[AsConverter, _InputT]:
     with datamodule.train(), progress(dataset, desc="Training datamodule") as dataset:
         for example in dataset:
             datamodule(example)
@@ -69,10 +68,10 @@ def train_datamodule(
 
 @step("ml::train_datamodule_with_instances", format=DataModuleAndInstancesFormat())
 def train_datamodule_with_instances(
-    datamodule: DataModule[AsConverter, InputT, InstanceT],
-    dataset: Iterable[InputT],
-) -> DataModuleAndInstances[InputT, InstanceT]:
-    def generate_instances() -> Iterator[InstanceT]:
+    datamodule: DataModule[AsConverter, _InputT, _InstanceT],
+    dataset: Iterable[_InputT],
+) -> DataModuleAndInstances[_InputT, _InstanceT]:
+    def generate_instances() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
 
         with datamodule.train(), progress(dataset, desc="Training datamodule") as dataset:
@@ -87,10 +86,10 @@ def train_datamodule_with_instances(
 @step("ml::generate_instances", format="dataset")
 @step("ml::generate_instances_without_caching", cacheable=False)
 def generate_instances(
-    datamodule: DataModule[AsConverter, InputT, InstanceT],
-    dataset: Iterable[InputT],
-) -> Dataset[InstanceT]:
-    def generator() -> Iterator[InstanceT]:
+    datamodule: DataModule[AsConverter, _InputT, _InstanceT],
+    dataset: Iterable[_InputT],
+) -> Dataset[_InstanceT]:
+    def generator() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
         with progress(dataset, desc="Generating instances") as dataset:
             for example in dataset:

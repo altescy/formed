@@ -17,7 +17,7 @@ Features:
     - Format auto-detection based on data type
     - Extensible via registration system
 
-Example:
+Examples:
     >>> from formed.workflow import JsonFormat, PickleFormat
     >>>
     >>> # JSON format for simple data
@@ -120,7 +120,7 @@ class PickleFormat(Format[_T], Generic[_T]):
     functions, classes, and complex nested structures. It also
     supports streaming iterators.
 
-    Example:
+    Examples:
         >>> format = PickleFormat()
         >>> format.write(my_object, directory)
         >>> obj = format.read(directory)
@@ -192,7 +192,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     Type Parameters:
         _JsonFormattableT: JSON-compatible type (primitives, containers, dataclasses, etc.)
 
-    Example:
+    Examples:
         >>> format = JsonFormat()
         >>>
         >>> # Single object
@@ -341,7 +341,7 @@ class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
     Args:
         format: Format to use for serializing mapping values.
 
-    Example:
+    Examples:
         >>> # Mapping of strings to dataframes
         >>> inner_format = PickleFormat()
         >>> format = MappingFormat(inner_format)
@@ -427,7 +427,7 @@ class AutoFormat(Format[_T]):
         1. Last registered format that claims the type (most specific)
         2. Falls back to pickle format if no format claims the type
 
-    Example:
+    Examples:
         >>> format = AutoFormat()
         >>>
         >>> # Automatically uses JsonFormat for dict

@@ -3,7 +3,7 @@
 This module provides utilities for querying installed Python packages and their
 versions. It's used for capturing environment metadata in workflow execution.
 
-Example:
+Examples:
     >>> from formed.common.pkgutils import get_installed_packages, PackageInfo
     >>>
     >>> # Get all installed packages
@@ -40,7 +40,7 @@ def get_installed_packages() -> list[PackageInfo]:
     Returns:
         List of PackageInfo objects sorted by package name.
 
-    Example:
+    Examples:
         >>> packages = get_installed_packages()
         >>> numpy_pkg = next(p for p in packages if p.name == "numpy")
         >>> print(f"numpy version: {numpy_pkg.version}")

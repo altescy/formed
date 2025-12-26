@@ -20,7 +20,7 @@ Features:
     - Various positional encoding strategies
     - Flexible attention masking
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import LSTMSequenceEncoder
     >>>
     >>> # Bidirectional LSTM encoder
@@ -100,7 +100,7 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         dropout: Dropout rate between layers.
         batch_first: Whether input is batch-first (default: True).
 
-    Example:
+    Examples:
         >>> encoder = LSTMSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -179,7 +179,7 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         dropout: Dropout rate between layers.
         batch_first: Whether input is batch-first (default: True).
 
-    Example:
+    Examples:
         >>> encoder = GRUSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -374,7 +374,7 @@ class SinusoidalPositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length to pre-compute.
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = SinusoidalPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=5000,
@@ -447,7 +447,7 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length to pre-compute.
         base: Base for the geometric progression (default: 10000).
 
-    Example:
+    Examples:
         >>> encoder = RotaryPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=2048
@@ -533,7 +533,7 @@ class LearnablePositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length (vocabulary size for positions).
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = LearnablePositionalEncoder(
         ...     input_dim=512,
         ...     max_len=1024,
@@ -607,7 +607,7 @@ class TransformerEncoder(BaseSequenceEncoder):
         layer_norm_eps: Epsilon for layer normalization.
         batch_first: Whether input is batch-first (default: True).
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     TransformerEncoder,
         ...     SinusoidalPositionalEncoder,

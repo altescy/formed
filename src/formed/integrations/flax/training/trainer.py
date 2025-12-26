@@ -12,7 +12,7 @@ Key Features:
     - Early stopping and checkpointing
     - MLflow integration
 
-Example:
+Examples:
     >>> from formed.integrations.flax import (
     ...     FlaxTrainer,
     ...     EvaluationCallback,
@@ -100,7 +100,7 @@ class FlaxTrainer(
         logging_interval: Logging interval (epochs or steps).
         logging_first_step: Whether to log after the first training step.
 
-    Example:
+    Examples:
         >>> trainer = FlaxTrainer(
         ...     train_dataloader=train_loader,
         ...     val_dataloader=val_loader,
@@ -173,7 +173,7 @@ class FlaxTrainer(
         Raises:
             ValueError: If val_dataset is provided but val_dataloader is not.
 
-        Example:
+        Examples:
             >>> state = trainer.train(
             ...     model, train_items, val_items
             ... )

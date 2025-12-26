@@ -15,7 +15,7 @@ Features:
     - Separate train and eval steps
     - Compatible with TorchTrainer and distributors
 
-Example:
+Examples:
     >>> from formed.integrations.torch import DefaultTorchTrainingEngine
     >>>
     >>> # Create engine with custom loss accessor
@@ -168,7 +168,7 @@ class DefaultTorchTrainingEngine(TorchTrainingEngine[ModelInputT, ModelOutputT, 
         dtype: Data type for mixed precision training ("float32", "float16", "bfloat16").
         grad_scaler: Gradient scaler for mixed precision training.
 
-    Example:
+    Examples:
         >>> # Basic usage with optimizer
         >>> engine = DefaultTorchTrainingEngine(
         ...     optimizer=torch.optim.Adam,

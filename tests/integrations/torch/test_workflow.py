@@ -24,17 +24,19 @@ from formed.integrations.ml import (
 from formed.integrations.ml.metrics import Average, MeanSquaredError, MulticlassAccuracy
 from formed.integrations.ml.types import AsBatch, AsInstance, DataModuleModeT  # noqa: F401
 from formed.integrations.torch import (
-    AnalyzedTextEmbedder,
-    BagOfEmbeddingsSequenceVectorizer,
     BaseTorchModel,
-    CrossEntropyLoss,
     DefaultTorchTrainingEngine,
     EvaluationCallback,
-    MeanSquaredErrorLoss,
-    TokenEmbedder,
     TorchTrainer,
     XavierUniformTensorInitializer,
     ensure_torch_tensor,
+)
+from formed.integrations.torch.modules import (
+    AnalyzedTextEmbedder,
+    BagOfEmbeddingsSequenceVectorizer,
+    CrossEntropyLoss,
+    MeanSquaredErrorLoss,
+    TokenEmbedder,
 )
 from formed.integrations.torch.workflow import (
     TorchModelFormat,

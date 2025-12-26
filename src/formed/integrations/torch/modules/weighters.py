@@ -8,7 +8,7 @@ Key Components:
     - StaticLabelWeighter: Uses fixed weights per class
     - BalancedByDistributionLabelWeighter: Balances based on class distribution
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import StaticLabelWeighter
     >>> import torch
     >>>
@@ -74,7 +74,7 @@ class StaticLabelWeighter(BaseLabelWeighter[None]):
     Args:
         weights: A tensor of shape (num_classes,) containing the weight for each class.
 
-    Example:
+    Examples:
         >>> # Weight class 1 twice as much as class 0
         >>> weights = torch.tensor([1.0, 2.0, 1.0])
         >>> weighter = StaticLabelWeighter(weights=weights)
@@ -120,7 +120,7 @@ class BalancedByDistributionLabelWeighter(BaseLabelWeighter[None]):
             (should sum to 1.0).
         eps: A small epsilon value to avoid division by zero.
 
-    Example:
+    Examples:
         >>> # Class distribution: 50%, 30%, 20%
         >>> distribution = torch.tensor([0.5, 0.3, 0.2])
         >>> weighter = BalancedByDistributionLabelWeighter(distribution=distribution)

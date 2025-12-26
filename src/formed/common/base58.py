@@ -6,7 +6,7 @@ It's commonly used for encoding hashes and fingerprints in a human-readable form
 
 The alphabet used: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
 
-Example:
+Examples:
     >>> from formed.common.base58 import b58encode, b58decode
     >>>
     >>> # Encode binary data or strings
@@ -33,7 +33,7 @@ def b58encode(s: str | bytes) -> bytes:
     Returns:
         Base58-encoded bytes.
 
-    Example:
+    Examples:
         >>> b58encode(b"test")
         b'3yZe7d'
         >>> b58encode("hello")
@@ -62,7 +62,7 @@ def b58decode(v: str | bytes) -> bytes:
     Returns:
         The original bytes.
 
-    Example:
+    Examples:
         >>> encoded = b58encode(b"test")
         >>> b58decode(encoded)
         b'test'

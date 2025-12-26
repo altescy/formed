@@ -20,28 +20,6 @@ from .initializers import (
     ZerosTensorInitializer,
 )
 from .model import BaseTorchModel
-from .modules import (
-    AnalyzedTextEmbedder,
-    ArgmaxLabelSampler,
-    BagOfEmbeddingsSequenceVectorizer,
-    BalancedByDistributionLabelWeighter,
-    BaseClassificationLoss,
-    BaseEmbedder,
-    BaseLabelSampler,
-    BaseLabelWeighter,
-    BaseRegressionLoss,
-    BaseSequenceEncoder,
-    BaseSequenceVectorizer,
-    CrossEntropyLoss,
-    EmbedderOutput,
-    FeedForward,
-    GRUSequenceEncoder,
-    LSTMSequenceEncoder,
-    MeanSquaredErrorLoss,
-    MultinomialLabelSampler,
-    StaticLabelWeighter,
-    TokenEmbedder,
-)
 from .schedulers import CosineLRScheduler
 from .training import (
     DefaultTorchTrainingEngine,
@@ -92,33 +70,6 @@ __all__ = [
     "XavierNormalTensorInitializer",
     "XavierUniformTensorInitializer",
     "ZerosTensorInitializer",
-    # modules - embedders
-    "AnalyzedTextEmbedder",
-    "BaseEmbedder",
-    "EmbedderOutput",
-    "TokenEmbedder",
-    # modules - encoders
-    "BaseSequenceEncoder",
-    "GRUSequenceEncoder",
-    "LSTMSequenceEncoder",
-    # modules - feedforward
-    "FeedForward",
-    # modules - losses
-    "BaseClassificationLoss",
-    "BaseRegressionLoss",
-    "CrossEntropyLoss",
-    "MeanSquaredErrorLoss",
-    # modules - samplers
-    "ArgmaxLabelSampler",
-    "BaseLabelSampler",
-    "MultinomialLabelSampler",
-    # modules - vectorizers
-    "BagOfEmbeddingsSequenceVectorizer",
-    "BaseSequenceVectorizer",
-    # modules - weighters
-    "BalancedByDistributionLabelWeighter",
-    "BaseLabelWeighter",
-    "StaticLabelWeighter",
     # state
     "TrainState",
     # trainer

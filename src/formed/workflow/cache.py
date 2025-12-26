@@ -8,7 +8,7 @@ Available Caches:
     - MemoryWorkflowCache: In-memory cache for development/testing
     - FilesystemWorkflowCache: Persistent file-based cache (default)
 
-Example:
+Examples:
     >>> from formed.workflow.cache import FilesystemWorkflowCache
     >>>
     >>> # Create filesystem cache
@@ -47,7 +47,7 @@ class WorkflowCache(Registrable):
 
     Subclasses implement different storage backends (memory, filesystem, etc.).
 
-    Example:
+    Examples:
         >>> # Implement custom cache
         >>> class MyCache(WorkflowCache):
         ...     def __getitem__(self, step_info):
@@ -126,7 +126,7 @@ class EmptyWorkflowCache(WorkflowCache):
 
     This is useful for debugging or when caching is undesirable.
 
-    Example:
+    Examples:
         >>> cache = EmptyWorkflowCache()
         >>> cache[step_info] = result  # Does nothing
         >>> step_info in cache  # Always returns False
@@ -154,7 +154,7 @@ class MemoryWorkflowCache(WorkflowCache):
     but no persistence across process restarts. Useful for development, testing,
     or when results don't need to survive process boundaries.
 
-    Example:
+    Examples:
         >>> cache = MemoryWorkflowCache()
         >>> cache[step_info] = result
         >>> if step_info in cache:
@@ -198,7 +198,7 @@ class FilesystemWorkflowCache(WorkflowCache):
     Attributes:
         _directory: Root directory for cache storage.
 
-    Example:
+    Examples:
         >>> cache = FilesystemWorkflowCache(".formed/cache")
         >>> cache[step_info] = result  # Writes to .formed/cache/<fingerprint>/
         >>> if step_info in cache:

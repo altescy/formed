@@ -14,7 +14,7 @@ Features:
     - Optional normalization before pooling
     - Hierarchical pooling with sliding windows
 
-Example:
+Examples:
     >>> from formed.integrations.flax.modules import BagOfEmbeddingsSequenceVectorizer
     >>>
     >>> # Mean pooling over sequence
@@ -108,7 +108,7 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         normalize: Whether to L2-normalize embeddings before pooling.
         window_size: Window size for hierarchical pooling (required if pooling="hier").
 
-    Example:
+    Examples:
         >>> # Mean pooling
         >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
         >>> vector = vectorizer(embeddings, mask=mask)

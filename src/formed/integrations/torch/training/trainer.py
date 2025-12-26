@@ -13,7 +13,7 @@ Key Features:
     - Early stopping and checkpointing
     - MLflow integration
 
-Example:
+Examples:
     >>> from formed.integrations.torch import (
     ...     TorchTrainer,
     ...     EvaluationCallback,
@@ -124,7 +124,7 @@ class TorchTrainer(
         train_prefix: Prefix for training metrics logging. Default is "train/".
         val_prefix: Prefix for validation metrics logging. Default is "val/".
 
-    Example:
+    Examples:
         >>> engine = DefaultTorchTrainingEngine(
         ...     optimizer=torch.optim.Adam,
         ...     lr_scheduler=torch.optim.lr_scheduler.StepLR
@@ -197,7 +197,7 @@ class TorchTrainer(
         Raises:
             ValueError: If val_dataset is provided but val_dataloader is not.
 
-        Example:
+        Examples:
             >>> state = trainer.train(
             ...     model, train_items, val_items
             ... )
