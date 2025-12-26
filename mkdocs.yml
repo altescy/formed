@@ -90,6 +90,7 @@ nav:
       - Workflow: guides/workflow.md
       - Integrations:
           - ML: guides/integrations/ml.md
+          - Torch: guides/integrations/torch.md
   - API Reference:
       - Overview: api_reference/index.md
       - Workflow: api_reference/workflow.md
