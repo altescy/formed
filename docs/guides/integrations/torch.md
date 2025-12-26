@@ -181,7 +181,7 @@ Models composed from these modules can be fully specified in configuration:
     type: 'text_classifier',
     num_classes: 2,
     embedder: {
-      type: 'token_embedder',
+      type: 'token',
       embedding_dim: 128,
       vocab_size: 10000,
     },
