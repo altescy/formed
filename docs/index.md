@@ -82,4 +82,4 @@ formed run workflow.jsonnet --execution-id my-experiment
 ## Documentation Guide
 
 - [Quick Start](quick_start.md)
-- [API Reference](api_reference/index.md)
+- [API Reference](reference/index.md)

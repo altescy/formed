@@ -723,6 +723,6 @@ embedder: {
 - **[ML Integration Guide](../guides/integrations/ml.md)**: Deep dive into DataModule and metrics
 - **[PyTorch Integration Guide](../guides/integrations/torch.md)**: Complete PyTorch module reference
 - **[Workflow Guide](../guides/workflow.md)**: Advanced workflow patterns and caching
-- **[API Reference](../api_reference/index.md)**: Detailed API documentation
+- **[API Reference](../reference/index.md)**: Detailed API documentation
 
 For the complete example with more features, see `examples/text_classification/` in the repository.

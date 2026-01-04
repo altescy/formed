@@ -93,13 +93,13 @@ nav:
           - ML: guides/integrations/ml.md
           - Torch: guides/integrations/torch.md
   - API Reference:
-      - Overview: api_reference/index.md
-      - Workflow: api_reference/workflow.md
+      - Overview: reference/index.md
+      - Workflow: reference/workflow.md
       - Integrations:
-          - Datasets: api_reference/integrations/datasets.md
-          - Flax: api_reference/integrations/flax.md
-          - ML: api_reference/integrations/ml.md
-          - MLflow: api_reference/integrations/mlflow.md
-          - SentenceTransformers: api_reference/integrations/sentence_transformers.md
-          - Torch: api_reference/integrations/torch.md
-          - Transformers: api_reference/integrations/transformers.md
+          - Datasets: reference/integrations/datasets.md
+          - Flax: reference/integrations/flax.md
+          - ML: reference/integrations/ml.md
+          - MLflow: reference/integrations/mlflow.md
+          - SentenceTransformers: reference/integrations/sentence_transformers.md
+          - Torch: reference/integrations/torch.md
+          - Transformers: reference/integrations/transformers.md

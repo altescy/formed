@@ -666,6 +666,6 @@ data_collator: {
 - **[Text Classification Tutorial](./text_classification.md)**: Build custom models with PyTorch
 - **[Transformers Documentation](https://huggingface.co/docs/transformers)**: Complete Hugging Face Transformers guide
 - **[Workflow Guide](../guides/workflow.md)**: Advanced workflow patterns
-- **[MLflow Integration](../api_reference/integrations/mlflow.md)**: Experiment tracking details
+- **[MLflow Integration](../reference/integrations/mlflow.md)**: Experiment tracking details
 
 For more examples, see `examples/causallm/` in the repository.
