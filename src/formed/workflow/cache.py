@@ -23,19 +23,23 @@ Examples:
 
 """
 
+from collections.abc import Iterator
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 from colt import Registrable
 from filelock import BaseFileLock, FileLock
+
+from formed.common.dataset import Dataset
 
 if TYPE_CHECKING:
     from .step import WorkflowStep, WorkflowStepInfo
 
 
-T = TypeVar("T")
-WorkflowCacheT = TypeVar("WorkflowCacheT", bound="WorkflowCache")
+_T = TypeVar("_T")
+_U = TypeVar("_U")
+_WorkflowCacheT = TypeVar("_WorkflowCacheT", bound="WorkflowCache")
 
 
 class WorkflowCache(Registrable):
@@ -70,7 +74,7 @@ class WorkflowCache(Registrable):
 
     """
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> _T:
         """Retrieve cached result for a step.
 
         Args:
@@ -85,7 +89,7 @@ class WorkflowCache(Registrable):
         """
         raise NotImplementedError
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: _T) -> None:
         """Store a step result in the cache.
 
         Args:
@@ -133,10 +137,10 @@ class EmptyWorkflowCache(WorkflowCache):
 
     """
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         raise KeyError(step_info)
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         pass
 
     def __delitem__(self, step_info: "WorkflowStepInfo") -> None:
@@ -168,13 +172,31 @@ class MemoryWorkflowCache(WorkflowCache):
 
     """
 
+    class _IteratorWrapper(Generic[_U]):
+        def __init__(self, iterator: Iterator[_U]) -> None:
+            self._dataset = Dataset.from_iterable(iterator)
+            self._iterator: Iterator[_U] | None = None
+
+        def __next__(self) -> _U:
+            if self._iterator is None:
+                self._iterator = iter(self._dataset)
+            return next(self._iterator)
+
+        def __iter__(self) -> Iterator[_U]:
+            return self
+
     def __init__(self) -> None:
         self._cache: dict["WorkflowStepInfo", Any] = {}
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
-        return cast(T, self._cache[step_info])
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
+        value = self._cache[step_info]
+        if isinstance(value, self._IteratorWrapper):
+            return cast(_T, iter(value))
+        return cast(_T, value)
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
+        if isinstance(value, Iterator):
+            value = cast(_T, self._IteratorWrapper(value))
         self._cache[step_info] = value
 
     def __delitem__(self, step_info: "WorkflowStepInfo") -> None:
@@ -232,12 +254,12 @@ class FilesystemWorkflowCache(WorkflowCache):
     def _get_step_cache_lock(self, step_info: "WorkflowStepInfo") -> BaseFileLock:
         return FileLock(str(self._get_step_cache_dir(step_info) / self._LOCK_FILENAME))
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         with self._get_step_cache_lock(step_info):
             step_cache_dir = self._get_step_cache_dir(step_info)
-            return cast(T, step_info.format.read(step_cache_dir))
+            return cast(_T, step_info.format.read(step_cache_dir))
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         with self._get_step_cache_lock(step_info):
             step_cache_dir = self._get_step_cache_dir(step_info)
             step_cache_dir.mkdir(parents=True, exist_ok=True)
