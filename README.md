@@ -82,7 +82,7 @@ pip install formed
 With integrations:
 
 ```shell
-pip install formed[mlflow]        # MLflow integration
+pip install formed[mlflow]         # MLflow integration
 pip install formed[torch]          # PyTorch integration
 pip install formed[transformers]   # 🤗 Transformers integration
 pip install formed[all]            # All integrations
