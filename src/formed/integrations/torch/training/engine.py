@@ -5,8 +5,8 @@ models are trained and evaluated. Engines handle loss computation,
 gradient calculation, and parameter updates.
 
 Key Components:
-    - TorchTrainingEngine: Abstract base class for training engines
-    - DefaultTorchTrainingEngine: Default implementation with automatic differentiation
+    - `TorchTrainingEngine`: Abstract base class for training engines
+    - `DefaultTorchTrainingEngine`: Default implementation with automatic differentiation
 
 Features:
     - Customizable loss functions
@@ -15,7 +15,7 @@ Features:
     - Separate train and eval steps
     - Compatible with TorchTrainer and distributors
 
-Example:
+Examples:
     >>> from formed.integrations.torch import DefaultTorchTrainingEngine
     >>>
     >>> # Create engine with custom loss accessor
@@ -159,16 +159,16 @@ class DefaultTorchTrainingEngine(TorchTrainingEngine[ModelInputT, ModelOutputT, 
         lr_scheduler: Optional learning rate scheduler factory or instance.
             Can be a Lazy object, callable that takes optimizer, a sequence of
             schedulers (will be chained), or a scheduler instance.
-        loss: Loss accessor - either attribute name (e.g., "loss") or
+        loss: Loss accessor - either attribute name (e.g., `"loss"`) or
             callable that extracts loss from model output.
         gradient_accumulation_steps: Number of steps to accumulate gradients
             before performing an optimizer step.
-        max_grad_norm: Maximum gradient norm for clipping. If None, no clipping is applied.
+        max_grad_norm: Maximum gradient norm for clipping. If `None`, no clipping is applied.
         params: Optional additional parameters to pass to the model during training.
-        dtype: Data type for mixed precision training ("float32", "float16", "bfloat16").
+        dtype: Data type for mixed precision training (`"float32"`, `"float16"`, `"bfloat16"`).
         grad_scaler: Gradient scaler for mixed precision training.
 
-    Example:
+    Examples:
         >>> # Basic usage with optimizer
         >>> engine = DefaultTorchTrainingEngine(
         ...     optimizer=torch.optim.Adam,

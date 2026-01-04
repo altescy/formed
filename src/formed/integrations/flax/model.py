@@ -10,7 +10,7 @@ Key Features:
     - Generic type support for inputs, outputs, and parameters
     - Compatible with FlaxTrainer for end-to-end training
 
-Example:
+Examples:
     >>> from formed.integrations.flax import BaseFlaxModel
     >>> from flax import nnx
     >>> import jax
@@ -48,11 +48,11 @@ class BaseFlaxModel(
     Type Parameters:
         ModelInputT: Type of input data to the model.
         ModelOutputT: Type of model output.
-        ModelParamsT: Type of additional parameters (typically None or a dataclass).
+        ModelParamsT: Type of additional parameters (typically `None` or a dataclass).
 
     Note:
-        Subclasses should implement __call__ to define the forward pass.
-        Models are automatically compatible with FlaxTrainer when registered.
+        Subclasses should implement `__call__` to define the forward pass.
+        Models are automatically compatible with `FlaxTrainer` when registered.
 
     """
 

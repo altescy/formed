@@ -8,7 +8,7 @@ Available Caches:
     - MemoryWorkflowCache: In-memory cache for development/testing
     - FilesystemWorkflowCache: Persistent file-based cache (default)
 
-Example:
+Examples:
     >>> from formed.workflow.cache import FilesystemWorkflowCache
     >>>
     >>> # Create filesystem cache
@@ -23,19 +23,23 @@ Example:
 
 """
 
+from collections.abc import Iterator
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 from colt import Registrable
 from filelock import BaseFileLock, FileLock
+
+from formed.common.dataset import Dataset
 
 if TYPE_CHECKING:
     from .step import WorkflowStep, WorkflowStepInfo
 
 
-T = TypeVar("T")
-WorkflowCacheT = TypeVar("WorkflowCacheT", bound="WorkflowCache")
+_T = TypeVar("_T")
+_U = TypeVar("_U")
+_WorkflowCacheT = TypeVar("_WorkflowCacheT", bound="WorkflowCache")
 
 
 class WorkflowCache(Registrable):
@@ -47,7 +51,7 @@ class WorkflowCache(Registrable):
 
     Subclasses implement different storage backends (memory, filesystem, etc.).
 
-    Example:
+    Examples:
         >>> # Implement custom cache
         >>> class MyCache(WorkflowCache):
         ...     def __getitem__(self, step_info):
@@ -70,7 +74,7 @@ class WorkflowCache(Registrable):
 
     """
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         """Retrieve cached result for a step.
 
         Args:
@@ -85,7 +89,7 @@ class WorkflowCache(Registrable):
         """
         raise NotImplementedError
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         """Store a step result in the cache.
 
         Args:
@@ -126,17 +130,17 @@ class EmptyWorkflowCache(WorkflowCache):
 
     This is useful for debugging or when caching is undesirable.
 
-    Example:
+    Examples:
         >>> cache = EmptyWorkflowCache()
         >>> cache[step_info] = result  # Does nothing
         >>> step_info in cache  # Always returns False
 
     """
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         raise KeyError(step_info)
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         pass
 
     def __delitem__(self, step_info: "WorkflowStepInfo") -> None:
@@ -154,7 +158,7 @@ class MemoryWorkflowCache(WorkflowCache):
     but no persistence across process restarts. Useful for development, testing,
     or when results don't need to survive process boundaries.
 
-    Example:
+    Examples:
         >>> cache = MemoryWorkflowCache()
         >>> cache[step_info] = result
         >>> if step_info in cache:
@@ -168,13 +172,31 @@ class MemoryWorkflowCache(WorkflowCache):
 
     """
 
+    class _IteratorWrapper(Generic[_U]):
+        def __init__(self, iterator: Iterator[_U]) -> None:
+            self._dataset = Dataset.from_iterable(iterator)
+            self._iterator: Iterator[_U] | None = None
+
+        def __next__(self) -> _U:
+            if self._iterator is None:
+                self._iterator = iter(self._dataset)
+            return next(self._iterator)
+
+        def __iter__(self) -> Iterator[_U]:
+            return self
+
     def __init__(self) -> None:
         self._cache: dict["WorkflowStepInfo", Any] = {}
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
-        return cast(T, self._cache[step_info])
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
+        value = self._cache[step_info]
+        if isinstance(value, self._IteratorWrapper):
+            return cast(_T, iter(value))
+        return cast(_T, value)
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
+        if isinstance(value, Iterator):
+            value = cast(_T, self._IteratorWrapper(value))
         self._cache[step_info] = value
 
     def __delitem__(self, step_info: "WorkflowStepInfo") -> None:
@@ -198,7 +220,7 @@ class FilesystemWorkflowCache(WorkflowCache):
     Attributes:
         _directory: Root directory for cache storage.
 
-    Example:
+    Examples:
         >>> cache = FilesystemWorkflowCache(".formed/cache")
         >>> cache[step_info] = result  # Writes to .formed/cache/<fingerprint>/
         >>> if step_info in cache:
@@ -232,12 +254,12 @@ class FilesystemWorkflowCache(WorkflowCache):
     def _get_step_cache_lock(self, step_info: "WorkflowStepInfo") -> BaseFileLock:
         return FileLock(str(self._get_step_cache_dir(step_info) / self._LOCK_FILENAME))
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         with self._get_step_cache_lock(step_info):
             step_cache_dir = self._get_step_cache_dir(step_info)
-            return cast(T, step_info.format.read(step_cache_dir))
+            return cast(_T, step_info.format.read(step_cache_dir))
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         with self._get_step_cache_lock(step_info):
             step_cache_dir = self._get_step_cache_dir(step_info)
             step_cache_dir.mkdir(parents=True, exist_ok=True)

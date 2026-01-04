@@ -5,18 +5,18 @@ including tokenization, vocabulary building, and sequence indexing with special
 tokens (PAD, UNK, BOS, EOS).
 
 Available Transforms:
-    - TokenSequenceIndexer: Convert token sequences to integer indices with vocab building
-    - TokenCharactersIndexer: Character-level indexing for tokens
-    - Tokenizer: Complete tokenization pipeline with surfaces, postags, and characters
+    - `TokenSequenceIndexer`: Convert token sequences to integer indices with vocab building
+    - `TokenCharactersIndexer`: Character-level indexing for tokens
+    - `Tokenizer`: Complete tokenization pipeline with surfaces, postags, and characters
 
 Features:
-    - Dynamic vocabulary building with min_df/max_df filtering
+    - Dynamic vocabulary building with `min_df`/`max_df` filtering
     - Document frequency tracking
     - Special token handling (PAD, UNK, BOS, EOS)
     - Automatic padding and masking
     - Reconstruction support (indices -> tokens)
 
-Example:
+Examples:
     >>> from formed.integrations.ml import Tokenizer, TokenSequenceIndexer
     >>>
     >>> # Simple tokenization
@@ -64,7 +64,7 @@ class TokenSequenceIndexer(
     """Convert token sequences to integer indices with vocabulary building and filtering.
 
     TokenSequenceIndexer builds and maintains a vocabulary, converting tokens to indices.
-    It supports vocabulary filtering by document frequency (min_df/max_df), vocabulary
+    It supports vocabulary filtering by document frequency (`min_df`/`max_df`), vocabulary
     size limits, and special tokens (PAD, UNK, BOS, EOS). During batching, sequences
     are padded to the same length and a mask is generated.
 
@@ -82,14 +82,8 @@ class TokenSequenceIndexer(
         max_vocab_size: Maximum vocabulary size (excluding special tokens).
         freeze: If True, prevent vocabulary updates.
 
-    Properties:
-        vocab_size: Total number of tokens in vocabulary.
-        pad_index: Index of the padding token.
-        unk_index: Index of the unknown token (if set).
-        bos_index: Index of BOS token (if set).
-        eos_index: Index of EOS token (if set).
 
-    Example:
+    Examples:
         >>> # Build vocabulary with filtering
         >>> indexer = TokenSequenceIndexer(
         ...     unk_token="<UNK>",
@@ -116,7 +110,7 @@ class TokenSequenceIndexer(
 
     Note:
         - Special tokens are always added first and never filtered
-        - min_df/max_df require unk_token to handle filtered tokens
+        - `min_df`/`max_df` require `unk_token` to handle filtered tokens
         - Document frequency counts unique tokens per document
         - BOS/EOS tokens are added during batching if specified
         - Reconstruction removes special tokens and padding
@@ -184,28 +178,33 @@ class TokenSequenceIndexer(
 
     @property
     def pad_index(self) -> int:
+        """Index of the padding token."""
         return self.vocab[self.pad_token]
 
     @property
     def unk_index(self) -> int | None:
+        """Index of the unknown token, or `None` if not set."""
         if self.unk_token is not None:
             return self.vocab[self.unk_token]
         return None
 
     @property
     def bos_index(self) -> int | None:
+        """Index of the beginning-of-sequence token, or `None` if not set."""
         if self.bos_token is not None:
             return self.vocab[self.bos_token]
         return None
 
     @property
     def eos_index(self) -> int | None:
+        """Index of the end-of-sequence token, or `None` if not set."""
         if self.eos_token is not None:
             return self.vocab[self.eos_token]
         return None
 
     @property
     def vocab_size(self) -> int:
+        """Total number of tokens in the vocabulary."""
         return len(self.vocab)
 
     def _on_start_training(self) -> None:
@@ -234,6 +233,7 @@ class TokenSequenceIndexer(
         self._inverted_vocab  # Recompute inverted vocab
 
     def get_index(self, value: str, /) -> int:
+        """Get the index of a token, using unk_token if not found."""
         if value in self.vocab:
             return self.vocab[value]
         if self.unk_token is not None:
@@ -241,11 +241,13 @@ class TokenSequenceIndexer(
         raise KeyError(value)
 
     def get_value(self, index: int, /) -> str:
+        """Get the token corresponding to an index."""
         if index in self._inverted_vocab:
             return self._inverted_vocab[index]
         raise KeyError(index)
 
     def ingest(self, values: Sequence[str], /) -> None:
+        """Ingest a sequence of tokens to update counts for vocabulary building."""
         if self.freeze:
             return
         if self._training:
@@ -283,6 +285,7 @@ class TokenSequenceIndexer(
         return IDSequenceBatch(ids=ids, mask=mask)
 
     def reconstruct(self, batch: IDSequenceBatch, /) -> list[Sequence[str]]:
+        """Reconstruct token sequences from a batch of indices."""
         sequences = []
         for i in range(batch.ids.shape[0]):
             length = int(batch.mask[i].sum())
@@ -312,7 +315,7 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
         min_characters: Minimum character length per token (for padding).
         (inherits all attributes from TokenSequenceIndexer)
 
-    Example:
+    Examples:
         >>> indexer = TokenCharactersIndexer(
         ...     unk_token="<UNK>",
         ...     bos_token="<BOS>",
@@ -404,13 +407,13 @@ class Tokenizer(
     Type Parameters:
         DataModuleModeT: Current mode (AsConverter, AsInstance, or AsBatch)
 
-    Fields:
+    Attributes:
         surfaces: Required token sequence indexer for surface forms (words).
         postags: Optional indexer for part-of-speech tags.
         characters: Optional character-level indexer for tokens.
         analyzer: Optional custom text analyzer/tokenizer function.
 
-    Example:
+    Examples:
         >>> # Basic tokenization
         >>> tokenizer = Tokenizer(
         ...     surfaces=TokenSequenceIndexer(unk_token="<UNK>")

@@ -5,11 +5,11 @@ workflow step results. Multiple formats support different data types and
 use cases.
 
 Key Components:
-    - Format: Abstract base class for all formats
-    - PickleFormat: Universal format using cloudpickle
-    - JsonFormat: JSON format for JSON-serializable data
-    - MappingFormat: JSON format for mappings/dicts
-    - AutoFormat: Automatically selects appropriate format
+    - `Format`: Abstract base class for all formats
+    - `PickleFormat`: Universal format using cloudpickle
+    - `JsonFormat`: JSON format for JSON-serializable data
+    - `MappingFormat`: JSON format for mappings/dicts
+    - `AutoFormat`: Automatically selects appropriate format
 
 Features:
     - Support for iterators and streaming data
@@ -17,7 +17,7 @@ Features:
     - Format auto-detection based on data type
     - Extensible via registration system
 
-Example:
+Examples:
     >>> from formed.workflow import JsonFormat, PickleFormat
     >>>
     >>> # JSON format for simple data
@@ -120,7 +120,7 @@ class PickleFormat(Format[_T], Generic[_T]):
     functions, classes, and complex nested structures. It also
     supports streaming iterators.
 
-    Example:
+    Examples:
         >>> format = PickleFormat()
         >>> format.write(my_object, directory)
         >>> obj = format.read(directory)
@@ -192,7 +192,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     Type Parameters:
         _JsonFormattableT: JSON-compatible type (primitives, containers, dataclasses, etc.)
 
-    Example:
+    Examples:
         >>> format = JsonFormat()
         >>>
         >>> # Single object
@@ -230,7 +230,7 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     def write(self, artifact: _JsonFormattableT, directory: Path) -> None:
         """Write JSON-serializable artifact to directory.
 
-        Writes artifact.json for single objects or artifact.jsonl for
+        Writes artifact.json for single objects or `artifact.jsonl` for
         iterators. Also writes metadata.json containing type information
         for reconstruction.
 
@@ -267,8 +267,8 @@ class JsonFormat(Format[_JsonFormattableT], Generic[_JsonFormattableT]):
     def read(self, directory: Path) -> _JsonFormattableT:
         """Read JSON artifact from directory.
 
-        Reads artifact.json or artifact.jsonl and reconstructs the
-        original type using metadata.json if available.
+        Reads `artifact.json` or artifact.jsonl and reconstructs the
+        original type using `metadata.json` if available.
 
         Args:
             directory: Directory to read from.
@@ -341,7 +341,7 @@ class MappingFormat(Format[Mapping[str, _T]], Generic[_T]):
     Args:
         format: Format to use for serializing mapping values.
 
-    Example:
+    Examples:
         >>> # Mapping of strings to dataframes
         >>> inner_format = PickleFormat()
         >>> format = MappingFormat(inner_format)
@@ -427,7 +427,7 @@ class AutoFormat(Format[_T]):
         1. Last registered format that claims the type (most specific)
         2. Falls back to pickle format if no format claims the type
 
-    Example:
+    Examples:
         >>> format = AutoFormat()
         >>>
         >>> # Automatically uses JsonFormat for dict

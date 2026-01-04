@@ -4,9 +4,9 @@ This module provides text analysis tools that leverage pretrained tokenizers
 from the Hugging Face transformers library to tokenize text into surface forms.
 
 Available Classes:
-    - PretrainedAnalyzer: Analyzer using pretrained transformer tokenizers
+    - `PretrainedAnalyzer`: Analyzer using pretrained transformer tokenizers
 
-Example:
+Examples:
     >>> from formed.integrations.transformers.analyzers import PretrainedAnalyzer
     >>>
     >>> # Initialize with model name
@@ -36,10 +36,10 @@ class PretrainedTransformerAnalyzer:
     for text tokenization that's compatible with the formed ML pipeline.
 
     Args:
-        tokenizer: Either a tokenizer name/path string or a PreTrainedTokenizerBase instance.
-            If a string, the tokenizer will be loaded using AutoTokenizer.
+        tokenizer: Either a tokenizer name/path string or a `PreTrainedTokenizerBase` instance.
+            If a string, the tokenizer will be loaded using `AutoTokenizer`.
 
-    Example:
+    Examples:
         >>> # Initialize with model name
         >>> analyzer = PretrainedAnalyzer("bert-base-uncased")
         >>> result = analyzer("Hello, world!")
@@ -55,9 +55,9 @@ class PretrainedTransformerAnalyzer:
         ['Machine', 'Ġlearning', 'Ġis', 'Ġgreat', '!']
 
     Note:
-        Tokenizers are cached using LRU cache by the load_pretrained_tokenizer utility.
-        The returned AnalyzedText only contains surface forms; other fields like
-        postags are None.
+        Tokenizers are cached using LRU cache by the `load_pretrained_tokenizer` utility.
+        The returned `AnalyzedText` only contains surface forms; other fields like
+        postags are `None`.
 
     """
 

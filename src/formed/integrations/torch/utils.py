@@ -44,13 +44,13 @@ def ensure_torch_tensor(
         x: Input data (tensor, numpy array, list, etc.)
         dtype: Optional dtype for the output tensor.
         device: Optional device for the output tensor. If None, uses the device
-            from context (set by use_device()). If the input is already a tensor,
+            from context (set by `use_device()`). If the input is already a tensor,
             its device is preserved unless explicitly specified.
 
     Returns:
         PyTorch tensor on the specified device with the specified dtype.
 
-    Example:
+    Examples:
         >>> import numpy as np
         >>> from formed.integrations.torch import ensure_torch_tensor, use_device
         >>> arr = np.array([1, 2, 3])
@@ -113,7 +113,7 @@ def move_to_device(inputs: ModelInputT, device: Optional[Union[torch.device, str
     This function only moves existing torch.Tensor objects to the target device.
     Other types (numpy arrays, primitives, etc.) are left unchanged.
     Users should explicitly convert numpy arrays to tensors in their model's
-    forward method using ensure_torch_tensor().
+    forward method using `ensure_torch_tensor()`.
     """
     from typing import Any
 
@@ -188,14 +188,14 @@ def masked_pool(
     """Apply masked pooling over the sequence dimension.
 
     Args:
-        inputs: Input tensor of shape (batch_size, seq_len, feature_dim).
-        mask: Mask tensor of shape (batch_size, seq_len). True/1 indicates valid positions.
+        inputs: Input tensor of shape `(batch_size, seq_len, feature_dim)`.
+        mask: Mask tensor of shape `(batch_size, seq_len)`. `True`/`1` indicates valid positions.
         pooling: Pooling method or sequence of methods.
         normalize: Whether to L2-normalize before pooling.
-        window_size: Window size for hierarchical pooling (required if pooling="hier").
+        window_size: Window size for hierarchical pooling (required if `pooling="hier"`).
 
     Returns:
-        Pooled tensor of shape (batch_size, feature_dim * num_pooling_methods).
+        Pooled tensor of shape `(batch_size, feature_dim * num_pooling_methods)`.
 
     """
     if normalize:

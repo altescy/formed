@@ -24,7 +24,7 @@ Features:
     - Efficient implementation using scan and vmap
     - Masked sequence processing
 
-Example:
+Examples:
     >>> from formed.integrations.flax.modules import (
     ...     LSTMSequenceEncoder,
     ...     TransformerSequenceEncoder,
@@ -98,7 +98,7 @@ class SinusoidalPositionEncoder(BasePositionEncoder):
     Args:
         max_length: Maximum sequence length to support.
 
-    Example:
+    Examples:
         >>> encoder = SinusoidalPositionEncoder(max_length=512)
         >>> encoded = encoder(embeddings)
 
@@ -135,7 +135,7 @@ class LearnablePositionEncoder(BasePositionEncoder):
         rngs: Random number generators.
         max_length: Maximum sequence length to support.
 
-    Example:
+    Examples:
         >>> encoder = LearnablePositionEncoder(
         ...     features=128,
         ...     max_length=512,
@@ -353,7 +353,7 @@ class LSTMSequenceEncoder(RNNSequenceEncoder):
         dropout: Dropout rate between layers.
         rngs: Random number generators.
 
-    Example:
+    Examples:
         >>> # Bidirectional 2-layer LSTM
         >>> encoder = LSTMSequenceEncoder(
         ...     features=128,
@@ -432,7 +432,7 @@ class GRUSequenceEncoder(RNNSequenceEncoder):
         dropout: Dropout rate between layers.
         rngs: Random number generators.
 
-    Example:
+    Examples:
         >>> encoder = GRUSequenceEncoder(
         ...     features=256,
         ...     num_layers=3,
@@ -480,7 +480,7 @@ class TransformerSequenceEncoder(BaseSequenceEncoder):
         position_encoder: Optional position encoder.
         rngs: Random number generators.
 
-    Example:
+    Examples:
         >>> # Transformer with sinusoidal positions
         >>> encoder = TransformerSequenceEncoder(
         ...     features=512,

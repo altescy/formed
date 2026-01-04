@@ -9,7 +9,7 @@ Key Features:
     - Get repository diffs and metadata
     - Capture Git state for reproducibility tracking
 
-Example:
+Examples:
     >>> from formed.common.git import get_git_info, GitClient
     >>>
     >>> # Get current repository info
@@ -52,7 +52,7 @@ class GitClient:
     GitClient provides methods for querying Git repository state, extracting
     metadata, and performing basic Git operations.
 
-    Example:
+    Examples:
         >>> client = GitClient(".")
         >>>
         >>> # Check if Git is available and initialized
@@ -160,7 +160,7 @@ def get_git_info(directory: str | PathLike | None = None) -> GitInfo | None:
     Returns:
         GitInfo with commit and branch, or None if not available/initialized.
 
-    Example:
+    Examples:
         >>> git_info = get_git_info()
         >>> if git_info:
         ...     print(f"Running on commit {git_info.commit[:8]}")

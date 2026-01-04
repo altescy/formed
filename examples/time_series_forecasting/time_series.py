@@ -20,10 +20,10 @@ from typing_extensions import TypeVar
 
 from formed import workflow
 from formed.integrations import ml
-from formed.integrations import torch as ft
+from formed.integrations import torch as wt
 from formed.integrations.ml import types as mlt
-from formed.integrations.torch import modules as ftm
-from formed.integrations.torch import types as ftt
+from formed.integrations.torch import modules as wtm
+from formed.integrations.torch import types as wtt
 
 InputT = TypeVar(
     "InputT",
@@ -64,19 +64,19 @@ class ForecastOutput:
     loss: torch.Tensor | None = None
 
 
-class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], ForecastOutput]):
+class TimeSeriesForecaster(wt.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], ForecastOutput]):
     """Time series forecasting model."""
 
     def __init__(
         self,
-        encoder: ftm.BaseSequenceEncoder,
-        vectorizer: ftm.BaseSequenceVectorizer,
-        loss: ftm.BaseRegressionLoss | None = None,
+        encoder: wtm.BaseSequenceEncoder,
+        vectorizer: wtm.BaseSequenceVectorizer,
+        loss: wtm.BaseRegressionLoss | None = None,
         dropout: float = 0.2,
     ):
         super().__init__()
 
-        feature_dim = ft.determine_ndim(
+        feature_dim = wt.determine_ndim(
             encoder.get_output_dim(),
             vectorizer.get_output_dim(),
         )
@@ -85,7 +85,7 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
         self._vectorizer = vectorizer
         self._dropout = torch.nn.Dropout(dropout) if dropout > 0 else None
         self._predictor = torch.nn.Linear(feature_dim, 1)
-        self._loss = loss or ft.MeanSquaredErrorLoss()
+        self._loss = loss or wtm.MeanSquaredErrorLoss()
 
     def forward(
         self,
@@ -93,7 +93,7 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
         params: None = None,
     ) -> ForecastOutput:
         # Convert inputs to tensors
-        sequence = ft.ensure_torch_tensor(inputs.sequence)
+        sequence = wt.ensure_torch_tensor(inputs.sequence)
         if sequence.ndim == 2:
             # Add feature dimension: (batch_size, sequence_length) -> (batch_size, sequence_length, 1)
             sequence = sequence[:, :, None]
@@ -119,7 +119,7 @@ class TimeSeriesForecaster(ft.BaseTorchModel[TimeSeriesDataModule[mlt.AsBatch], 
         return ForecastOutput(predictions=predictions, loss=loss)
 
 
-class ForecastingEvaluator(ftt.IEvaluator[TimeSeriesDataModule[mlt.AsBatch], ForecastOutput]):
+class ForecastingEvaluator(wtt.IEvaluator[TimeSeriesDataModule[mlt.AsBatch], ForecastOutput]):
     """Evaluator for time series forecasting."""
 
     def __init__(self):
@@ -227,14 +227,14 @@ def main():
     # Create model
     print("Creating model...")
     model = TimeSeriesForecaster(
-        encoder=ftm.LSTMSequenceEncoder(
+        encoder=wtm.LSTMSequenceEncoder(
             input_dim=1,
             hidden_dim=args.hidden_dim,
             num_layers=args.num_layers,
             dropout=args.dropout,
             bidirectional=False,
         ),
-        vectorizer=ftm.BagOfEmbeddingsSequenceVectorizer(pooling="last"),
+        vectorizer=wtm.BagOfEmbeddingsSequenceVectorizer(pooling="last"),
     )
 
     # Create data loaders using DataModule's batch method
@@ -255,19 +255,19 @@ def main():
     evaluator = ForecastingEvaluator()
 
     # Create trainer
-    trainer = ft.TorchTrainer(
+    trainer = wt.TorchTrainer(
         train_dataloader=train_loader,
         val_dataloader=val_loader,
-        engine=ft.DefaultTorchTrainingEngine(
+        engine=wt.DefaultTorchTrainingEngine(
             optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
         ),
-        distributor=ft.SingleDeviceDistributor(),
+        distributor=wt.SingleDeviceDistributor(),
         max_epochs=args.epochs,
         eval_strategy="epoch",
         logging_strategy="epoch",
         callbacks=[
-            ft.EvaluationCallback(evaluator),
-            ft.EarlyStoppingCallback(patience=5, metric="-mean_absolute_error"),
+            wt.EvaluationCallback(evaluator),
+            wt.EarlyStoppingCallback(patience=5, metric="-mean_absolute_error"),
         ],
     )
 

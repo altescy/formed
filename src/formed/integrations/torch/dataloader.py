@@ -3,7 +3,7 @@
 This module provides convenient wrappers for creating PyTorch DataLoaders
 that work seamlessly with the formed training framework.
 
-Example:
+Examples:
     >>> from formed.integrations.torch import DataLoader
     >>>
     >>> # Create a simple dataloader
@@ -46,7 +46,7 @@ class DataLoader:
         pin_memory: If True, tensors are copied to CUDA pinned memory.
         **kwargs: Additional arguments passed to torch.utils.data.DataLoader.
 
-    Example:
+    Examples:
         >>> def collate_fn(batch):
         ...     # Convert list of samples to batch tensors
         ...     return {"features": torch.stack([x["features"] for x in batch])}

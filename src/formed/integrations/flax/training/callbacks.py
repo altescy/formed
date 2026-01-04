@@ -19,7 +19,7 @@ Features:
     - MLflow integration
     - Extensible for custom callbacks
 
-Example:
+Examples:
     >>> from formed.integrations.flax import (
     ...     FlaxTrainer,
     ...     EarlyStoppingCallback,
@@ -76,7 +76,7 @@ class FlaxTrainingCallback(Registrable):
         8. on_epoch_end - at the end of each epoch
         9. on_training_end - once at the end (can modify final state)
 
-    Example:
+    Examples:
         >>> @FlaxTrainingCallback.register("my_callback")
         ... class MyCallback(FlaxTrainingCallback):
         ...     def on_epoch_end(self, trainer, model, state, epoch):
@@ -187,7 +187,7 @@ class EvaluationCallback(FlaxTrainingCallback, Generic[ModelInputT, ModelOutputT
     Args:
         evaluator: Evaluator implementing the IEvaluator protocol.
 
-    Example:
+    Examples:
         >>> from formed.integrations.ml.metrics import MulticlassAccuracy
         >>>
         >>> evaluator = MulticlassAccuracy()
@@ -221,7 +221,7 @@ class EarlyStoppingCallback(FlaxTrainingCallback):
         metric: Metric to monitor. Prefix with "-" to maximize (e.g., "-loss"),
             or "+" to minimize (e.g., "+error"). Default is "-loss".
 
-    Example:
+    Examples:
         >>> # Stop if validation loss doesn't improve for 5 evaluations
         >>> callback = EarlyStoppingCallback(patience=5, metric="-val/loss")
         >>>
@@ -315,7 +315,7 @@ class MlflowCallback(FlaxTrainingCallback):
     This callback automatically logs training and validation metrics to
     MLflow when used within a workflow step that has MLflow tracking enabled.
 
-    Example:
+    Examples:
         >>> from formed.integrations.flax import FlaxTrainer, MlflowCallback
         >>>
         >>> trainer = FlaxTrainer(

@@ -4,10 +4,10 @@ This module provides loss functions for classification with support for
 label weighting and different reduction strategies.
 
 Key Components:
-    - BaseClassificationLoss: Abstract base class for classification losses
-    - CrossEntropyLoss: Standard cross-entropy loss with optional weighting
+    - `BaseClassificationLoss`: Abstract base class for classification losses
+    - `CrossEntropyLoss`: Standard cross-entropy loss with optional weighting
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import CrossEntropyLoss
     >>> import torch
     >>>
@@ -54,8 +54,8 @@ class BaseClassificationLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC)
         """Compute the classification loss.
 
         Args:
-            logits: Model output logits of shape (..., num_classes).
-            labels: True target labels of shape (...).
+            logits: Model output logits of shape `(..., num_classes)`.
+            labels: True target labels of shape `(...)`.
             params: Optional additional parameters for loss computation.
 
         Returns:
@@ -76,9 +76,9 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
 
     Args:
         weighter: An optional label weighter to assign weights to each class.
-        reduce: Reduction method - "mean" or "sum".
+        reduce: Reduction method - `"mean"` or `"sum"`.
 
-    Example:
+    Examples:
         >>> loss_fn = CrossEntropyLoss()
         >>> logits = torch.randn(4, 10)
         >>> labels = torch.randint(0, 10, (4,))
@@ -104,8 +104,8 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
         """Compute cross-entropy loss.
 
         Args:
-            logits: Logits of shape (..., num_classes).
-            labels: Labels of shape (...).
+            logits: Logits of shape `(..., num_classes)`.
+            labels: Labels of shape `(...)`.
             params: Optional parameters for the weighter.
 
         Returns:
@@ -141,10 +141,10 @@ class BCEWithLogitsLoss(BaseClassificationLoss[_ParamsT]):
 
     Args:
         weighter: An optional label weighter to assign weights to each class.
-        reduce: Reduction method - "mean" or "sum".
+        reduce: Reduction method - `"mean"` or `"sum"`.
         pos_weight: Optional weight for positive examples per class.
 
-    Example:
+    Examples:
         >>> loss_fn = BCEWithLogitsLoss()
         >>> logits = torch.randn(4, 10)  # (batch_size, num_classes)
         >>> labels = torch.randint(0, 2, (4, 10)).float()  # (batch_size, num_classes)
@@ -172,8 +172,8 @@ class BCEWithLogitsLoss(BaseClassificationLoss[_ParamsT]):
         """Compute BCE with logits loss.
 
         Args:
-            logits: Logits of shape (..., num_classes).
-            labels: Binary labels of shape (..., num_classes).
+            logits: Logits of shape `(..., num_classes)`.
+            labels: Binary labels of shape `(..., num_classes)`.
             params: Optional parameters for the weighter.
 
         Returns:
@@ -213,8 +213,8 @@ class BaseRegressionLoss(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
         """Compute the regression loss.
 
         Args:
-            predictions: Model output predictions of shape (...).
-            labels: True target labels of shape (...).
+            predictions: Model output predictions of shape `(...)`.
+            labels: True target labels of shape `(...)`.
             params: Optional additional parameters for loss computation.
 
         Returns:
@@ -234,9 +234,9 @@ class MeanSquaredErrorLoss(BaseRegressionLoss[_ParamsT]):
     """Mean Squared Error (MSE) loss for regression tasks.
 
     Args:
-        reduce: Reduction method - "mean" or "sum".
+        reduce: Reduction method - `"mean"` or `"sum"`.
 
-    Example:
+    Examples:
         >>> loss_fn = MeanSquaredErrorLoss()
         >>> predictions = torch.randn(4)
         >>> labels = torch.randn(4)
@@ -260,8 +260,8 @@ class MeanSquaredErrorLoss(BaseRegressionLoss[_ParamsT]):
         """Compute MSE loss.
 
         Args:
-            predictions: Predictions of shape (...).
-            labels: Labels of shape (...).
+            predictions: Predictions of shape `(...)`.
+            labels: Labels of shape `(...)`.
             params: Ignored.
 
         Returns:

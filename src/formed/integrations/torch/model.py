@@ -10,7 +10,7 @@ Key Features:
     - Generic type support for inputs, outputs, and parameters
     - Compatible with TorchTrainer for end-to-end training
 
-Example:
+Examples:
     >>> from formed.integrations.torch import BaseTorchModel
     >>> import torch
     >>> import torch.nn as nn
@@ -52,8 +52,8 @@ class BaseTorchModel(
         ModelParamsT: Type of additional parameters (typically None or a dataclass).
 
     Note:
-        Subclasses should implement forward() to define the forward pass.
-        Models are automatically compatible with TorchTrainer when registered.
+        Subclasses should implement `forward()` to define the forward pass.
+        Models are automatically compatible with `TorchTrainer` when registered.
 
     """
 

@@ -5,11 +5,11 @@ data transformations in machine learning pipelines. It supports both single-inst
 and batched processing with strong type guarantees.
 
 Key Components:
-    BaseTransform: Abstract base class for all transformations
-    DataModule: Composable data transformation container
-    Extra: Descriptor for optional fields (e.g., labels in test data)
-    Param: Descriptor for non-transformed parameters
-    register_dataclass: Function to register dataclasses with JAX pytree
+    - BaseTransform: Abstract base class for all transformations
+    - DataModule: Composable data transformation container
+    - Extra: Descriptor for optional fields (e.g., labels in test data)
+    - Param: Descriptor for non-transformed parameters
+    - register_dataclass: Function to register dataclasses with JAX pytree
 
 Design Patterns:
     - Descriptor protocol for field access control
@@ -17,7 +17,7 @@ Design Patterns:
     - Mode-based behavior (AsInstance, AsBatch, AsConverter)
     - Automatic JAX pytree registration for compatibility with jax.jit/jax.vmap
 
-Example:
+Examples:
     >>> from formed.integrations.ml import DataModule, TensorTransform, LabelIndexer, Extra
     >>>
     >>> class MyDataModule(DataModule[DataModuleModeT, dict, ...]):
@@ -135,7 +135,7 @@ def register_dataclass(cls: _TypeT) -> _TypeT:
         - Registration is idempotent; registering twice has no effect.
         - If the class is a DataModule, recursively registers nested dataclasses.
 
-    Example:
+    Examples:
         >>> @dataclasses.dataclass
         ... class MyData:
         ...     values: list[float]
@@ -197,7 +197,7 @@ class Extra(Generic[_BaseTransformT_co]):
     Type Parameters:
         _BaseTransformT_co: The transform type (covariant).
 
-    Usage:
+    Examples:
         >>> class MyDataModule(DataModule[...]):
         ...     text: Tokenizer
         ...     label: Extra[LabelIndexer] = Extra.default()  # Optional field
@@ -303,7 +303,7 @@ class Param(Generic[_T_co]):
     Type Parameters:
         _T_co: The parameter type (covariant).
 
-    Usage:
+    Examples:
         >>> class MyDataModule(DataModule[...]):
         ...     text: Tokenizer
         ...     max_length: Param[int] = Param.default(128)
@@ -317,7 +317,7 @@ class Param(Generic[_T_co]):
 
     Note:
         Param is a marker class and cannot be instantiated directly.
-        Use Param.default() or Param.default_factory() to provide defaults.
+        Use `Param.default()` or `Param.default_factory()` to provide defaults.
 
     """
 
@@ -446,7 +446,7 @@ class BaseTransform(
         instance: Transform a single data point to its instance representation.
         batch: Collate a sequence of instances into a batched representation.
 
-    Example:
+    Examples:
         >>> class LowercaseTransform(BaseTransform[dict, str, str, list[str]]):
         ...     def instance(self, text: str) -> str:
         ...         return text.lower()
@@ -460,7 +460,7 @@ class BaseTransform(
 
     Note:
         - Subclasses are automatically converted to dataclasses via metaclass.
-        - Use the train() context manager for stateful transformations.
+        - Use the `train()` context manager for stateful transformations.
         - Supports saving/loading with cloudpickle for persistence.
 
     """
@@ -502,7 +502,7 @@ class BaseTransform(
         """Collate multiple instances into a batched representation.
 
         Args:
-            batch: A sequence of instance representations from instance().
+            batch: A sequence of instance representations from `instance()`.
 
         Returns:
             The batched representation, typically as tensors or arrays.
@@ -598,13 +598,13 @@ class BaseTransform(
         """Context manager to enable training mode for stateful transformations.
 
         In training mode, transforms can build state (e.g., vocabularies, statistics)
-        from the training data. Hooks _on_start_training() and _on_end_training()
+        from the training data. Hooks `_on_start_training()` and `_on_end_training()`
         are called at the beginning and end of the training context.
 
         Yields:
             None
 
-        Example:
+        Examples:
             >>> indexer = TokenSequenceIndexer()
             >>> with indexer.train():
             ...     # Build vocabulary from training data
@@ -735,9 +735,9 @@ class DataModule(
         - Extra fields: Optional transforms (e.g., labels for test data)
         - Param fields: Non-transformed parameters that pass through unchanged
 
-    Example:
+    Examples:
         >>> @dataclasses.dataclass
-        ... class TextExample:
+        ... class TextExamples:
         ...     text: str
         ...     label: Optional[str] = None
         >>>
@@ -831,7 +831,7 @@ class DataModule(
         Yields:
             None
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> with dm.train():
             ...     instances = [dm.instance(example) for example in train_data]
@@ -861,16 +861,16 @@ class DataModule(
         Returns:
             A DataModule in AsInstance mode with transformed fields.
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> instance = dm.instance({"text": "hello world", "label": "positive"})
             >>> print(instance.text.surfaces)  # Tokenized text
             >>> print(instance.label)  # Label index
 
         Note:
-            - Can only be called in AsConverter mode
-            - Returns a new DataModule with mode=AsInstance
-            - Extra fields can be None if data is missing
+            - Can only be called in `AsConverter` mode
+            - Returns a new `DataModule` with `mode=AsInstance`
+            - Extra fields can be `None` if data is missing
 
         """
         assert self.__mode__ in (None, DataModuleMode.AS_CONVERTER), (
@@ -896,17 +896,17 @@ class DataModule(
     def batch(self: "DataModule[AsConverter]", instances: Sequence[_T | _InstanceT]) -> _BatchT:
         """Collate multiple instances into a batched representation.
 
-        Takes a sequence of raw data or instances and creates a DataModule in
-        AsBatch mode. Each transform field's batch() method is called to collate
+        Takes a sequence of raw data or instances and creates a `DataModule` in
+        `AsBatch` mode. Each transform field's `batch()` method is called to collate
         the corresponding field values.
 
         Args:
-            instances: Sequence of raw data or DataModule instances.
+            instances: Sequence of raw data or `DataModule` instances.
 
         Returns:
-            A DataModule in AsBatch mode with batched tensor fields.
+            A `DataModule` in `AsBatch` mode with batched tensor fields.
 
-        Example:
+        Examples:
             >>> dm = TextDataModule(text=Tokenizer(), label=LabelIndexer())
             >>> instances = [dm.instance(ex) for ex in examples]
             >>> batch = dm.batch(instances)
@@ -915,10 +915,10 @@ class DataModule(
             >>> print(len(batch))  # batch_size
 
         Note:
-            - Can only be called in AsConverter mode
+            - Can only be called in `AsConverter` mode
             - Automatically converts raw data to instances if needed
-            - Returns a new DataModule with mode=AsBatch
-            - Extra fields are None if all instances have None for that field
+            - Returns a new `DataModule` with `mode=AsBatch`
+            - Extra fields are `None` if all instances have None for that field
 
         """
         assert self.__mode__ in (None, DataModuleMode.AS_CONVERTER), (

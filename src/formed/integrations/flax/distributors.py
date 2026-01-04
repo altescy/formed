@@ -4,9 +4,9 @@ This module provides abstractions for distributed training across multiple devic
 supporting both single-device and data-parallel training strategies.
 
 Key Components:
-    - BaseDistributor: Abstract interface for device distribution strategies
-    - SingleDeviceDistributor: No-op distributor for single-device training
-    - DataParallelDistributor: Data-parallel training using JAX pmap
+    - `BaseDistributor`: Abstract interface for device distribution strategies
+    - `SingleDeviceDistributor`: No-op distributor for single-device training
+    - `DataParallelDistributor`: Data-parallel training using JAX pmap
 
 Features:
     - Transparent device sharding and replication
@@ -14,7 +14,7 @@ Features:
     - Reduction operations (mean, sum) across devices
     - Compatible with FlaxTrainer
 
-Example:
+Examples:
     >>> from formed.integrations.flax import DataParallelDistributor
     >>> import jax
     >>>
@@ -115,7 +115,7 @@ class BaseDistributor(Registrable, abc.ABC, Generic[ModelInputT]):
 
         Args:
             array: Array to reduce.
-            op: Reduction operation ("mean" or "sum").
+            op: Reduction operation (`"mean"` or `"sum"`).
 
         Returns:
             Reduced array.
@@ -131,7 +131,7 @@ class SingleDeviceDistributor(BaseDistributor[ModelInputT]):
     This distributor applies JIT compilation without any device distribution.
     All shard, replicate, and unreplicate operations are no-ops.
 
-    Example:
+    Examples:
         >>> distributor = SingleDeviceDistributor()
         >>> train_step = distributor.map(my_train_function)
         >>> output = train_step(batch, state, trainer)
@@ -177,7 +177,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
         axis_name: Name for the device axis (used in reduction operations).
         num_devices: Number of devices to use. Defaults to all local devices.
 
-    Example:
+    Examples:
         >>> # Train on 4 GPUs with data parallelism
         >>> distributor = DataParallelDistributor(
         ...     axis_name="batch",
@@ -258,7 +258,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
 
         Args:
             array: Array to reduce across device dimension.
-            op: Reduction operation - "sum" or "mean".
+            op: Reduction operation - `"sum"` or `"mean"`.
 
         Returns:
             Reduced array.

@@ -12,7 +12,7 @@ Features:
     - Dropout for regularization
     - Residual connections
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import FeedForward
     >>> import torch.nn as nn
     >>>

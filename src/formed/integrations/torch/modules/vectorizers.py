@@ -5,8 +5,8 @@ into fixed-size vectors. Vectorizers apply pooling operations over the
 sequence dimension to produce single vectors per sequence.
 
 Key Components:
-    - BaseSequenceVectorizer: Abstract base class for vectorizers
-    - BagOfEmbeddingsSequenceVectorizer: Pools sequence embeddings
+    - `BaseSequenceVectorizer`: Abstract base class for vectorizers
+    - `BagOfEmbeddingsSequenceVectorizer`: Pools sequence embeddings
 
 Features:
     - Multiple pooling strategies (mean, max, min, sum, first, last, hier)
@@ -14,7 +14,7 @@ Features:
     - Optional normalization before pooling
     - Hierarchical pooling with sliding windows
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import BagOfEmbeddingsSequenceVectorizer
     >>>
     >>> # Mean pooling over sequence
@@ -56,11 +56,11 @@ class BaseSequenceVectorizer(torch.nn.Module, Registrable, abc.ABC):
         """Vectorize a sequence into a fixed-size vector.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, embedding_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, embedding_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Vectorized output of shape (batch_size, output_dim).
+            Vectorized output of shape `(batch_size, output_dim)`.
 
         """
         raise NotImplementedError
@@ -97,17 +97,17 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
 
     Args:
         pooling: Pooling strategy to use:
-            - "mean": Average pooling (default)
-            - "max": Max pooling
-            - "min": Min pooling
-            - "sum": Sum pooling
-            - "first": Take first token
-            - "last": Take last non-padding token
-            - "hier": Hierarchical pooling with sliding window
+            - `"mean"`: Average pooling (default)
+            - `"max"`: Max pooling
+            - `"min"`: Min pooling
+            - `"sum"`: Sum pooling
+            - `"first"`: Take first token
+            - `"last"`: Take last non-padding token
+            - `"hier"`: Hierarchical pooling with sliding window
         normalize: Whether to L2-normalize embeddings before pooling.
-        window_size: Window size for hierarchical pooling (required if pooling="hier").
+        window_size: Window size for hierarchical pooling (required if `pooling="hier"`).
 
-    Example:
+    Examples:
         >>> # Mean pooling
         >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
         >>> vector = vectorizer(embeddings, mask=mask)

@@ -4,7 +4,7 @@ This module provides workflow steps for training PyTorch models, allowing
 them to be integrated into the formed workflow system with automatic
 caching and dependency tracking.
 
-Example:
+Examples:
     >>> from formed.integrations.torch import train_torch_model
     >>>
     >>> # In workflow configuration (jsonnet):
@@ -118,7 +118,7 @@ def train_torch_model(
     Returns:
         Trained PyTorch model with updated parameters.
 
-    Example:
+    Examples:
         >>> # Use in Python code
         >>> trained_model = train_torch_model(
         ...     model=my_model,
@@ -168,12 +168,12 @@ def evaluate_torch_model(
         dataloader: DataLoader to convert items to model inputs.
         params: Optional model parameters to use for evaluation.
         random_seed: Optional random seed for reproducibility.
-        device: Optional device (e.g., "cpu", "cuda") to run evaluation on.
+        device: Optional device (e.g., `"cpu"`, `"cuda"`) to run evaluation on.
 
     Returns:
         Dictionary of computed evaluation metrics.
 
-    Example:
+    Examples:
         >>> # Use in Python code
         >>> metrics = evaluate_torch_model(
         ...     model=trained_model,

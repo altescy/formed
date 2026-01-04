@@ -15,42 +15,91 @@ theme:
     - toc.follow
 
 plugins:
-  - search
-  - autorefs
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [.]
-          options:
-            docstring_style: google
-            heading_level: 2
-            show_source: true
-            show_symbol_type_in_heading: true
-            show_signature_annotations: true
-            show_root_heading: true
-            members_order: source
-            docstring_section_style: list
+  search: null
+  typeset: null
+  mkdocstrings:
+    handlers:
+      python:
+        paths: [.]
+        options:
+          show_root_heading: true
+          show_if_no_docstring: true
+          inherited_members: true
+          members_order: source
+          separate_signature: true
+          unwrap_annotated: true
+          filters:
+            - "!^_"
+          merge_init_into_class: true
+          docstring_section_style: spacy
+          signature_crossrefs: true
+          show_symbol_type_heading: true
+          show_symbol_type_toc: true
 
 markdown_extensions:
-  - pymdownx.critic
-  - pymdownx.caret
-  - pymdownx.keys
-  - pymdownx.mark
-  - pymdownx.tilde
-  - pymdownx.details
-  - pymdownx.highlight:
-      anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets:
-      base_path: .
-      dedent_subsections: true
-  - pymdownx.superfences
-  - pymdownx.snippets
+  material.extensions.preview:
+    targets:
+      include:
+        - "*"
+  abbr: null
+  attr_list: null
+  footnotes: null
+  md_in_html: null
+  tables: null
+  toc:
+    permalink: true
+  pymdownx.betterem: null
+  pymdownx.caret: null
+  pymdownx.highlight:
+    line_spans: __span
+  pymdownx.inlinehilite: null
+  pymdownx.keys: null
+  pymdownx.mark: null
+  pymdownx.superfences:
+    custom_fences:
+      - name: mermaid
+        class: mermaid
+        format: !!python/name:pymdownx.superfences.fence_code_format ""
+  pymdownx.tilde: null
+  pymdownx.blocks.admonition:
+    types:
+      - note
+      - attention
+      - caution
+      - danger
+      - error
+      - tip
+      - hint
+      - warning
+      - info
+      - check
+  pymdownx.blocks.details: null
+  pymdownx.blocks.tab:
+    alternate_style: true
+  mdx_include: null
+  markdown_include_variants: null
 
 nav:
   - Home: index.md
   - Quick Start: quick_start.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Text Classification: tutorials/text_classification.md
+      - Causal LM Finetuning: tutorials/causal_lm_finetuning.md
+  - Guides:
+      - Overview: guides/index.md
+      - Workflow: guides/workflow.md
+      - Integrations:
+          - ML: guides/integrations/ml.md
+          - Torch: guides/integrations/torch.md
   - API Reference:
-    - Workflow: api_reference/workflow.md
+      - Overview: reference/index.md
+      - Workflow: reference/workflow.md
+      - Integrations:
+          - Datasets: reference/integrations/datasets.md
+          - Flax: reference/integrations/flax.md
+          - ML: reference/integrations/ml.md
+          - MLflow: reference/integrations/mlflow.md
+          - SentenceTransformers: reference/integrations/sentence_transformers.md
+          - Torch: reference/integrations/torch.md
+          - Transformers: reference/integrations/transformers.md

@@ -10,7 +10,7 @@ Key Features:
     - Cycle detection in dependencies
     - DAG-based workflow representation
 
-Example:
+Examples:
     >>> from formed.workflow import WorkflowGraph
     >>>
     >>> # Load workflow from Jsonnet config

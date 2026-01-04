@@ -5,9 +5,9 @@ representations. Embedders handle various text representations including
 surface forms, part-of-speech tags, and character sequences.
 
 Key Components:
-    - BaseEmbedder: Abstract base class for all embedders
-    - TokenEmbedder: Embeds token ID sequences into dense vectors
-    - AnalyzedTextEmbedder: Combines multiple embedding types (surface, POS, chars)
+    - `BaseEmbedder`: Abstract base class for all embedders
+    - `TokenEmbedder`: Embeds token ID sequences into dense vectors
+    - `AnalyzedTextEmbedder`: Combines multiple embedding types (surface, POS, chars)
 
 Features:
     - Support for nested token sequences (e.g., word -> character)
@@ -15,7 +15,7 @@ Features:
     - Configurable vectorization for character-level embeddings
     - Concatenation of multiple embedding types
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import TokenEmbedder, AnalyzedTextEmbedder
     >>> import torch.nn as nn
     >>>
@@ -63,8 +63,8 @@ class IVariableTensorBatch(Protocol[TensorCompatibleT]):
     """Protocol for variable-length tensor batches.
 
     Attributes:
-        tensor: Tensor of shape (batch_size, seq_len, feature_dim).
-        mask: Attention mask of shape (batch_size, seq_len).
+        tensor: Tensor of shape `(batch_size, seq_len, feature_dim)`.
+        mask: Attention mask of shape `(batch_size, seq_len)`.
 
     """
 
@@ -109,8 +109,8 @@ class EmbedderOutput(NamedTuple):
     """Output from an embedder.
 
     Attributes:
-        embeddings: Dense embeddings of shape (batch_size, seq_len, embedding_dim).
-        mask: Attention mask of shape (batch_size, seq_len).
+        embeddings: Dense embeddings of shape `(batch_size, seq_len, embedding_dim)`.
+        mask: Attention mask of shape `(batch_size, seq_len)`.
 
     """
 
@@ -125,7 +125,7 @@ class BaseEmbedder(nn.Module, Registrable, Generic[_TextBatchT], abc.ABC):
     They output both embeddings and attention masks.
 
     Type Parameters:
-        _TextBatchT: Type of input batch (e.g., IIDSequenceBatch, IAnalyzedTextBatch).
+        _TextBatchT: Type of input batch (e.g., `IIDSequenceBatch`, `IAnalyzedTextBatch`).
 
     """
 
@@ -163,7 +163,7 @@ class PassThroughEmbedder(BaseEmbedder[IVariableTensorBatch[TensorCompatibleT]])
     This embedder is useful when the input tensors are already in the desired
     embedding format. It simply returns the input tensors and their masks.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules import PassThroughEmbedder
         >>>
         >>> embedder = PassThroughEmbedder()
@@ -190,8 +190,8 @@ class TokenEmbedder(BaseEmbedder["IIDSequenceBatch"]):
     """Embedder for token ID sequences.
 
     This embedder converts token IDs into dense embeddings using a learned
-    embedding matrix. It supports both 2D (batch_size, seq_len) and 3D
-    (batch_size, seq_len, char_len) token ID tensors.
+    embedding matrix. It supports both 2D `(batch_size, seq_len)` and 3D
+    `(batch_size, seq_len, char_len)` token ID tensors.
 
     For 3D inputs (e.g., character-level tokens within words), the embedder
     can either average the embeddings or apply a custom vectorizer.
@@ -199,10 +199,10 @@ class TokenEmbedder(BaseEmbedder["IIDSequenceBatch"]):
     Args:
         vocab_size: Size of the vocabulary.
         embedding_dim: Dimension of the embedding vectors.
-        padding_idx: Index of the padding token (default: 0).
+        padding_idx: Index of the padding token (default: `0`).
         vectorizer: Optional vectorizer for 3D inputs (character sequences).
 
-    Example:
+    Examples:
         >>> # Simple word embeddings
         >>> embedder = TokenEmbedder(vocab_size=10000, embedding_dim=128)
         >>> output = embedder(word_ids_batch)
@@ -279,17 +279,14 @@ class PretrainedTransformerEmbedder(BaseEmbedder[IIDSequenceBatch]):
     the transformer as the embedding representation.
 
     Args:
-        model: Either a model name/path string, PathLike object, or a PreTrainedModel instance.
-            If a string or PathLike, the model will be loaded using transformers auto classes.
-        auto_class: The auto class to use for loading the model. Can be:
-            - None (default): Uses AutoModel
-            - A class type: e.g., AutoModel, AutoModelForMaskedLM
-            - A string in "module:ClassName" format: e.g., "transformers:AutoModel"
-        subcmodule: Optional submodule path to extract from the loaded model (e.g., "encoder").
-        freeze: If True, freezes all model parameters (no gradient computation).
+        model: Either a model name/path string, `PathLike` object, or a `PreTrainedModel` instance.
+            If a string or `PathLike`, the model will be loaded using transformers auto classes.
+        auto_class: The auto class to use for loading the model.
+        subcmodule: Optional submodule path to extract from the loaded model (e.g., `"encoder"`).
+        freeze: If `True`, freezes all model parameters (no gradient computation).
         **kwargs: Additional keyword arguments passed to the model loader.
 
-    Example:
+    Examples:
         >>> # Load a pretrained BERT model
         >>> embedder = PretrainedTransformerEmbedder(
         ...     model="bert-base-uncased",
@@ -310,8 +307,8 @@ class PretrainedTransformerEmbedder(BaseEmbedder[IIDSequenceBatch]):
         >>> embedder = PretrainedTransformerEmbedder(model=model)
 
     Note:
-        Models are cached using LRU cache by the load_pretrained_transformer utility.
-        When freeze=True, all model parameters have requires_grad=False.
+        Models are cached using LRU cache by the `load_pretrained_transformer` utility.
+        When `freeze=True`, all model parameters have `requires_grad=False`.
 
     """
 
@@ -420,7 +417,7 @@ class AnalyzedTextEmbedder(BaseEmbedder["IAnalyzedTextBatch"]):
     Raises:
         ValueError: If all embedders are None (at least one is required).
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules import (
         ...     AnalyzedTextEmbedder,
         ...     TokenEmbedder

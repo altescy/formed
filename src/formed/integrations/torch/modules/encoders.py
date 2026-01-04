@@ -4,14 +4,14 @@ This module provides encoders that process sequential data, including
 RNN-based encoders, positional encoders, and Transformer encoders.
 
 Key Components:
-    - BaseSequenceEncoder: Abstract base for sequence encoders
-    - LSTMSequenceEncoder: LSTM-specific encoder
-    - GRUSequenceEncoder: GRU-specific encoder
-    - BasePositionalEncoder: Abstract base for positional encoders
-    - SinusoidalPositionalEncoder: Sinusoidal positional encoding
-    - RotaryPositionalEncoder: Rotary positional encoding (RoPE)
-    - LearnablePositionalEncoder: Learnable positional embeddings
-    - TransformerEncoder: Transformer-based encoder with configurable masking
+    - `BaseSequenceEncoder`: Abstract base for sequence encoders
+    - `LSTMSequenceEncoder`: LSTM-specific encoder
+    - `GRUSequenceEncoder`: GRU-specific encoder
+    - `BasePositionalEncoder`: Abstract base for positional encoders
+    - `SinusoidalPositionalEncoder`: Sinusoidal positional encoding
+    - `RotaryPositionalEncoder`: Rotary positional encoding (RoPE)
+    - `LearnablePositionalEncoder`: Learnable positional embeddings
+    - `TransformerEncoder`: Transformer-based encoder with configurable masking
 
 Features:
     - Bidirectional RNN support
@@ -20,7 +20,7 @@ Features:
     - Various positional encoding strategies
     - Flexible attention masking
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import LSTMSequenceEncoder
     >>>
     >>> # Bidirectional LSTM encoder
@@ -61,11 +61,11 @@ class BaseSequenceEncoder(nn.Module, Registrable, abc.ABC):
         """Encode input sequence.
 
         Args:
-            inputs: Input sequence of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input sequence of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         raise NotImplementedError
@@ -98,9 +98,9 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         num_layers: Number of LSTM layers.
         bidirectional: Whether to use bidirectional LSTM.
         dropout: Dropout rate between layers.
-        batch_first: Whether input is batch-first (default: True).
+        batch_first: Whether input is batch-first (default: `True`).
 
-    Example:
+    Examples:
         >>> encoder = LSTMSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -142,11 +142,11 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         if mask is not None:
@@ -177,9 +177,9 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         num_layers: Number of GRU layers.
         bidirectional: Whether to use bidirectional GRU.
         dropout: Dropout rate between layers.
-        batch_first: Whether input is batch-first (default: True).
+        batch_first: Whether input is batch-first (default: `True`).
 
-    Example:
+    Examples:
         >>> encoder = GRUSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -221,11 +221,11 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         if mask is not None:
@@ -335,11 +335,11 @@ class BasePositionalEncoder(nn.Module, Registrable, abc.ABC):
         """Add positional encoding to input sequence.
 
         Args:
-            inputs: Input sequence of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input sequence of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Position-encoded sequence of shape (batch_size, seq_len, output_dim).
+            Position-encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         raise NotImplementedError
@@ -374,7 +374,7 @@ class SinusoidalPositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length to pre-compute.
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = SinusoidalPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=5000,
@@ -414,11 +414,11 @@ class SinusoidalPositionalEncoder(BasePositionalEncoder):
         """Add sinusoidal positional encoding to inputs.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
+            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
 
         """
         seq_len = inputs.size(1)
@@ -445,9 +445,9 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
     Args:
         input_dim: Dimension of the embeddings (must be even).
         max_len: Maximum sequence length to pre-compute.
-        base: Base for the geometric progression (default: 10000).
+        base: Base for the geometric progression (default: `10000`).
 
-    Example:
+    Examples:
         >>> encoder = RotaryPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=2048
@@ -497,11 +497,11 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
         """Apply rotary positional encoding to inputs.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
+            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
 
         """
         seq_len = inputs.size(1)
@@ -533,7 +533,7 @@ class LearnablePositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length (vocabulary size for positions).
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = LearnablePositionalEncoder(
         ...     input_dim=512,
         ...     max_len=1024,
@@ -563,11 +563,11 @@ class LearnablePositionalEncoder(BasePositionalEncoder):
         """Add learnable positional encoding to inputs.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
+            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
 
         """
         seq_len = inputs.size(1)
@@ -596,18 +596,18 @@ class TransformerEncoder(BaseSequenceEncoder):
     configurable attention masking via dependency injection.
 
     Args:
-        input_dim: Dimension of the embeddings (d_model).
+        input_dim: Dimension of the embeddings (`d_model`).
         num_heads: Number of attention heads.
         num_layers: Number of transformer layers.
         feedforward_dim: Dimension of feedforward network.
         dropout: Dropout rate.
         positional_encoder: Optional positional encoder to add position information.
         attention_mask: Optional mask generator for self-attention.
-        activation: Activation function (default: "relu").
+        activation: Activation function (default: `"relu"`).
         layer_norm_eps: Epsilon for layer normalization.
-        batch_first: Whether input is batch-first (default: True).
+        batch_first: Whether input is batch-first (default: `True`).
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     TransformerEncoder,
         ...     SinusoidalPositionalEncoder,
@@ -681,9 +681,9 @@ class TransformerEncoder(BaseSequenceEncoder):
         """Encode input sequence using transformer.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim) if batch_first=True,
-                   or (seq_len, batch_size, input_dim) if batch_first=False.
-            mask: Optional mask of shape (batch_size, seq_len) where 1=valid, 0=padding.
+            inputs: Input of shape `(batch_size, seq_len, input_dim)` if `batch_first=True`,
+                   or `(seq_len, batch_size, input_dim)` if `batch_first=False`.
+            mask: Optional mask of shape `(batch_size, seq_len)` where 1=valid, 0=padding.
 
         Returns:
             Encoded sequence of same shape as input.

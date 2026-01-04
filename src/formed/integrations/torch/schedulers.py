@@ -5,7 +5,7 @@ standard scheduler functionality, including cosine annealing with warm restarts
 and warmup phases.
 
 Available Schedulers:
-    - CosineLRScheduler: Cosine annealing with optional restarts and warmup
+    - `CosineLRScheduler`: Cosine annealing with optional restarts and warmup
 
 Features:
     - Cosine decay with configurable cycle length
@@ -14,7 +14,7 @@ Features:
     - Cycle-based decay multiplier
     - Compatible with Colt registration system
 
-Example:
+Examples:
     >>> from formed.integrations.torch.schedulers import CosineLRScheduler
     >>>
     >>> scheduler = CosineLRScheduler(
@@ -49,17 +49,17 @@ class CosineLRScheduler(optim.lr_scheduler.LRScheduler):
     Args:
         optimizer: Wrapped optimizer.
         t_initial: Number of iterations/epochs for the first cycle.
-        lr_min: Minimum learning rate. Default: 0.
-        cycle_mul: Multiplier for cycle length after each restart. Default: 1.0.
-        cycle_decay: Decay factor applied to learning rate at each restart. Default: 1.0.
-        cycle_limit: Maximum number of restart cycles (0 means no limit). Default: 1.
-        warmup_t: Number of warmup iterations/epochs. Default: 0.
-        warmup_lr_init: Initial learning rate during warmup. Default: 0.
-        warmup_prefix: If True, warmup iterations don't count toward t_initial. Default: False.
-        t_in_epochs: If True, t values are in epochs; otherwise in iterations. Default: True.
-        last_epoch: The index of last epoch. Default: -1.
+        lr_min: Minimum learning rate. Default: `0`.
+        cycle_mul: Multiplier for cycle length after each restart. Default: `1.0`.
+        cycle_decay: Decay factor applied to learning rate at each restart. Default: `1.0`.
+        cycle_limit: Maximum number of restart cycles (0 means no limit). Default: `1`.
+        warmup_t: Number of warmup iterations/epochs. Default: `0`.
+        warmup_lr_init: Initial learning rate during warmup. Default: `0`.
+        warmup_prefix: If `True`, warmup iterations don't count toward t_initial. Default: `False`.
+        t_in_epochs: If `True`, t values are in epochs; otherwise in iterations. Default: `True`.
+        last_epoch: The index of last epoch. Default: `-1`.
 
-    Example:
+    Examples:
         >>> # Create scheduler with 100 epoch cycles and 5 epoch warmup
         >>> scheduler = CosineLRScheduler(
         ...     optimizer,
@@ -168,7 +168,7 @@ class CosineLRScheduler(optim.lr_scheduler.LRScheduler):
         """Calculate total number of iterations for a given number of cycles.
 
         Args:
-            cycles: Number of cycles (0 means current cycle).
+            cycles: Number of cycles (`0` means current cycle).
 
         Returns:
             Total number of iterations.

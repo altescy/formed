@@ -29,7 +29,7 @@ class TrainState(train_state.TrainState, Generic[Node]):
         step: Training step counter (inherited from TrainState).
         tx: Optimizer transformation (inherited from TrainState).
 
-    Example:
+    Examples:
         >>> # Create state from model
         >>> graphdef, params, *states = nnx.split(model, nnx.Param, nnx.BatchStat)
         >>> state = TrainState.create(

@@ -28,7 +28,7 @@ class TrainState:
         step: Training step counter.
         grad_scaler: Optional gradient scaler for mixed precision training.
 
-    Example:
+    Examples:
         >>> # Create state from model and optimizer
         >>> state = TrainState(
         ...     model=model,
@@ -60,7 +60,7 @@ class TrainState:
         """Get state dictionary for serialization.
 
         Returns:
-            Dictionary containing model state, optimizer state, lr_scheduler state (if present), grad_scaler state (if present), and step.
+            Dictionary containing model state, `optimizer` state, `lr_scheduler` state (if present), `grad_scaler` state (if present), and `step`.
 
         """
         state = {
@@ -93,9 +93,9 @@ class TrainState:
         """Get current learning rate from optimizer.
 
         Returns:
-            Current learning rate from the first parameter group, or None if unavailable.
+            Current learning rate from the first parameter group, or `None` if unavailable.
 
-        Example:
+        Examples:
             >>> lr = state.get_learning_rate()
             >>> if lr is not None:
             ...     print(f"Current learning rate: {lr}")
@@ -112,16 +112,16 @@ class TrainState:
         """Compute L2 norm of all gradients.
 
         Returns:
-            L2 norm of all parameter gradients, or None if no gradients are available.
+            L2 norm of all parameter gradients, or `None` if no gradients are available.
 
-        Example:
+        Examples:
             >>> grad_norm = state.get_gradient_norm()
             >>> if grad_norm is not None:
             ...     print(f"Gradient norm: {grad_norm:.4f}")
 
         Note:
             This method computes the gradient norm on-demand. It should be called
-            after backward() but before optimizer.step() or zero_grad() to get
+            after `backward()` but before optimizer.step() or `zero_grad()` to get
             meaningful results.
 
         """

@@ -4,9 +4,9 @@ This module provides organizers that coordinate workflow execution,
 managing caches, callbacks, and persistent storage of execution state.
 
 Key Components:
-    - WorkflowOrganizer: Abstract base class for organizers
-    - MemoryWorkflowOrganizer: In-memory organizer for testing
-    - FilesystemWorkflowOrganizer: Persistent filesystem-based organizer
+    - `WorkflowOrganizer`: Abstract base class for organizers
+    - `MemoryWorkflowOrganizer`: In-memory organizer for testing
+    - `FilesystemWorkflowOrganizer`: Persistent filesystem-based organizer
 
 Features:
     - Execution lifecycle management
@@ -15,7 +15,7 @@ Features:
     - Thread-safe execution with file locking
     - Automatic log capture and organization
 
-Example:
+Examples:
     >>> from formed.workflow import FilesystemWorkflowOrganizer, DefaultWorkflowExecutor
     >>>
     >>> # Create filesystem organizer

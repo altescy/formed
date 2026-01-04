@@ -15,7 +15,7 @@ Features:
     - Configurable vectorization for character-level embeddings
     - Concatenation of multiple embedding types
 
-Example:
+Examples:
     >>> from formed.integrations.flax.modules import TokenEmbedder, AnalyzedTextEmbedder
     >>> from flax import nnx
     >>>
@@ -114,7 +114,7 @@ class TokenEmbedder(BaseEmbedder[IIDSequenceBatch]):
         vectorizer: Optional vectorizer for 3D inputs (character sequences).
         rngs: Random number generators.
 
-    Example:
+    Examples:
         >>> # Simple word embeddings
         >>> embedder = TokenEmbedder(vocab_size=10000, embedding_dim=128, rngs=rngs)
         >>> output = embedder(word_ids_batch)
@@ -192,7 +192,7 @@ class AnalyzedTextEmbedder(BaseEmbedder[IAnalyzedTextBatch]):
     Raises:
         ValueError: If all embedders are None (at least one is required).
 
-    Example:
+    Examples:
         >>> from formed.integrations.flax.modules import (
         ...     AnalyzedTextEmbedder,
         ...     TokenEmbedder

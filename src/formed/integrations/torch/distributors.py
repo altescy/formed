@@ -4,16 +4,16 @@ This module provides abstractions for distributed training across multiple devic
 supporting both single-device and data-parallel training strategies.
 
 Key Components:
-    - BaseDistributor: Abstract interface for device distribution strategies
-    - SingleDeviceDistributor: No-op distributor for single-device training
-    - DataParallelDistributor: Data-parallel training using torch.nn.DataParallel
+    - `BaseDistributor`: Abstract interface for device distribution strategies
+    - `SingleDeviceDistributor`: No-op distributor for single-device training
+    - `DataParallelDistributor`: Data-parallel training using torch.nn.DataParallel
 
 Features:
     - Transparent device sharding and replication
     - Reduction operations (mean, sum) across devices
     - Compatible with TorchTrainer
 
-Example:
+Examples:
     >>> from formed.integrations.torch import DataParallelDistributor
     >>> import torch
     >>>
@@ -158,7 +158,7 @@ class BaseDistributor(Registrable, abc.ABC, Generic[ModelInputT]):
 
         Args:
             tensor: Tensor to reduce.
-            op: Reduction operation ("mean" or "sum").
+            op: Reduction operation (`"mean"` or `"sum"`).
 
         Returns:
             Reduced tensor.
@@ -206,9 +206,9 @@ class SingleDeviceDistributor(BaseDistributor[ModelInputT]):
     All shard, replicate, and unreplicate operations are no-ops.
 
     Args:
-        device: Device to use (default: "cuda" if available, else "cpu").
+        device: Device to use (default: `"cuda"` if available, else `"cpu"`).
 
-    Example:
+    Examples:
         >>> distributor = SingleDeviceDistributor(device="cuda:0")
         >>> model = model.to(distributor.device)
 
@@ -241,7 +241,7 @@ class SingleDeviceDistributor(BaseDistributor[ModelInputT]):
 class DataParallelDistributor(BaseDistributor[ModelInputT]):
     """Distributor for data-parallel training across multiple GPUs.
 
-    This distributor uses torch.nn.DataParallel to execute the same computation
+    This distributor uses `torch.nn.DataParallel` to execute the same computation
     on different data shards across multiple GPUs. Data is automatically
     sharded along the batch dimension.
 
@@ -249,7 +249,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
         device_ids: List of GPU device IDs to use. Defaults to all available GPUs.
         output_device: Device for outputs. Defaults to device_ids[0].
 
-    Example:
+    Examples:
         >>> # Train on GPUs 0 and 1 with data parallelism
         >>> distributor = DataParallelDistributor(device_ids=[0, 1])
         >>>
@@ -280,13 +280,13 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
         return self._device
 
     def wrap_model(self, model: nn.Module) -> nn.Module:
-        """Wrap model with DataParallel.
+        """Wrap model with `DataParallel`.
 
         Args:
             model: Model to wrap.
 
         Returns:
-            DataParallel wrapped model.
+            `DataParallel` wrapped model.
 
         """
         return cast(nn.Module, nn.DataParallel(model, device_ids=self._device_ids, output_device=self._output_device))
@@ -296,7 +296,7 @@ class DataParallelDistributor(BaseDistributor[ModelInputT]):
 
         Args:
             tensor: Tensor to reduce across device dimension.
-            op: Reduction operation - "sum" or "mean".
+            op: Reduction operation - `"sum"` or `"mean"`.
 
         Returns:
             Reduced tensor.
@@ -321,25 +321,25 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
     DataParallel for multi-GPU training as it uses one process per GPU.
 
     Args:
-        backend: Backend to use for distributed training ("nccl", "gloo", "mpi").
-            Defaults to "nccl" for GPU and "gloo" for CPU.
+        backend: Backend to use for distributed training (`"nccl"`, `"gloo"`, `"mpi"`).
+            Defaults to `"nccl"` for GPU and `"gloo"` for CPU.
         init_method: URL specifying how to initialize the process group.
-            Defaults to "env://" which uses environment variables.
-        world_size: Total number of processes. If None, reads from environment.
+            Defaults to `"env://"` which uses environment variables.
+        world_size: Total number of processes. If `None`, reads from environment.
         rank: Rank of this process. If None, reads from environment.
-        local_rank: Local rank on this machine. If None, uses rank.
-        find_unused_parameters: Whether to find unused parameters. Default False.
-        broadcast_buffers: Whether to broadcast buffers. Default True.
-        bucket_cap_mb: Bucket size in MB for gradient allreduce. Default 25.
+        local_rank: Local rank on this machine. If `None`, uses rank.
+        find_unused_parameters: Whether to find unused parameters. Default `False`.
+        broadcast_buffers: Whether to broadcast buffers. Default `True`.
+        bucket_cap_mb: Bucket size in MB for gradient allreduce. Default `25`.
 
     Environment Variables:
-        - RANK: Global rank of the process
-        - LOCAL_RANK: Local rank on the machine
-        - WORLD_SIZE: Total number of processes
-        - MASTER_ADDR: Address of the master node
-        - MASTER_PORT: Port of the master node
+        - `RANK`: Global rank of the process
+        - `LOCAL_RANK`: Local rank on the machine
+        - `WORLD_SIZE`: Total number of processes
+        - `MASTER_ADDR`: Address of the master node
+        - `MASTER_PORT`: Port of the master node
 
-    Example:
+    Examples:
         >>> # On each process, initialize the distributor
         >>> distributor = DistributedDataParallelDistributor(
         ...     backend="nccl",
@@ -352,7 +352,7 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
         >>> # Train as usual - gradients are automatically synchronized
 
     Note:
-        - Requires launching multiple processes (e.g., using torch.distributed.launch)
+        - Requires launching multiple processes (e.g., using `torch.distributed.launch`)
         - Each process should initialize its own distributor
         - Batch size should be per-process batch size
 
@@ -513,7 +513,7 @@ class DistributedDataParallelDistributor(BaseDistributor[ModelInputT]):
 
         Args:
             tensor: Tensor to reduce.
-            op: Reduction operation - "sum" or "mean".
+            op: Reduction operation - `"sum"` or `"mean"`.
 
         Returns:
             Reduced tensor.

@@ -10,7 +10,7 @@ Key Features:
     - Automatic environment variable access
     - FromJsonnet mixin for easy Jsonnet-based object construction
 
-Example:
+Examples:
     >>> # Load a Jsonnet configuration file
     >>> config = load_jsonnet(
     ...     "workflow.jsonnet",
