@@ -74,7 +74,7 @@ class WorkflowCache(Registrable):
 
     """
 
-    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]") -> _T:
+    def __getitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]") -> _T:
         """Retrieve cached result for a step.
 
         Args:
@@ -89,7 +89,7 @@ class WorkflowCache(Registrable):
         """
         raise NotImplementedError
 
-    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[T]]", value: _T) -> None:
+    def __setitem__(self, step_info: "WorkflowStepInfo[WorkflowStep[_T]]", value: _T) -> None:
         """Store a step result in the cache.
 
         Args:
