@@ -34,7 +34,7 @@ def as_jsonvalue(value: Any) -> JsonValue:
 
 
 def from_jsonvalue(value: JsonValue) -> Any:
-    return WorkflowJSONDecoder()._reconstruct(value)
+    return WorkflowJSONDecoder._reconstruct(value)
 
 
 class _JSONDataType(str, enum.Enum):
@@ -50,7 +50,7 @@ class WorkflowJSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         if isinstance(o, IJsonCompatible):
             return {
-                _PYTHON_DATA_TYPE_KEY: _JSONDataType.PICKLE,
+                _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
                 _PYTHON_DATA_VALUE_KEY: o.json(),
                 _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
             }
@@ -145,6 +145,10 @@ class WorkflowJSONDecoder(json.JSONDecoder):
             module = importlib.import_module(module_name)
             cls = getattr(module, class_name)
             value: dict = WorkflowJSONDecoder._reconstruct(o[_PYTHON_DATA_VALUE_KEY])
+            if isinstance(cls, type) and issubclass(cls, IJsonDeserializable):
+                return cls.from_json(value)
+            if isinstance(cls, type) and issubclass(cls, IPydanticModel):
+                return cls.model_validate(value)
             if isinstance(cls, type) and dataclasses.is_dataclass(cls):
                 init_fields = []
                 non_init_fields = []
@@ -164,10 +168,6 @@ class WorkflowJSONDecoder(json.JSONDecoder):
                     elif field.default_factory is not dataclasses.MISSING:
                         setattr(output, field.name, field.default_factory())
                 return output
-            if isinstance(cls, type) and issubclass(cls, IJsonDeserializable):
-                return cls.from_json(value)
-            if isinstance(cls, type) and issubclass(cls, IPydanticModel):
-                return cls.model_validate(value)
             return colt.build(value, cls)
         if data_type == _JSONDataType.COUNTER:
             return Counter(o[_PYTHON_DATA_VALUE_KEY])
