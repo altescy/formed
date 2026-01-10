@@ -197,8 +197,7 @@ class TokenEmbedder(BaseEmbedder["IIDSequenceBatch"]):
     can either average the embeddings or apply a custom vectorizer.
 
     Args:
-        vocab_size: Size of the vocabulary.
-        embedding_dim: Dimension of the embedding vectors.
+        initializer: Tensor initializer or callable that returns the embedding tensor.
         padding_idx: Index of the padding token (default: `0`).
         vectorizer: Optional vectorizer for 3D inputs (character sequences).
 

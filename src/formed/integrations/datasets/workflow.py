@@ -1,3 +1,15 @@
+"""Workflow steps for Hugging Face Datasets integration.
+
+This module provides workflow steps for loading, processing, and manipulating
+datasets using the Hugging Face Datasets library.
+
+Available Steps:
+    - `datasets::load`: Load a dataset from disk or the Hugging Face Hub.
+    - `datasets::compose`: Compose multiple Dataset objects into a DatasetDict.
+    - `datasets::concatenate`: Concatenate multiple datasets into a single dataset.
+    - `datasets::train_test_split`: Split a dataset into train and test sets.
+
+"""
 from collections.abc import Mapping
 from contextlib import suppress
 from os import PathLike
@@ -35,6 +47,21 @@ def load_dataset(
     path: str | PathLike,
     **kwargs: Any,
 ) -> Dataset:
+    """Load a dataset from disk or the Hugging Face Hub.
+
+    This step loads a dataset from a local path or downloads it from the
+    Hugging Face Hub. The dataset can be either a Dataset or DatasetDict.
+
+    Args:
+        path: Path to the dataset (local or remote).
+        **kwargs: Additional arguments to pass to `datasets.load_dataset`.
+
+    Returns:
+        Loaded Dataset or DatasetDict.
+
+    Raises:
+        ValueError: If the loaded object is not a Dataset or DatasetDict.
+    """
     with suppress(FileNotFoundError):
         path = minato.cached_path(path)
     if Path(path).exists():
@@ -48,6 +75,17 @@ def load_dataset(
 
 @step("datasets::compose", format=DatasetFormat())
 def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
+    """Compose multiple Dataset objects into a single DatasetDict.
+
+    This step combines individual Dataset objects into a DatasetDict,
+    filtering out any non-Dataset values.
+
+    Args:
+        **kwargs: Named datasets to compose. Only Dataset instances are included.
+
+    Returns:
+        DatasetDict containing all provided Dataset instances.
+    """
     datasets_: dict[str, datasets.Dataset] = {
         key: dataset for key, dataset in kwargs.items() if isinstance(dataset, datasets.Dataset)
     }
@@ -62,6 +100,15 @@ def compose_datasetdict(**kwargs: Dataset) -> datasets.DatasetDict:
 
 @step("datasets::concatenate", format=DatasetFormat())
 def concatenate_datasets(dsets: list[datasets.Dataset], **kwargs: Any) -> datasets.Dataset:
+    """Concatenate multiple datasets into a single dataset.
+
+    Args:
+        dsets: List of datasets to concatenate.
+        **kwargs: Additional arguments to pass to `datasets.concatenate_datasets`.
+
+    Returns:
+        Concatenated dataset.
+    """
     return cast(datasets.Dataset, datasets.concatenate_datasets(dsets, **kwargs))
 
 
@@ -72,6 +119,20 @@ def train_test_split(
     test_key: str = "test",
     **kwargs: Any,
 ) -> dict[str, Dataset]:
+    """Split a dataset into train and test sets.
+
+    This step splits a Dataset or DatasetDict into training and test sets.
+    For DatasetDict inputs, each split is performed independently.
+
+    Args:
+        dataset: Dataset or DatasetDict to split.
+        train_key: Key name for the training split.
+        test_key: Key name for the test split.
+        **kwargs: Additional arguments to pass to `train_test_split`.
+
+    Returns:
+        Dictionary with train and test splits.
+    """
     if isinstance(dataset, datasets.Dataset):
         split = dataset.train_test_split(**kwargs)
         return {train_key: split["train"], test_key: split["test"]}

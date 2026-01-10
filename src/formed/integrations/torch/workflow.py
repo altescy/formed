@@ -4,6 +4,12 @@ This module provides workflow steps for training PyTorch models, allowing
 them to be integrated into the formed workflow system with automatic
 caching and dependency tracking.
 
+Available Steps:
+    - `torch::train`: Train a PyTorch model using the provided trainer.
+    - `torch::evaluate`: Evaluate a PyTorch model on a dataset.
+    - `torch::predict`: Generate predictions on a dataset using a PyTorch model.
+    - `torch::predict_without_caching`: Generate predictions without caching (same as `torch::predict` but uncached).
+
 Examples:
     >>> from formed.integrations.torch import train_torch_model
     >>>
@@ -228,6 +234,23 @@ def predict(
     device: Annotated[str | torch.device | None, WorkflowStepArgFlag.IGNORE] = None,
     random_seed: int | None = None,
 ) -> Iterator[_ResultT]:
+    """Generate predictions on a dataset using a PyTorch model.
+
+    This step applies a model to a dataset and postprocesses the outputs
+    to generate final predictions.
+
+    Args:
+        dataset: Dataset items for prediction.
+        dataloader: DataLoader to convert items to model inputs.
+        model: PyTorch model to use for prediction.
+        postprocessor: Function to convert model outputs to final results.
+        params: Optional model parameters to use for prediction.
+        device: Optional device (e.g., `"cpu"`, `"cuda"`) to run prediction on.
+        random_seed: Optional random seed for reproducibility.
+
+    Returns:
+        Iterator of prediction results.
+    """
     # Set random seed if provided
     if random_seed is not None:
         torch.manual_seed(random_seed)

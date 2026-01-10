@@ -55,7 +55,7 @@ class BaseLabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
 
         Args:
             logits: Model output logits of shape `(..., num_classes)`.
-            **kwargs: Additional parameters for sampling.
+            params: Additional parameters for sampling.
 
         Returns:
             Sampled labels of shape `(...)`.
@@ -83,7 +83,7 @@ class ArgmaxLabelSampler(BaseLabelSampler[None]):
 
         Args:
             logits: Logits of shape `(..., num_classes)`.
-            **kwargs: Ignored.
+            params: Ignored.
 
         Returns:
             Labels of shape `(...)`.
@@ -125,9 +125,7 @@ class MultinomialLabelSampler(BaseLabelSampler[MultinomialLabelSamplerParams]):
 
         Args:
             logits: Logits of shape `(..., num_classes)`.
-            temperature: Sampling temperature to control randomness.
-                Higher temperature = more random, lower = more deterministic.
-            **kwargs: Ignored.
+            params: Optional parameters containing temperature for sampling.
 
         Returns:
             Sampled labels of shape `(...)`.
@@ -158,7 +156,7 @@ class BaseMultilabelSampler(nn.Module, Registrable, Generic[_ParamsT], abc.ABC):
 
         Args:
             logits: Model output logits of shape `(..., num_classes)`.
-            **kwargs: Additional parameters for sampling.
+            params: Additional parameters for sampling.
 
         Returns:
             Sampled labels of shape `(..., num_labels)`.
@@ -251,7 +249,7 @@ class TopKMultilabelSampler(BaseMultilabelSampler[TopKMultilabelSamplerParams]):
 
         Args:
             logits: Logits of shape `(..., num_classes)`.
-            **kwargs: Ignored.
+            params: Optional parameters containing k for top-k selection.
 
         Returns:
             Labels of shape `(..., num_labels)`.
@@ -279,7 +277,7 @@ class BernoulliMultilabelSampler(BaseMultilabelSampler[None]):
 
         Args:
             logits: Logits of shape `(..., num_classes)`.
-            **kwargs: Ignored.
+            params: Ignored.
 
         Returns:
             Sampled labels of shape `(..., num_labels)`.
