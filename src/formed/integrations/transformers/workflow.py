@@ -1,3 +1,16 @@
+"""Workflow steps for Hugging Face Transformers integration.
+
+This module provides workflow steps for loading, tokenizing, training, and
+converting transformer models using the Hugging Face Transformers library.
+
+Available Steps:
+    - `transformers::tokenize`: Tokenize a dataset using a pre-trained tokenizer.
+    - `transformers::load_model`: Load a pre-trained transformer model.
+    - `transformers::load_tokenizer`: Load a pre-trained tokenizer.
+    - `transformers::train_model`: Train a transformer model using the Hugging Face Trainer.
+    - `transformers::convert_tokenizer`: Convert a transformer tokenizer to a formed Tokenizer (requires ml integration).
+
+"""
 import importlib
 import json
 from collections.abc import Callable, Mapping

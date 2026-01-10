@@ -1,3 +1,16 @@
+"""Workflow steps for machine learning data module integration.
+
+This module provides workflow steps for training data modules and generating
+instances for machine learning tasks.
+
+Available Steps:
+    - `ml::train_datamodule`: Train a data module on a dataset.
+    - `ml::train_datamodule_with_instances`: Train a data module and collect generated instances.
+    - `ml::generate_instances`: Generate instances from a dataset using a data module.
+    - `ml::generate_instances_without_caching`: Generate instances without caching (same as `ml::generate_instances` but uncached).
+
+"""
+
 import dataclasses
 from collections.abc import Iterable, Iterator
 from pathlib import Path

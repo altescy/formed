@@ -4,6 +4,10 @@ This module provides workflow steps for training Flax models, allowing
 them to be integrated into the formed workflow system with automatic
 caching and dependency tracking.
 
+Available Steps:
+    - `flax::train`: Train a Flax model using the provided trainer.
+    - `flax::evaluate`: Evaluate a Flax model on a dataset.
+
 Examples:
     >>> from formed.integrations.flax import train_flax_model
     >>>

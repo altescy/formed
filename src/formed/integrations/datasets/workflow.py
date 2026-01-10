@@ -1,3 +1,15 @@
+"""Workflow steps for Hugging Face Datasets integration.
+
+This module provides workflow steps for loading, processing, and manipulating
+datasets using the Hugging Face Datasets library.
+
+Available Steps:
+    - `datasets::load`: Load a dataset from disk or the Hugging Face Hub.
+    - `datasets::compose`: Compose multiple Dataset objects into a DatasetDict.
+    - `datasets::concatenate`: Concatenate multiple datasets into a single dataset.
+    - `datasets::train_test_split`: Split a dataset into train and test sets.
+
+"""
 from collections.abc import Mapping
 from contextlib import suppress
 from os import PathLike

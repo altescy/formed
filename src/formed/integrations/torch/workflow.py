@@ -4,6 +4,12 @@ This module provides workflow steps for training PyTorch models, allowing
 them to be integrated into the formed workflow system with automatic
 caching and dependency tracking.
 
+Available Steps:
+    - `torch::train`: Train a PyTorch model using the provided trainer.
+    - `torch::evaluate`: Evaluate a PyTorch model on a dataset.
+    - `torch::predict`: Generate predictions on a dataset using a PyTorch model.
+    - `torch::predict_without_caching`: Generate predictions without caching (same as `torch::predict` but uncached).
+
 Examples:
     >>> from formed.integrations.torch import train_torch_model
     >>>
