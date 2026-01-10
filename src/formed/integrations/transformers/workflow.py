@@ -62,6 +62,23 @@ def tokenize_dataset(
     return_special_tokens_mask: bool = False,
     max_length: int | None = None,
 ) -> datasets.Dataset | datasets.DatasetDict:
+    """Tokenize a dataset using a pre-trained tokenizer.
+
+    This step applies tokenization to a text column in the dataset,
+    removing the original text column and adding tokenized features.
+
+    Args:
+        dataset: Dataset or DatasetDict to tokenize.
+        tokenizer: Tokenizer identifier, path, or instance.
+        text_column: Name of the text column to tokenize.
+        padding: Padding strategy.
+        truncation: Truncation strategy.
+        return_special_tokens_mask: Whether to return special tokens mask.
+        max_length: Maximum sequence length.
+
+    Returns:
+        Tokenized dataset with the text column removed.
+    """
     if not isinstance(tokenizer, PreTrainedTokenizerBase):
         tokenizer = load_pretrained_tokenizer(tokenizer)
 
@@ -88,6 +105,17 @@ def load_pretrained_model(
     submodule: str | None = None,
     **kwargs: Any,
 ) -> transformers.PreTrainedModel:
+    """Load a pre-trained transformer model.
+
+    Args:
+        model_name_or_path: Model identifier or path to model directory.
+        auto_class: Auto model class to use for loading (name or class).
+        submodule: Optional submodule to extract from the model.
+        **kwargs: Additional arguments to pass to the model constructor.
+
+    Returns:
+        Loaded pre-trained transformer model.
+    """
     if isinstance(auto_class, str):
         auto_class = getattr(transformers, auto_class)
     assert isinstance(auto_class, type) and issubclass(auto_class, _BaseAutoModelClass)
@@ -104,6 +132,15 @@ def load_pretrained_tokenizer_step(
     pretrained_model_name_or_path: str | PathLike,
     **kwargs: Any,
 ) -> PreTrainedTokenizerBase:
+    """Load a pre-trained tokenizer.
+
+    Args:
+        pretrained_model_name_or_path: Model identifier or path to model directory.
+        **kwargs: Additional arguments to pass to the tokenizer constructor.
+
+    Returns:
+        Loaded pre-trained tokenizer.
+    """
     return load_pretrained_tokenizer(pretrained_model_name_or_path, **kwargs)
 
 
@@ -129,6 +166,30 @@ def train_transformer_model(
     train_dataset_key: str = "train",
     eval_dataset_key: str = "validation",
 ) -> PreTrainedModel:
+    """Train a transformer model using the Hugging Face Trainer.
+
+    This step trains a transformer model on the provided datasets using
+    the Hugging Face Trainer API.
+
+    Args:
+        model: Pre-trained model to train.
+        args: Training arguments configuration.
+        data_collator: Optional data collator for batching.
+        dataset: Training/validation datasets.
+        processing_class: Optional processing class (tokenizer, processor, etc.).
+        model_init: Optional model initialization function.
+        compute_loss_func: Optional custom loss computation function.
+        compute_metrics: Optional metrics computation function.
+        callbacks: Optional training callbacks.
+        optimizers: Optional optimizer and learning rate scheduler.
+        optimizer_cls_and_kwargs: Optional optimizer class and keyword arguments.
+        preprocess_logits_for_metrics: Optional logits preprocessing function.
+        train_dataset_key: Key for training dataset split.
+        eval_dataset_key: Key for evaluation dataset split.
+
+    Returns:
+        Trained transformer model.
+    """
     workdir = use_step_workdir()
 
     args_ = args.construct(output_dir=str(workdir))
@@ -181,6 +242,26 @@ with suppress(ImportError):
         freeze: bool = True,
         accessor: str | Callable | None = None,
     ) -> Tokenizer:
+        """Convert a transformer tokenizer to a formed Tokenizer.
+
+        This step converts a Hugging Face tokenizer into a formed Tokenizer
+        with specified special tokens.
+
+        Args:
+            tokenizer: Tokenizer identifier, path, or instance.
+            pad_token: Padding token (uses tokenizer default if not specified).
+            unk_token: Unknown token (uses tokenizer default if not specified).
+            bos_token: Beginning-of-sequence token (uses tokenizer default if not specified).
+            eos_token: End-of-sequence token (uses tokenizer default if not specified).
+            freeze: Whether to freeze the vocabulary.
+            accessor: Optional accessor for token extraction.
+
+        Returns:
+            Converted formed Tokenizer.
+
+        Raises:
+            AssertionError: If pad_token is not specified and not available in the tokenizer.
+        """
         given_tokenizer = tokenizer
 
         if isinstance(tokenizer, (str, PathLike)):

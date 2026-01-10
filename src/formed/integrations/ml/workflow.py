@@ -60,6 +60,18 @@ def train_datamodule(
     datamodule: DataModule[AsConverter, _InputT],
     dataset: Iterable[_InputT],
 ) -> DataModule[AsConverter, _InputT]:
+    """Train a data module on a dataset.
+
+    This step trains a DataModule on the provided dataset, allowing it to
+    learn transformations and build vocabularies.
+
+    Args:
+        datamodule: DataModule to train.
+        dataset: Training dataset.
+
+    Returns:
+        Trained DataModule.
+    """
     with datamodule.train(), progress(dataset, desc="Training datamodule") as dataset:
         for example in dataset:
             datamodule(example)
@@ -71,6 +83,18 @@ def train_datamodule_with_instances(
     datamodule: DataModule[AsConverter, _InputT, _InstanceT],
     dataset: Iterable[_InputT],
 ) -> DataModuleAndInstances[_InputT, _InstanceT]:
+    """Train a data module and collect generated instances.
+
+    This step trains a DataModule while collecting all instances generated
+    during training, returning both the trained module and instances.
+
+    Args:
+        datamodule: DataModule to train.
+        dataset: Training dataset.
+
+    Returns:
+        DataModuleAndInstances containing the trained module and generated instances.
+    """
     def generate_instances() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
 
@@ -89,6 +113,18 @@ def generate_instances(
     datamodule: DataModule[AsConverter, _InputT, _InstanceT],
     dataset: Iterable[_InputT],
 ) -> Dataset[_InstanceT]:
+    """Generate instances from a dataset using a data module.
+
+    This step applies a DataModule to each example in the dataset,
+    generating processed instances.
+
+    Args:
+        datamodule: DataModule to use for instance generation.
+        dataset: Input dataset.
+
+    Returns:
+        Dataset of generated instances.
+    """
     def generator() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
         with progress(dataset, desc="Generating instances") as dataset:

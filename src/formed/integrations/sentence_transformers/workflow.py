@@ -39,6 +39,15 @@ def load_pretrained_model(
     model_name_or_path: str | PathLike,
     **kwargs: Any,
 ) -> SentenceTransformer:
+    """Load a pre-trained sentence transformer model.
+
+    Args:
+        model_name_or_path: Model identifier or path to model directory.
+        **kwargs: Additional arguments to pass to SentenceTransformer constructor.
+
+    Returns:
+        Loaded SentenceTransformer model.
+    """
     with suppress(Exception):
         model_name_or_path = minato.cached_path(model_name_or_path)
     return SentenceTransformer(str(model_name_or_path), **kwargs)
@@ -78,6 +87,31 @@ def train_sentence_transformer(
     train_dataset_key: str = "train",
     eval_dataset_key: str = "validation",
 ) -> SentenceTransformer:
+    """Train a sentence transformer model.
+
+    This step trains a SentenceTransformer model using the provided loss function,
+    datasets, and training arguments.
+
+    Args:
+        model: SentenceTransformer model to train.
+        loss: Loss function(s) for training (single or mapping by dataset key).
+        args: Training arguments configuration.
+        dataset: Training/validation datasets.
+        loss_modifier: Optional modifier(s) to apply to the loss function.
+        data_collator: Optional data collator for batching.
+        tokenizer: Optional tokenizer.
+        evaluator: Optional evaluator(s) for validation.
+        callbacks: Optional training callbacks.
+        model_init: Optional model initialization function.
+        compute_metrics: Optional metrics computation function.
+        optimizers: Optional optimizer and learning rate scheduler.
+        preprocess_logits_for_metrics: Optional logits preprocessing function.
+        train_dataset_key: Key for training dataset split.
+        eval_dataset_key: Key for evaluation dataset split.
+
+    Returns:
+        Trained SentenceTransformer model.
+    """
     workdir = use_step_workdir()
 
     args_ = args.construct(output_dir=str(workdir))
@@ -151,6 +185,26 @@ with suppress(ImportError):
         freeze: bool = True,
         accessor: str | Callable | None = None,
     ) -> Tokenizer:
+        """Convert a sentence transformer model's tokenizer to a formed Tokenizer.
+
+        This step extracts the tokenizer from a sentence transformer model and
+        converts it into a formed Tokenizer with specified special tokens.
+
+        Args:
+            model_name_or_path: Model identifier or path to model directory.
+            pad_token: Padding token (uses model default if not specified).
+            unk_token: Unknown token (uses model default if not specified).
+            bos_token: Beginning-of-sequence token (uses model default if not specified).
+            eos_token: End-of-sequence token (uses model default if not specified).
+            freeze: Whether to freeze the vocabulary.
+            accessor: Optional accessor for token extraction.
+
+        Returns:
+            Converted formed Tokenizer.
+
+        Raises:
+            AssertionError: If pad_token is not specified and not available in the model.
+        """
         model = load_sentence_transformer(model_name_or_path)
 
         def get_token(given: str | None | NotSpecified, default: Any) -> str | None:
