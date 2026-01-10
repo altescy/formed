@@ -43,7 +43,8 @@ class CrossEntropyLoss(BaseClassificationLoss[_ParamsT]):
     """Cross-entropy loss for classification tasks.
 
     Args:
-        label_weighter: An optional label weighter to assign weights to each class.
+        weighter: An optional label weighter to assign weights to each class.
+        reduce: Reduction method for loss computation ("mean" or "sum").
     """
 
     def __init__(

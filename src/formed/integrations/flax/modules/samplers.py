@@ -40,9 +40,9 @@ class MultinomialLabelSamplerParams(NamedTuple):
     This class can be extended in the future to include additional parameters
     for sampling if needed.
 
-    Args:
+    Attributes:
         rngs: Random number generators.
-        temperature: Sampling temperature to control randomness.
+        templerature: Sampling temperature to control randomness.
     """
 
     rngs: nnx.Rngs | None = None

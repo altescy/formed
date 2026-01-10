@@ -95,6 +95,7 @@ def train_datamodule_with_instances(
     Returns:
         DataModuleAndInstances containing the trained module and generated instances.
     """
+
     def generate_instances() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
 
@@ -125,6 +126,7 @@ def generate_instances(
     Returns:
         Dataset of generated instances.
     """
+
     def generator() -> Iterator[_InstanceT]:
         nonlocal datamodule, dataset
         with progress(dataset, desc="Generating instances") as dataset:

@@ -313,7 +313,9 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
 
     Attributes:
         min_characters: Minimum character length per token (for padding).
-        (inherits all attributes from TokenSequenceIndexer)
+
+    Note:
+        Inherits all attributes from TokenSequenceIndexer.
 
     Examples:
         >>> indexer = TokenCharactersIndexer(
