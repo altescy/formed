@@ -1,6 +1,6 @@
 [project]
 name = "formed"
-version = "0.0.4"
+version = "0.0.5"
 description = "🧬 Flexible framework for organizing data/experiments/workflows"
 authors = [
     { name="altescy",  email="me@altescy.jp" },
