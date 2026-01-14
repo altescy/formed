@@ -1,0 +1,3262 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://altescy.github.io/formed/reference/integrations/sentence_transformers/">
+      
+      
+        <link rel="prev" href="../mlflow/">
+      
+      
+        <link rel="next" href="../torch/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>SentenceTransformers - Formed</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sentencetransformers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Formed" class="md-header__button md-logo" aria-label="Formed" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Formed
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SentenceTransformers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/altescy/formed" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    altescy/formed
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quick_start/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quick Start
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../tutorials/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../guides/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Formed" class="md-nav__button md-logo" aria-label="Formed" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Formed
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/altescy/formed" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    altescy/formed
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quick_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/text_classification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text Classification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/causal_lm_finetuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Causal LM Finetuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/integrations/ml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/integrations/torch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Torch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mlflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MLflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SentenceTransformers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SentenceTransformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;analyzers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" analyzers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SentenceTransformerAnalyzer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SentenceTransformerAnalyzer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.model_name_or_path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;model_name_or_path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.unicode_normalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;unicode_normalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.utils" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;utils
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" utils">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.utils.load_sentence_transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load_sentence_transformer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SentenceTransformerFormat
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SentenceTransformerFormat">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;identifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;read
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.is_default_of" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;is_default_of
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.load_pretrained_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load_pretrained_model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.train_sentence_transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;train_sentence_transformer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.convert_tokenizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;convert_tokenizer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../torch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Torch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transformers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;analyzers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" analyzers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SentenceTransformerAnalyzer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SentenceTransformerAnalyzer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.model_name_or_path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;model_name_or_path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.unicode_normalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;unicode_normalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.utils" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;utils
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" utils">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.utils.load_sentence_transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load_sentence_transformer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SentenceTransformerFormat
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" SentenceTransformerFormat">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;identifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;read
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.is_default_of" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;is_default_of
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.load_pretrained_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load_pretrained_model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.train_sentence_transformer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;train_sentence_transformer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formed.integrations.sentence_transformers.workflow.convert_tokenizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;convert_tokenizer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="sentencetransformers">SentenceTransformers<a class="headerlink" data-preview="" href="#sentencetransformers" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="formed.integrations.sentence_transformers.analyzers" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">formed.integrations.sentence_transformers.analyzers</span>
+
+
+<a href="#formed.integrations.sentence_transformers.analyzers" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SentenceTransformerAnalyzer</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">SentenceTransformerAnalyzer</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">model_name_or_path</span><span class="p">,</span> <span class="n">unicode_normalization</span><span class="o">=</span><span class="kc">None</span>
+</span><span id="__span-0-3"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.model_name_or_path" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">model_name_or_path</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.model_name_or_path" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">model_name_or_path</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.unicode_normalization" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">unicode_normalization</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.analyzers.SentenceTransformerAnalyzer.unicode_normalization" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">unicode_normalization</span> <span class="o">=</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="formed.integrations.sentence_transformers.utils" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">formed.integrations.sentence_transformers.utils</span>
+
+
+<a href="#formed.integrations.sentence_transformers.utils" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="formed.integrations.sentence_transformers.utils.load_sentence_transformer" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">load_sentence_transformer</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-cached"><code>cached</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.utils.load_sentence_transformer" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">load_sentence_transformer</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/utils.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-10"><span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+</span><span id="__span-0-11"><span class="k">def</span><span class="w"> </span><span class="nf">load_sentence_transformer</span><span class="p">(</span>
+</span><span id="__span-0-12">    <span class="n">model_name_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-0-14"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentenceTransformer</span><span class="p">:</span>
+</span><span id="__span-0-15">    <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+</span><span id="__span-0-16">        <span class="n">model_name_or_path</span> <span class="o">=</span> <span class="n">minato</span><span class="o">.</span><span class="n">cached_path</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">)</span>
+</span><span id="__span-0-17">    <span class="k">return</span> <span class="n">SentenceTransformer</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="formed.integrations.sentence_transformers.workflow" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">formed.integrations.sentence_transformers.workflow</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Workflow steps for Sentence Transformers integration.</p>
+<p>This module provides workflow steps for loading, training, and converting
+sentence transformer models.</p>
+
+
+<details class="available-steps" open>
+  <summary>Available Steps</summary>
+  <ul>
+<li><code>sentence_transformers::load</code>: Load a pre-trained sentence transformer model.</li>
+<li><code>sentence_transformers::train</code>: Train a sentence transformer model.</li>
+<li><code>sentence_transformers::convert_tokenizer</code>: Convert a sentence transformer tokenizer to a formed Tokenizer (requires ml integration).</li>
+</ul>
+</details>
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SentenceTransformerFormat</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="typing.Generic">Generic</span>[<span title="formed.integrations.sentence_transformers.types.SentenceTransformerT">SentenceTransformerT</span>]</code>, <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Format&lt;/span&gt; (&lt;code&gt;formed.workflow.Format&lt;/code&gt;)" href="../../workflow/#formed.workflow.format.Format">Format</a>[<span title="formed.integrations.sentence_transformers.types.SentenceTransformerT">SentenceTransformerT</span>]</code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.identifier" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">identifier</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.identifier" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">identifier</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the unique identifier for this format.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="str">str</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Format identifier string.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.write" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">write</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.write" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">write</span><span class="p">(</span><span class="n">artifact</span><span class="p">,</span> <span class="n">directory</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/workflow.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
+<span class="normal">43</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-42"><span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">artifact</span><span class="p">:</span> <span class="n">SentenceTransformerT</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-43">    <span class="n">artifact</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">directory</span> <span class="o">/</span> <span class="s2">&quot;model&quot;</span><span class="p">))</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.read" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">read</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.read" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">read</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/workflow.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">45</span>
+<span class="normal">46</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-45"><span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentenceTransformerT</span><span class="p">:</span>
+</span><span id="__span-0-46">    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">SentenceTransformerT</span><span class="p">,</span> <span class="n">SentenceTransformer</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">directory</span> <span class="o">/</span> <span class="s2">&quot;model&quot;</span><span class="p">)))</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.is_default_of" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">is_default_of</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#formed.integrations.sentence_transformers.workflow.SentenceTransformerFormat.is_default_of" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">is_default_of</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Check if this format is the default for the given object type.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Object to check.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="typing.Any">Any</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="bool">bool</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>True if this format should be used by default for this type.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/workflow/format.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-101"><span class="nd">@classmethod</span>
+</span><span id="__span-0-102"><span class="k">def</span><span class="w"> </span><span class="nf">is_default_of</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-0-103"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if this format is the default for the given object type.</span>
+</span><span id="__span-0-104">
+</span><span id="__span-0-105"><span class="sd">    Args:</span>
+</span><span id="__span-0-106"><span class="sd">        obj: Object to check.</span>
+</span><span id="__span-0-107">
+</span><span id="__span-0-108"><span class="sd">    Returns:</span>
+</span><span id="__span-0-109"><span class="sd">        True if this format should be used by default for this type.</span>
+</span><span id="__span-0-110">
+</span><span id="__span-0-111"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-112">    <span class="k">return</span> <span class="kc">False</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="formed.integrations.sentence_transformers.workflow.load_pretrained_model" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">load_pretrained_model</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.load_pretrained_model" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">load_pretrained_model</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Load a pre-trained sentence transformer model.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_name_or_path</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Model identifier or path to model directory.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | <span title="os.PathLike">PathLike</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>**kwargs</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Additional arguments to pass to SentenceTransformer constructor.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="typing.Any">Any</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>{}</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="sentence_transformers.SentenceTransformer">SentenceTransformer</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Loaded SentenceTransformer model.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/workflow.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-49"><span class="nd">@step</span><span class="p">(</span><span class="s2">&quot;sentence_transformers::load&quot;</span><span class="p">,</span> <span class="n">cacheable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-0-50"><span class="k">def</span><span class="w"> </span><span class="nf">load_pretrained_model</span><span class="p">(</span>
+</span><span id="__span-0-51">    <span class="n">model_name_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">,</span>
+</span><span id="__span-0-52">    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-0-53"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentenceTransformer</span><span class="p">:</span>
+</span><span id="__span-0-54"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a pre-trained sentence transformer model.</span>
+</span><span id="__span-0-55">
+</span><span id="__span-0-56"><span class="sd">    Args:</span>
+</span><span id="__span-0-57"><span class="sd">        model_name_or_path: Model identifier or path to model directory.</span>
+</span><span id="__span-0-58"><span class="sd">        **kwargs: Additional arguments to pass to SentenceTransformer constructor.</span>
+</span><span id="__span-0-59">
+</span><span id="__span-0-60"><span class="sd">    Returns:</span>
+</span><span id="__span-0-61"><span class="sd">        Loaded SentenceTransformer model.</span>
+</span><span id="__span-0-62"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-63">    <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+</span><span id="__span-0-64">        <span class="n">model_name_or_path</span> <span class="o">=</span> <span class="n">minato</span><span class="o">.</span><span class="n">cached_path</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">)</span>
+</span><span id="__span-0-65">    <span class="k">return</span> <span class="n">SentenceTransformer</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="formed.integrations.sentence_transformers.workflow.train_sentence_transformer" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">train_sentence_transformer</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.train_sentence_transformer" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">train_sentence_transformer</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">model</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n">loss</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">args</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n">dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n">loss_modifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n">data_collator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n">evaluator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n">callbacks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n">model_init</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-12">    <span class="n">compute_metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="n">optimizers</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+</span><span id="__span-0-14">    <span class="n">preprocess_logits_for_metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-15">    <span class="n">train_dataset_key</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
+</span><span id="__span-0-16">    <span class="n">eval_dataset_key</span><span class="o">=</span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
+</span><span id="__span-0-17"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Train a sentence transformer model.</p>
+<p>This step trains a SentenceTransformer model using the provided loss function,
+datasets, and training arguments.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>SentenceTransformer model to train.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="sentence_transformers.SentenceTransformer">SentenceTransformer</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>loss</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Loss function(s) for training (single or mapping by dataset key).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>]] | <span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>args</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Training arguments configuration.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="colt.Lazy">Lazy</span>[<span title="sentence_transformers.SentenceTransformerTrainingArguments">SentenceTransformerTrainingArguments</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dataset</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Training/validation datasets.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>None | (<span title="datasets.Dataset">Dataset</span> | <span title="datasets.DatasetDict">DatasetDict</span> | <span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="datasets.Dataset">Dataset</span> | <span title="datasets.DatasetDict">DatasetDict</span>])</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>loss_modifier</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional modifier(s) to apply to the loss function.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>None | (<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="list">list</span>[<span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>]] | <span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>]] | <span title="list">list</span>[<span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>]] | <span title="colt.Lazy">Lazy</span>[<span title="torch.nn.Module">Module</span>])</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>data_collator</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional data collator for batching.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="transformers.data.data_collator.DataCollator">DataCollator</span> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tokenizer</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional tokenizer.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="transformers.PreTrainedTokenizerBase">PreTrainedTokenizerBase</span> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>evaluator</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional evaluator(s) for validation.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="sentence_transformers.evaluation.SentenceEvaluator">SentenceEvaluator</span> | <span title="list">list</span>[<span title="sentence_transformers.evaluation.SentenceEvaluator">SentenceEvaluator</span>] | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>callbacks</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional training callbacks.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="list">list</span>[<span title="transformers.TrainerCallback">TrainerCallback</span>] | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_init</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional model initialization function.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="collections.abc.Callable">Callable</span>[[], <span title="sentence_transformers.SentenceTransformer">SentenceTransformer</span>] | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>compute_metrics</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional metrics computation function.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="collections.abc.Callable">Callable</span>[[<span title="transformers.trainer_utils.EvalPrediction">EvalPrediction</span>], <span title="dict">dict</span>] | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimizers</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional optimizer and learning rate scheduler.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="tuple">tuple</span>[<span title="colt.Lazy">Lazy</span>[<span title="torch.optim.Optimizer">Optimizer</span>] | None, <span title="colt.Lazy">Lazy</span>[<span title="torch.optim.lr_scheduler.LambdaLR">LambdaLR</span>] | None]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>(None, None)</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>preprocess_logits_for_metrics</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional logits preprocessing function.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="collections.abc.Callable">Callable</span>[[<span title="torch.Tensor">Tensor</span>, <span title="torch.Tensor">Tensor</span>], <span title="torch.Tensor">Tensor</span>] | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>train_dataset_key</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Key for training dataset split.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>&#39;train&#39;</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>eval_dataset_key</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Key for evaluation dataset split.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>&#39;validation&#39;</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="sentence_transformers.SentenceTransformer">SentenceTransformer</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Trained SentenceTransformer model.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/workflow.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-68"><span class="nd">@step</span><span class="p">(</span><span class="s2">&quot;sentence_transformers::train&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">SentenceTransformerFormat</span><span class="p">())</span>
+</span><span id="__span-0-69"><span class="k">def</span><span class="w"> </span><span class="nf">train_sentence_transformer</span><span class="p">(</span>
+</span><span id="__span-0-70">    <span class="n">model</span><span class="p">:</span> <span class="n">SentenceTransformer</span><span class="p">,</span>
+</span><span id="__span-0-71">    <span class="n">loss</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]]</span> <span class="o">|</span> <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">],</span>
+</span><span id="__span-0-72">    <span class="n">args</span><span class="p">:</span> <span class="n">Lazy</span><span class="p">[</span><span class="n">SentenceTransformerTrainingArguments</span><span class="p">],</span>
+</span><span id="__span-0-73">    <span class="n">dataset</span><span class="p">:</span> <span class="kc">None</span>
+</span><span id="__span-0-74">    <span class="o">|</span> <span class="p">(</span>
+</span><span id="__span-0-75">        <span class="n">datasets</span><span class="o">.</span><span class="n">Dataset</span>
+</span><span id="__span-0-76">        <span class="o">|</span> <span class="n">datasets</span><span class="o">.</span><span class="n">DatasetDict</span>
+</span><span id="__span-0-77">        <span class="o">|</span> <span class="n">Mapping</span><span class="p">[</span>
+</span><span id="__span-0-78">            <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-0-79">            <span class="n">datasets</span><span class="o">.</span><span class="n">Dataset</span> <span class="o">|</span> <span class="n">datasets</span><span class="o">.</span><span class="n">DatasetDict</span><span class="p">,</span>
+</span><span id="__span-0-80">        <span class="p">]</span>
+</span><span id="__span-0-81">    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-82">    <span class="n">loss_modifier</span><span class="p">:</span> <span class="kc">None</span>
+</span><span id="__span-0-83">    <span class="o">|</span> <span class="p">(</span>
+</span><span id="__span-0-84">        <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]]</span> <span class="o">|</span> <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]]</span>
+</span><span id="__span-0-85">        <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]]</span>
+</span><span id="__span-0-86">        <span class="o">|</span> <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span>
+</span><span id="__span-0-87">    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-88">    <span class="n">data_collator</span><span class="p">:</span> <span class="n">DataCollator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># pyright: ignore[reportInvalidTypeForm]</span>
+</span><span id="__span-0-89">    <span class="n">tokenizer</span><span class="p">:</span> <span class="n">PreTrainedTokenizerBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-90">    <span class="n">evaluator</span><span class="p">:</span> <span class="n">SentenceEvaluator</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">SentenceEvaluator</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-91">    <span class="n">callbacks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TrainerCallback</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-92">    <span class="n">model_init</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">SentenceTransformer</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-93">    <span class="n">compute_metrics</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">EvalPrediction</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-94">    <span class="n">optimizers</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span>
+</span><span id="__span-0-95">        <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-96">        <span class="n">Lazy</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">LambdaLR</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-97">    <span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+</span><span id="__span-0-98">    <span class="n">preprocess_logits_for_metrics</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-99">    <span class="n">train_dataset_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;train&quot;</span><span class="p">,</span>
+</span><span id="__span-0-100">    <span class="n">eval_dataset_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>
+</span><span id="__span-0-101"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentenceTransformer</span><span class="p">:</span>
+</span><span id="__span-0-102"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Train a sentence transformer model.</span>
+</span><span id="__span-0-103">
+</span><span id="__span-0-104"><span class="sd">    This step trains a SentenceTransformer model using the provided loss function,</span>
+</span><span id="__span-0-105"><span class="sd">    datasets, and training arguments.</span>
+</span><span id="__span-0-106">
+</span><span id="__span-0-107"><span class="sd">    Args:</span>
+</span><span id="__span-0-108"><span class="sd">        model: SentenceTransformer model to train.</span>
+</span><span id="__span-0-109"><span class="sd">        loss: Loss function(s) for training (single or mapping by dataset key).</span>
+</span><span id="__span-0-110"><span class="sd">        args: Training arguments configuration.</span>
+</span><span id="__span-0-111"><span class="sd">        dataset: Training/validation datasets.</span>
+</span><span id="__span-0-112"><span class="sd">        loss_modifier: Optional modifier(s) to apply to the loss function.</span>
+</span><span id="__span-0-113"><span class="sd">        data_collator: Optional data collator for batching.</span>
+</span><span id="__span-0-114"><span class="sd">        tokenizer: Optional tokenizer.</span>
+</span><span id="__span-0-115"><span class="sd">        evaluator: Optional evaluator(s) for validation.</span>
+</span><span id="__span-0-116"><span class="sd">        callbacks: Optional training callbacks.</span>
+</span><span id="__span-0-117"><span class="sd">        model_init: Optional model initialization function.</span>
+</span><span id="__span-0-118"><span class="sd">        compute_metrics: Optional metrics computation function.</span>
+</span><span id="__span-0-119"><span class="sd">        optimizers: Optional optimizer and learning rate scheduler.</span>
+</span><span id="__span-0-120"><span class="sd">        preprocess_logits_for_metrics: Optional logits preprocessing function.</span>
+</span><span id="__span-0-121"><span class="sd">        train_dataset_key: Key for training dataset split.</span>
+</span><span id="__span-0-122"><span class="sd">        eval_dataset_key: Key for evaluation dataset split.</span>
+</span><span id="__span-0-123">
+</span><span id="__span-0-124"><span class="sd">    Returns:</span>
+</span><span id="__span-0-125"><span class="sd">        Trained SentenceTransformer model.</span>
+</span><span id="__span-0-126"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-127">    <span class="n">workdir</span> <span class="o">=</span> <span class="n">use_step_workdir</span><span class="p">()</span>
+</span><span id="__span-0-128">
+</span><span id="__span-0-129">    <span class="n">args_</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">workdir</span><span class="p">))</span>
+</span><span id="__span-0-130">
+</span><span id="__span-0-131">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">datasets</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+</span><span id="__span-0-132">        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">dataset</span>
+</span><span id="__span-0-133">        <span class="n">eval_dataset</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-134">    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-135">        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">train_dataset_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">dataset</span> <span class="ow">and</span> <span class="n">args_</span><span class="o">.</span><span class="n">do_train</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span id="__span-0-136">        <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">eval_dataset_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">dataset</span> <span class="ow">and</span> <span class="n">args_</span><span class="o">.</span><span class="n">do_eval</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span id="__span-0-137">
+</span><span id="__span-0-138">    <span class="n">loss_</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span>
+</span><span id="__span-0-139">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+</span><span id="__span-0-140">        <span class="n">loss_</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">ll</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ll</span> <span class="ow">in</span> <span class="n">loss</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+</span><span id="__span-0-141">    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-142">        <span class="n">loss_</span> <span class="o">=</span> <span class="n">loss</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span>
+</span><span id="__span-0-143">    <span class="k">if</span> <span class="n">loss_modifier</span><span class="p">:</span>
+</span><span id="__span-0-144">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss_modifier</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+</span><span id="__span-0-145">            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss_</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span id="__span-0-146">            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">loss_modifier</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-0-147">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="__span-0-148">                    <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="p">]</span>
+</span><span id="__span-0-149">                <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">m</span><span class="p">:</span>
+</span><span id="__span-0-150">                    <span class="n">loss_</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss_</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+</span><span id="__span-0-151">        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-152">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss_modifier</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="__span-0-153">                <span class="n">loss_modifier</span> <span class="o">=</span> <span class="p">[</span><span class="n">loss_modifier</span><span class="p">]</span>
+</span><span id="__span-0-154">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss_</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="__span-0-155">                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ll</span> <span class="ow">in</span> <span class="n">loss_</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-0-156">                    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">loss_modifier</span><span class="p">:</span>
+</span><span id="__span-0-157">                        <span class="n">loss_</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">ll</span><span class="p">)</span>
+</span><span id="__span-0-158">            <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-159">                <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">loss_modifier</span><span class="p">:</span>
+</span><span id="__span-0-160">                    <span class="n">loss_</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss_</span><span class="p">)</span>
+</span><span id="__span-0-161">
+</span><span id="__span-0-162">    <span class="n">lazy_optimizer</span><span class="p">,</span> <span class="n">lazy_lr_scheduler</span> <span class="o">=</span> <span class="n">optimizers</span>
+</span><span id="__span-0-163">    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">lazy_optimizer</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span> <span class="k">if</span> <span class="n">lazy_optimizer</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span id="__span-0-164">    <span class="n">lr_scheduler</span> <span class="o">=</span> <span class="n">lazy_lr_scheduler</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">)</span> <span class="k">if</span> <span class="n">lazy_lr_scheduler</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span id="__span-0-165">
+</span><span id="__span-0-166">    <span class="n">trainer</span> <span class="o">=</span> <span class="n">SentenceTransformerTrainer</span><span class="p">(</span>
+</span><span id="__span-0-167">        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+</span><span id="__span-0-168">        <span class="n">loss</span><span class="o">=</span><span class="n">loss_</span><span class="p">,</span>
+</span><span id="__span-0-169">        <span class="n">args</span><span class="o">=</span><span class="n">args_</span><span class="p">,</span>
+</span><span id="__span-0-170">        <span class="n">train_dataset</span><span class="o">=</span><span class="n">train_dataset</span><span class="p">,</span>
+</span><span id="__span-0-171">        <span class="n">eval_dataset</span><span class="o">=</span><span class="n">eval_dataset</span><span class="p">,</span>
+</span><span id="__span-0-172">        <span class="n">data_collator</span><span class="o">=</span><span class="n">data_collator</span><span class="p">,</span>
+</span><span id="__span-0-173">        <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+</span><span id="__span-0-174">        <span class="n">evaluator</span><span class="o">=</span><span class="n">evaluator</span><span class="p">,</span>
+</span><span id="__span-0-175">        <span class="n">callbacks</span><span class="o">=</span><span class="n">callbacks</span><span class="p">,</span>
+</span><span id="__span-0-176">        <span class="n">model_init</span><span class="o">=</span><span class="n">model_init</span><span class="p">,</span>
+</span><span id="__span-0-177">        <span class="n">compute_metrics</span><span class="o">=</span><span class="n">compute_metrics</span><span class="p">,</span>
+</span><span id="__span-0-178">        <span class="n">optimizers</span><span class="o">=</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span id="__span-0-179">        <span class="n">preprocess_logits_for_metrics</span><span class="o">=</span><span class="n">preprocess_logits_for_metrics</span><span class="p">,</span>
+</span><span id="__span-0-180">    <span class="p">)</span>
+</span><span id="__span-0-181">    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+</span><span id="__span-0-182">    <span class="k">return</span> <span class="n">model</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="formed.integrations.sentence_transformers.workflow.convert_tokenizer" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">convert_tokenizer</span>
+
+
+<a href="#formed.integrations.sentence_transformers.workflow.convert_tokenizer" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">convert_tokenizer</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">model_name_or_path</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n">pad_token</span><span class="o">=</span><span class="n"><span title="formed.types.NotSpecified.VALUE">VALUE</span></span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n">unk_token</span><span class="o">=</span><span class="n"><span title="formed.types.NotSpecified.VALUE">VALUE</span></span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n">bos_token</span><span class="o">=</span><span class="n"><span title="formed.types.NotSpecified.VALUE">VALUE</span></span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n">eos_token</span><span class="o">=</span><span class="n"><span title="formed.types.NotSpecified.VALUE">VALUE</span></span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n">freeze</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n">accessor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a sentence transformer model's tokenizer to a formed Tokenizer.</p>
+<p>This step extracts the tokenizer from a sentence transformer model and
+converts it into a formed Tokenizer with specified special tokens.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_name_or_path</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Model identifier or path to model directory.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | <span title="os.PathLike">PathLike</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pad_token</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Padding token (uses model default if not specified).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | None | <span title="formed.types.NotSpecified">NotSpecified</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code><span title="formed.types.NotSpecified.VALUE">VALUE</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>unk_token</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Unknown token (uses model default if not specified).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | None | <span title="formed.types.NotSpecified">NotSpecified</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code><span title="formed.types.NotSpecified.VALUE">VALUE</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bos_token</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Beginning-of-sequence token (uses model default if not specified).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | None | <span title="formed.types.NotSpecified">NotSpecified</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code><span title="formed.types.NotSpecified.VALUE">VALUE</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>eos_token</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>End-of-sequence token (uses model default if not specified).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | None | <span title="formed.types.NotSpecified">NotSpecified</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code><span title="formed.types.NotSpecified.VALUE">VALUE</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>freeze</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Whether to freeze the vocabulary.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="bool">bool</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>True</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>accessor</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Optional accessor for token extraction.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="str">str</span> | <span title="collections.abc.Callable">Callable</span> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Tokenizer&lt;/span&gt; (&lt;code&gt;formed.integrations.ml.Tokenizer&lt;/code&gt;)" href="../ml/#formed.integrations.ml.transforms.nlp.Tokenizer">Tokenizer</a></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Converted formed Tokenizer.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><span title="AssertionError">AssertionError</span></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>If pad_token is not specified and not available in the model.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/formed/integrations/sentence_transformers/workflow.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-190"><span class="nd">@step</span><span class="p">(</span><span class="s2">&quot;sentence_transformers::convert_tokenizer&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+</span><span id="__span-0-191"><span class="k">def</span><span class="w"> </span><span class="nf">convert_tokenizer</span><span class="p">(</span>
+</span><span id="__span-0-192">    <span class="n">model_name_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">,</span>
+</span><span id="__span-0-193">    <span class="n">pad_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">NotSpecified</span> <span class="o">=</span> <span class="n">NotSpecified</span><span class="o">.</span><span class="n">VALUE</span><span class="p">,</span>
+</span><span id="__span-0-194">    <span class="n">unk_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">NotSpecified</span> <span class="o">=</span> <span class="n">NotSpecified</span><span class="o">.</span><span class="n">VALUE</span><span class="p">,</span>
+</span><span id="__span-0-195">    <span class="n">bos_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">NotSpecified</span> <span class="o">=</span> <span class="n">NotSpecified</span><span class="o">.</span><span class="n">VALUE</span><span class="p">,</span>
+</span><span id="__span-0-196">    <span class="n">eos_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">NotSpecified</span> <span class="o">=</span> <span class="n">NotSpecified</span><span class="o">.</span><span class="n">VALUE</span><span class="p">,</span>
+</span><span id="__span-0-197">    <span class="n">freeze</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-198">    <span class="n">accessor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-199"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tokenizer</span><span class="p">:</span>
+</span><span id="__span-0-200"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a sentence transformer model&#39;s tokenizer to a formed Tokenizer.</span>
+</span><span id="__span-0-201">
+</span><span id="__span-0-202"><span class="sd">    This step extracts the tokenizer from a sentence transformer model and</span>
+</span><span id="__span-0-203"><span class="sd">    converts it into a formed Tokenizer with specified special tokens.</span>
+</span><span id="__span-0-204">
+</span><span id="__span-0-205"><span class="sd">    Args:</span>
+</span><span id="__span-0-206"><span class="sd">        model_name_or_path: Model identifier or path to model directory.</span>
+</span><span id="__span-0-207"><span class="sd">        pad_token: Padding token (uses model default if not specified).</span>
+</span><span id="__span-0-208"><span class="sd">        unk_token: Unknown token (uses model default if not specified).</span>
+</span><span id="__span-0-209"><span class="sd">        bos_token: Beginning-of-sequence token (uses model default if not specified).</span>
+</span><span id="__span-0-210"><span class="sd">        eos_token: End-of-sequence token (uses model default if not specified).</span>
+</span><span id="__span-0-211"><span class="sd">        freeze: Whether to freeze the vocabulary.</span>
+</span><span id="__span-0-212"><span class="sd">        accessor: Optional accessor for token extraction.</span>
+</span><span id="__span-0-213">
+</span><span id="__span-0-214"><span class="sd">    Returns:</span>
+</span><span id="__span-0-215"><span class="sd">        Converted formed Tokenizer.</span>
+</span><span id="__span-0-216">
+</span><span id="__span-0-217"><span class="sd">    Raises:</span>
+</span><span id="__span-0-218"><span class="sd">        AssertionError: If pad_token is not specified and not available in the model.</span>
+</span><span id="__span-0-219"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-220">    <span class="n">model</span> <span class="o">=</span> <span class="n">load_sentence_transformer</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">)</span>
+</span><span id="__span-0-221">
+</span><span id="__span-0-222">    <span class="k">def</span><span class="w"> </span><span class="nf">get_token</span><span class="p">(</span><span class="n">given</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">NotSpecified</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-223">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">given</span><span class="p">,</span> <span class="n">NotSpecified</span><span class="p">):</span>
+</span><span id="__span-0-224">            <span class="k">return</span> <span class="n">given</span>
+</span><span id="__span-0-225">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">default</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span id="__span-0-226">            <span class="k">return</span> <span class="n">default</span>
+</span><span id="__span-0-227">        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-0-228">
+</span><span id="__span-0-229">    <span class="n">vocab</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">get_vocab</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</span><span id="__span-0-230">    <span class="n">pad_token</span> <span class="o">=</span> <span class="n">get_token</span><span class="p">(</span><span class="n">pad_token</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">,</span> <span class="s2">&quot;pad_token&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+</span><span id="__span-0-231">    <span class="n">unk_token</span> <span class="o">=</span> <span class="n">get_token</span><span class="p">(</span><span class="n">unk_token</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">,</span> <span class="s2">&quot;unk_token&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+</span><span id="__span-0-232">    <span class="n">bos_token</span> <span class="o">=</span> <span class="n">get_token</span><span class="p">(</span><span class="n">bos_token</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">,</span> <span class="s2">&quot;bos_token&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+</span><span id="__span-0-233">    <span class="n">eos_token</span> <span class="o">=</span> <span class="n">get_token</span><span class="p">(</span><span class="n">eos_token</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">,</span> <span class="s2">&quot;eos_token&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+</span><span id="__span-0-234">
+</span><span id="__span-0-235">    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pad_token</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span> <span class="s2">&quot;pad_token must be specified or available in the tokenizer&quot;</span>
+</span><span id="__span-0-236">
+</span><span id="__span-0-237">    <span class="n">surface_indexer</span> <span class="o">=</span> <span class="n">TokenSequenceIndexer</span><span class="p">(</span>
+</span><span id="__span-0-238">        <span class="n">vocab</span><span class="o">=</span><span class="n">vocab</span><span class="p">,</span>
+</span><span id="__span-0-239">        <span class="n">pad_token</span><span class="o">=</span><span class="n">pad_token</span><span class="p">,</span>
+</span><span id="__span-0-240">        <span class="n">unk_token</span><span class="o">=</span><span class="n">unk_token</span><span class="p">,</span>
+</span><span id="__span-0-241">        <span class="n">bos_token</span><span class="o">=</span><span class="n">bos_token</span><span class="p">,</span>
+</span><span id="__span-0-242">        <span class="n">eos_token</span><span class="o">=</span><span class="n">eos_token</span><span class="p">,</span>
+</span><span id="__span-0-243">        <span class="n">freeze</span><span class="o">=</span><span class="n">freeze</span><span class="p">,</span>
+</span><span id="__span-0-244">    <span class="p">)</span>
+</span><span id="__span-0-245">    <span class="n">analyzer</span> <span class="o">=</span> <span class="n">SentenceTransformerAnalyzer</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="p">)</span>
+</span><span id="__span-0-246">    <span class="k">return</span> <span class="n">Tokenizer</span><span class="p">(</span>
+</span><span id="__span-0-247">        <span class="n">surfaces</span><span class="o">=</span><span class="n">surface_indexer</span><span class="p">,</span>
+</span><span id="__span-0-248">        <span class="n">analyzer</span><span class="o">=</span><span class="n">Param</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">analyzer</span><span class="p">),</span>
+</span><span id="__span-0-249">        <span class="n">accessor</span><span class="o">=</span><span class="n">accessor</span><span class="p">,</span>
+</span><span id="__span-0-250">    <span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["content.code.copy", "content.tabs.link", "content.tooltips", "navigation.tabs", "navigation.tabs.sticky", "search.highlight", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

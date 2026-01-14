@@ -1,0 +1,2677 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://altescy.github.io/formed/tutorials/causal_lm_finetuning/">
+      
+      
+        <link rel="prev" href="../text_classification/">
+      
+      
+        <link rel="next" href="../../guides/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Causal LM Finetuning - Formed</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#causal-language-modeling-with-transformers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Formed" class="md-header__button md-logo" aria-label="Formed" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Formed
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Causal LM Finetuning
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/altescy/formed" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    altescy/formed
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quick_start/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quick Start
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Formed" class="md-nav__button md-logo" aria-label="Formed" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Formed
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/altescy/formed" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    altescy/formed
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quick_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text_classification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text Classification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Causal LM Finetuning
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Causal LM Finetuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Prerequisites
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-causal-language-modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          What is Causal Language Modeling?
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Project Setup
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-configure-project-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 1: Configure Project Settings
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-the-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 2: Define the Workflow
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Define the Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-loading-data-with-datasetsload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 1: Loading Data with <code>datasets::load</code>
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-tokenizing-with-transformerstokenize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 2: Tokenizing with <code>transformers::tokenize</code>
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-training-with-transformerstrain_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 3: Training with <code>transformers::train_model</code>
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Training with transformers::train_model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Model Configuration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Training Arguments
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-collator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Data Collator
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Callbacks
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-run-the-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 3: Run the Workflow
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-view-training-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 4: View Training Results
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-the-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Understanding the Components
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding the Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-datasets-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          The <code>datasets</code> Integration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-transformers-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          The <code>transformers</code> Integration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-collators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Data Collators
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customization-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Customization Examples
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customization Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-a-different-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Use a Different Model
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-validation-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Add Validation Set
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjust-training-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Adjust Training Settings
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-learning-rate-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Custom Learning Rate Schedule
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#truncate-long-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Truncate Long Sequences
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-trained-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Using the Trained Model
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Key Takeaways
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Next Steps
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Next Steps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fine-tune-on-custom-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Fine-tune on Custom Data
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#try-masked-language-modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Try Masked Language Modeling
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Further Reading
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/integrations/ml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/integrations/torch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Torch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/flax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/ml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/mlflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MLflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/sentence_transformers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SentenceTransformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/torch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Torch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrations/transformers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Prerequisites
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-causal-language-modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          What is Causal Language Modeling?
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Project Setup
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-configure-project-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 1: Configure Project Settings
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-the-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 2: Define the Workflow
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Define the Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-loading-data-with-datasetsload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 1: Loading Data with <code>datasets::load</code>
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-tokenizing-with-transformerstokenize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 2: Tokenizing with <code>transformers::tokenize</code>
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-training-with-transformerstrain_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 3: Training with <code>transformers::train_model</code>
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Training with transformers::train_model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Model Configuration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Training Arguments
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-collator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Data Collator
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Callbacks
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-run-the-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 3: Run the Workflow
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-view-training-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Step 4: View Training Results
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-the-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Understanding the Components
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding the Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-datasets-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          The <code>datasets</code> Integration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-transformers-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          The <code>transformers</code> Integration
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-collators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Data Collators
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customization-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Customization Examples
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customization Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-a-different-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Use a Different Model
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-validation-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Add Validation Set
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjust-training-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Adjust Training Settings
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-learning-rate-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Custom Learning Rate Schedule
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#truncate-long-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Truncate Long Sequences
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-trained-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Using the Trained Model
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Key Takeaways
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Next Steps
+        </span>
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Next Steps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fine-tune-on-custom-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Fine-tune on Custom Data
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#try-masked-language-modeling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Try Masked Language Modeling
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <span class="md-typeset">
+          Further Reading
+        </span>
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="causal-language-modeling-with-transformers">Causal Language Modeling with 🤗 Transformers<a class="headerlink" data-preview="" href="#causal-language-modeling-with-transformers" title="Permanent link">&para;</a></h1>
+<p>This tutorial shows you how to fine-tune a pre-trained language model using formed's Transformers integration. Unlike custom model development, this tutorial focuses on using formed's built-in workflow steps to orchestrate training with Hugging Face Transformers.</p>
+<p><strong>What you'll build</strong>: A causal language model fine-tuned on question-answer data, using DistilGPT-2 as the base model.</p>
+<p><strong>What you'll learn</strong>:</p>
+<ul>
+<li>Loading datasets with the <code>datasets</code> integration</li>
+<li>Tokenizing text data for language modeling</li>
+<li>Fine-tuning transformer models with <code>transformers::train_model</code></li>
+<li>Configuring training arguments and data collators</li>
+<li>Tracking experiments with MLflow integration</li>
+</ul>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" data-preview="" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Install formed with required integrations:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-0-1">pip<span class="w"> </span>install<span class="w"> </span>formed<span class="o">[</span>transformers,datasets,mlflow<span class="o">]</span>
+</span></code></pre></div>
+<p><strong>Note</strong>: The transformers integration provides seamless access to Hugging Face's ecosystem, including pre-trained models, tokenizers, and training utilities.</p>
+<h2 id="what-is-causal-language-modeling">What is Causal Language Modeling?<a class="headerlink" data-preview="" href="#what-is-causal-language-modeling" title="Permanent link">&para;</a></h2>
+<p>Causal language modeling (CLM) trains models to predict the next token given previous tokens. This is the training objective used by GPT-style models.</p>
+<p><strong>Key characteristics</strong>:</p>
+<ul>
+<li>Models see only left context (previous tokens)</li>
+<li>Commonly used for text generation tasks</li>
+<li>Training uses the language modeling head with cross-entropy loss</li>
+</ul>
+<h2 id="project-setup">Project Setup<a class="headerlink" data-preview="" href="#project-setup" title="Permanent link">&para;</a></h2>
+<p>Create a new directory:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-1-1">mkdir<span class="w"> </span>causallm_tutorial
+</span><span id="__span-1-2"><span class="nb">cd</span><span class="w"> </span>causallm_tutorial
+</span></code></pre></div>
+<p>We'll create two files:</p>
+<ul>
+<li><code>config.jsonnet</code> - Workflow configuration</li>
+<li><code>formed.yml</code> - Project settings</li>
+</ul>
+<h2 id="step-1-configure-project-settings">Step 1: Configure Project Settings<a class="headerlink" data-preview="" href="#step-1-configure-project-settings" title="Permanent link">&para;</a></h2>
+<p>Create <code>formed.yml</code>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-2-1"><span class="nt">workflow</span><span class="p">:</span>
+</span><span id="__span-2-2"><span class="w">  </span><span class="nt">organizer</span><span class="p">:</span>
+</span><span id="__span-2-3"><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mlflow</span>
+</span><span id="__span-2-4"><span class="w">    </span><span class="nt">log_execution_metrics</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-5">
+</span><span id="__span-2-6"><span class="nt">required_modules</span><span class="p">:</span>
+</span><span id="__span-2-7"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">formed.integrations.mlflow</span>
+</span><span id="__span-2-8"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">formed.integrations.datasets</span>
+</span><span id="__span-2-9"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">formed.integrations.transformers</span>
+</span></code></pre></div>
+<p><strong>What this does</strong>:</p>
+<ul>
+<li><strong>MLflow organizer</strong>: Automatically tracks all experiments, metrics, and model artifacts</li>
+<li><strong>Required modules</strong>: Imports integrations that provide workflow steps</li>
+<li><code>datasets</code>: Load data from Hugging Face Hub or local files</li>
+<li><code>transformers</code>: Tokenization and model training</li>
+<li><code>mlflow</code>: Experiment tracking</li>
+</ul>
+<h2 id="step-2-define-the-workflow">Step 2: Define the Workflow<a class="headerlink" data-preview="" href="#step-2-define-the-workflow" title="Permanent link">&para;</a></h2>
+<p>Create <code>config.jsonnet</code>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-3-1"><span class="c1">// Define model and tokenizer configurations at the top for reusability</span>
+</span><span id="__span-3-2"><span class="k">local</span><span class="w"> </span><span class="nv">base_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoModelForCausalLM.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-3-4"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;distilbert/distilgpt2&#39;</span><span class="p">,</span>
+</span><span id="__span-3-5"><span class="p">};</span>
+</span><span id="__span-3-6">
+</span><span id="__span-3-7"><span class="k">local</span><span class="w"> </span><span class="nv">tokenizer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-8"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoTokenizer.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-3-9"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="nv">base_model</span><span class="p">.</span><span class="nv">pretrained_model_name_or_path</span><span class="p">,</span>
+</span><span id="__span-3-10"><span class="w">  </span><span class="nv">pad_token</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&lt;|endoftext|&gt;&#39;</span><span class="p">,</span>
+</span><span id="__span-3-11"><span class="p">};</span>
+</span><span id="__span-3-12">
+</span><span id="__span-3-13"><span class="p">{</span>
+</span><span id="__span-3-14"><span class="w">  </span><span class="nv">steps</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-15"><span class="w">    </span><span class="c1">// Step 1: Load dataset from Hugging Face Hub</span>
+</span><span id="__span-3-16"><span class="w">    </span><span class="nv">train_dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-17"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::load&#39;</span><span class="p">,</span>
+</span><span id="__span-3-18"><span class="w">      </span><span class="nv">path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sentence-transformers/eli5&#39;</span><span class="p">,</span>
+</span><span id="__span-3-19"><span class="w">      </span><span class="nv">split</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train[:10000]&#39;</span><span class="p">,</span>
+</span><span id="__span-3-20"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-3-21">
+</span><span id="__span-3-22"><span class="w">    </span><span class="c1">// Step 2: Tokenize text data</span>
+</span><span id="__span-3-23"><span class="w">    </span><span class="nv">tokenized_dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-24"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::tokenize&#39;</span><span class="p">,</span>
+</span><span id="__span-3-25"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-3-26"><span class="w">      </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-3-27"><span class="w">      </span><span class="nv">text_column</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;answer&#39;</span><span class="p">,</span>
+</span><span id="__span-3-28"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-3-29">
+</span><span id="__span-3-30"><span class="w">    </span><span class="c1">// Step 3: Train the model</span>
+</span><span id="__span-3-31"><span class="w">    </span><span class="nv">trained_model</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-32"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::train_model&#39;</span><span class="p">,</span>
+</span><span id="__span-3-33"><span class="w">      </span><span class="nv">model</span><span class="p">:</span><span class="w"> </span><span class="nv">base_model</span><span class="p">,</span>
+</span><span id="__span-3-34"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;tokenized_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-3-35">
+</span><span id="__span-3-36"><span class="w">      </span><span class="c1">// Training arguments (passed to transformers.TrainingArguments)</span>
+</span><span id="__span-3-37"><span class="w">      </span><span class="nv">args</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-38"><span class="w">        </span><span class="nv">per_device_train_batch_size</span><span class="p">:</span><span class="w"> </span><span class="mf">8</span><span class="p">,</span>
+</span><span id="__span-3-39"><span class="w">        </span><span class="nv">per_device_eval_batch_size</span><span class="p">:</span><span class="w"> </span><span class="mf">8</span><span class="p">,</span>
+</span><span id="__span-3-40"><span class="w">        </span><span class="nv">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="mf">2</span><span class="nv">e</span><span class="mf">-5</span><span class="p">,</span>
+</span><span id="__span-3-41"><span class="w">        </span><span class="nv">warmup_ratio</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-3-42"><span class="w">        </span><span class="nv">num_train_epochs</span><span class="p">:</span><span class="w"> </span><span class="mf">3</span><span class="p">,</span>
+</span><span id="__span-3-43"><span class="w">        </span><span class="nv">fp16</span><span class="p">:</span><span class="w"> </span><span class="k">false</span><span class="p">,</span>
+</span><span id="__span-3-44"><span class="w">        </span><span class="nv">bf16</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span><span class="w">  </span><span class="c1">// Use bfloat16 for training (requires compatible hardware)</span>
+</span><span id="__span-3-45"><span class="w">        </span><span class="nv">report_to</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;none&#39;</span><span class="p">,</span><span class="w">  </span><span class="c1">// Don&#39;t report to external trackers (we use MLflow)</span>
+</span><span id="__span-3-46"><span class="w">        </span><span class="nv">do_train</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
+</span><span id="__span-3-47"><span class="w">        </span><span class="nv">do_eval</span><span class="p">:</span><span class="w"> </span><span class="k">false</span><span class="p">,</span><span class="w">  </span><span class="c1">// No validation set in this example</span>
+</span><span id="__span-3-48"><span class="w">        </span><span class="nv">save_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;steps&#39;</span><span class="p">,</span>
+</span><span id="__span-3-49"><span class="w">        </span><span class="nv">save_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">100</span><span class="p">,</span>
+</span><span id="__span-3-50"><span class="w">        </span><span class="nv">save_total_limit</span><span class="p">:</span><span class="w"> </span><span class="mf">2</span><span class="p">,</span>
+</span><span id="__span-3-51"><span class="w">        </span><span class="nv">eval_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;no&#39;</span><span class="p">,</span>
+</span><span id="__span-3-52"><span class="w">        </span><span class="nv">logging_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;steps&#39;</span><span class="p">,</span>
+</span><span id="__span-3-53"><span class="w">        </span><span class="nv">logging_first_step</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
+</span><span id="__span-3-54"><span class="w">        </span><span class="nv">logging_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">10</span><span class="p">,</span>
+</span><span id="__span-3-55"><span class="w">      </span><span class="p">},</span>
+</span><span id="__span-3-56">
+</span><span id="__span-3-57"><span class="w">      </span><span class="c1">// Data collator for language modeling</span>
+</span><span id="__span-3-58"><span class="w">      </span><span class="nv">data_collator</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-59"><span class="w">        </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:DataCollatorForLanguageModeling&#39;</span><span class="p">,</span>
+</span><span id="__span-3-60"><span class="w">        </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-3-61"><span class="w">        </span><span class="nv">mlm</span><span class="p">:</span><span class="w"> </span><span class="k">false</span><span class="p">,</span><span class="w">  </span><span class="c1">// Use causal LM (not masked LM)</span>
+</span><span id="__span-3-62"><span class="w">      </span><span class="p">},</span>
+</span><span id="__span-3-63">
+</span><span id="__span-3-64"><span class="w">      </span><span class="c1">// Processing class for tokenization during training</span>
+</span><span id="__span-3-65"><span class="w">      </span><span class="nv">processing_class</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-3-66">
+</span><span id="__span-3-67"><span class="w">      </span><span class="c1">// Callbacks for experiment tracking</span>
+</span><span id="__span-3-68"><span class="w">      </span><span class="nv">callbacks</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-3-69"><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-3-70"><span class="w">          </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;formed.integrations.transformers.training:MlflowTrainerCallback&#39;</span><span class="p">,</span>
+</span><span id="__span-3-71"><span class="w">        </span><span class="p">},</span>
+</span><span id="__span-3-72"><span class="w">      </span><span class="p">],</span>
+</span><span id="__span-3-73"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-3-74"><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-3-75"><span class="p">}</span>
+</span></code></pre></div>
+<p>Let's break down each component:</p>
+<h3 id="step-1-loading-data-with-datasetsload">Step 1: Loading Data with <code>datasets::load</code><a class="headerlink" data-preview="" href="#step-1-loading-data-with-datasetsload" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span id="__span-4-1"><span class="nv">train_dataset</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::load&#39;</span><span class="p">,</span>
+</span><span id="__span-4-3"><span class="w">  </span><span class="nv">path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sentence-transformers/eli5&#39;</span><span class="p">,</span>
+</span><span id="__span-4-4"><span class="w">  </span><span class="nv">split</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train[:10000]&#39;</span><span class="p">,</span>
+</span><span id="__span-4-5"><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>What happens</strong>:</p>
+<ul>
+<li>Loads the ELI5 (Explain Like I'm 5) dataset from Hugging Face Hub</li>
+<li>Takes first 10,000 examples from the training split</li>
+<li>Returns a <code>datasets.Dataset</code> object</li>
+</ul>
+<p><strong>Key parameters</strong>:</p>
+<ul>
+<li><code>path</code>: Dataset name on Hugging Face Hub or path to local dataset</li>
+<li><code>split</code>: Which split to load (supports slice notation like <code>train[:1000]</code>)</li>
+<li>Additional kwargs are passed to <code>datasets.load_dataset()</code></li>
+</ul>
+<p><strong>Dataset format</strong>: The ELI5 dataset contains question-answer pairs. We'll use the <code>answer</code> field for language modeling.</p>
+<h3 id="step-2-tokenizing-with-transformerstokenize">Step 2: Tokenizing with <code>transformers::tokenize</code><a class="headerlink" data-preview="" href="#step-2-tokenizing-with-transformerstokenize" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span id="__span-5-1"><span class="nv">tokenized_dataset</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::tokenize&#39;</span><span class="p">,</span>
+</span><span id="__span-5-3"><span class="w">  </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-5-4"><span class="w">  </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-5-5"><span class="w">  </span><span class="nv">text_column</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;answer&#39;</span><span class="p">,</span>
+</span><span id="__span-5-6"><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>What happens</strong>:</p>
+<ul>
+<li>Applies tokenization to the specified text column</li>
+<li>Converts text to token IDs compatible with the model</li>
+<li>Removes the original text column (keeps only token IDs)</li>
+<li>Returns a tokenized <code>datasets.Dataset</code></li>
+</ul>
+<p><strong>Key parameters</strong>:</p>
+<ul>
+<li><code>dataset</code>: Input dataset (reference to previous step)</li>
+<li><code>tokenizer</code>: Tokenizer configuration or pre-loaded tokenizer</li>
+<li><code>text_column</code>: Name of the column containing text to tokenize</li>
+<li><code>padding</code>: Padding strategy (default: False, padding handled by data collator)</li>
+<li><code>truncation</code>: Whether to truncate sequences</li>
+<li><code>max_length</code>: Maximum sequence length</li>
+</ul>
+<p><strong>Tokenizer configuration</strong>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-6-1"><span class="k">local</span><span class="w"> </span><span class="nv">tokenizer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoTokenizer.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-6-3"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;distilbert/distilgpt2&#39;</span><span class="p">,</span>
+</span><span id="__span-6-4"><span class="w">  </span><span class="nv">pad_token</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&lt;|endoftext|&gt;&#39;</span><span class="p">,</span>
+</span><span id="__span-6-5"><span class="p">};</span>
+</span></code></pre></div>
+<p>This loads DistilGPT-2's tokenizer and sets the padding token (GPT-2 doesn't have one by default).</p>
+<h3 id="step-3-training-with-transformerstrain_model">Step 3: Training with <code>transformers::train_model</code><a class="headerlink" data-preview="" href="#step-3-training-with-transformerstrain_model" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span id="__span-7-1"><span class="nv">trained_model</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::train_model&#39;</span><span class="p">,</span>
+</span><span id="__span-7-3"><span class="w">  </span><span class="nv">model</span><span class="p">:</span><span class="w"> </span><span class="nv">base_model</span><span class="p">,</span>
+</span><span id="__span-7-4"><span class="w">  </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;tokenized_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-7-5"><span class="w">  </span><span class="nv">args</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-7-6"><span class="w">  </span><span class="nv">data_collator</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-7-7"><span class="w">  </span><span class="nv">processing_class</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-7-8"><span class="w">  </span><span class="nv">callbacks</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">],</span>
+</span><span id="__span-7-9"><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>What happens</strong>:</p>
+<ul>
+<li>Initializes the model from the pre-trained checkpoint</li>
+<li>Creates a <code>transformers.Trainer</code> with specified arguments</li>
+<li>Trains the model on the tokenized dataset</li>
+<li>Saves checkpoints according to <code>save_strategy</code></li>
+<li>Returns the trained model</li>
+</ul>
+<p><strong>Key parameters</strong>:</p>
+<h4 id="model-configuration">Model Configuration<a class="headerlink" data-preview="" href="#model-configuration" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span id="__span-8-1"><span class="nv">model</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoModelForCausalLM.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-8-3"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;distilbert/distilgpt2&#39;</span><span class="p">,</span>
+</span><span id="__span-8-4"><span class="p">}</span>
+</span></code></pre></div>
+<p>Uses <code>AutoModelForCausalLM</code> to load a model with a causal language modeling head.</p>
+<h4 id="training-arguments">Training Arguments<a class="headerlink" data-preview="" href="#training-arguments" title="Permanent link">&para;</a></h4>
+<p>The <code>args</code> field accepts any parameters from <code>transformers.TrainingArguments</code>:</p>
+<p><strong>Batch size and epochs</strong>:</p>
+<ul>
+<li><code>per_device_train_batch_size</code>: Batch size per GPU/CPU</li>
+<li><code>num_train_epochs</code>: Number of training epochs</li>
+</ul>
+<p><strong>Optimization</strong>:</p>
+<ul>
+<li><code>learning_rate</code>: Learning rate for optimizer (default: 5e-5)</li>
+<li><code>warmup_ratio</code>: Fraction of steps for learning rate warmup</li>
+</ul>
+<p><strong>Mixed precision</strong>:</p>
+<ul>
+<li><code>fp16</code>: Use float16 (older GPUs)</li>
+<li><code>bf16</code>: Use bfloat16 (newer GPUs, more stable)</li>
+</ul>
+<p><strong>Checkpointing</strong>:</p>
+<ul>
+<li><code>save_strategy</code>: When to save ("steps", "epoch", "no")</li>
+<li><code>save_steps</code>: Save checkpoint every N steps</li>
+<li><code>save_total_limit</code>: Keep only N most recent checkpoints</li>
+</ul>
+<p><strong>Logging</strong>:</p>
+<ul>
+<li><code>logging_strategy</code>: When to log ("steps", "epoch")</li>
+<li><code>logging_steps</code>: Log every N steps</li>
+<li><code>logging_first_step</code>: Whether to log after first step</li>
+</ul>
+<h4 id="data-collator">Data Collator<a class="headerlink" data-preview="" href="#data-collator" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span id="__span-9-1"><span class="nv">data_collator</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:DataCollatorForLanguageModeling&#39;</span><span class="p">,</span>
+</span><span id="__span-9-3"><span class="w">  </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-9-4"><span class="w">  </span><span class="nv">mlm</span><span class="p">:</span><span class="w"> </span><span class="k">false</span><span class="p">,</span>
+</span><span id="__span-9-5"><span class="p">}</span>
+</span></code></pre></div>
+<p>The data collator handles batching and prepares labels:</p>
+<p><strong><code>DataCollatorForLanguageModeling</code></strong>:</p>
+<ul>
+<li><code>mlm: false</code>: Causal language modeling (predict next token)</li>
+<li><code>mlm: true</code>: Masked language modeling (BERT-style, predict masked tokens)</li>
+</ul>
+<p>For causal LM:</p>
+<ul>
+<li>Creates labels by shifting <code>input_ids</code> one position to the right</li>
+<li>Applies padding to create uniform batch size</li>
+<li>Handles attention masks automatically</li>
+</ul>
+<h4 id="callbacks">Callbacks<a class="headerlink" data-preview="" href="#callbacks" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span id="__span-10-1"><span class="nv">callbacks</span><span class="err">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-10-2"><span class="w">  </span><span class="p">{</span>
+</span><span id="__span-10-3"><span class="w">    </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;formed.integrations.transformers.training:MlflowTrainerCallback&#39;</span><span class="p">,</span>
+</span><span id="__span-10-4"><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-10-5"><span class="p">]</span>
+</span></code></pre></div>
+<p><strong><code>MlflowTrainerCallback</code></strong>:</p>
+<ul>
+<li>Logs training metrics to MLflow automatically</li>
+<li>Tracks loss, learning rate, and other training stats</li>
+<li>Integrates seamlessly with formed's MLflow organizer</li>
+</ul>
+<h2 id="step-3-run-the-workflow">Step 3: Run the Workflow<a class="headerlink" data-preview="" href="#step-3-run-the-workflow" title="Permanent link">&para;</a></h2>
+<p>Execute the workflow:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-11-1">formed<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>config.jsonnet<span class="w"> </span>--execution-id<span class="w"> </span>causallm-distilgpt2
+</span></code></pre></div>
+<p><strong>What happens during execution</strong>:</p>
+<ol>
+<li><strong>Dataset loading</strong>: Downloads and caches the ELI5 dataset</li>
+<li><strong>Tokenization</strong>: Tokenizes all examples and caches results</li>
+<li><strong>Training</strong>: Runs training loop with Hugging Face Trainer</li>
+<li>Logs metrics every 10 steps</li>
+<li>Saves checkpoints every 100 steps</li>
+<li>Uses bfloat16 mixed precision</li>
+<li><strong>Model saving</strong>: Caches the trained model by fingerprint</li>
+</ol>
+<h2 id="step-4-view-training-results">Step 4: View Training Results<a class="headerlink" data-preview="" href="#step-4-view-training-results" title="Permanent link">&para;</a></h2>
+<p>Launch MLflow UI:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-12-1">mlflow<span class="w"> </span>ui
+</span></code></pre></div>
+<p>Open http://localhost:5000 to see:</p>
+<p><strong>Metrics</strong>:</p>
+<ul>
+<li>Training loss curve</li>
+<li>Learning rate schedule</li>
+<li>Steps per second</li>
+</ul>
+<p><strong>Parameters</strong>:</p>
+<ul>
+<li>All training arguments</li>
+<li>Model architecture</li>
+<li>Dataset configuration</li>
+</ul>
+<p><strong>Artifacts</strong>:</p>
+<ul>
+<li>Trained model checkpoints</li>
+<li>Tokenizer files</li>
+<li>Training logs</li>
+</ul>
+<h2 id="understanding-the-components">Understanding the Components<a class="headerlink" data-preview="" href="#understanding-the-components" title="Permanent link">&para;</a></h2>
+<h3 id="the-datasets-integration">The <code>datasets</code> Integration<a class="headerlink" data-preview="" href="#the-datasets-integration" title="Permanent link">&para;</a></h3>
+<p>The <code>datasets</code> integration provides workflow steps for working with Hugging Face datasets:</p>
+<p><strong>Available steps</strong>:</p>
+<ul>
+<li><code>datasets::load</code> - Load datasets from Hub or local files</li>
+<li><code>datasets::compose</code> - Combine multiple datasets into DatasetDict</li>
+<li><code>datasets::concatenate</code> - Concatenate datasets</li>
+<li><code>datasets::train_test_split</code> - Split dataset into train/test</li>
+</ul>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Automatic caching of downloaded datasets</li>
+<li>Memory-efficient processing with Apache Arrow</li>
+<li>Seamless integration with transformers</li>
+</ul>
+<h3 id="the-transformers-integration">The <code>transformers</code> Integration<a class="headerlink" data-preview="" href="#the-transformers-integration" title="Permanent link">&para;</a></h3>
+<p>The <code>transformers</code> integration wraps Hugging Face Transformers for workflow use:</p>
+<p><strong>Key steps</strong>:</p>
+<ul>
+<li><code>transformers::tokenize</code> - Tokenize text data</li>
+<li><code>transformers::train_model</code> - Train models with Trainer API</li>
+<li><code>transformers::load_model</code> - Load pre-trained models</li>
+<li><code>transformers::load_tokenizer</code> - Load tokenizers</li>
+<li><code>transformers::convert_tokenizer</code> - Convert to formed's Tokenizer format</li>
+</ul>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Access to thousands of pre-trained models</li>
+<li>Battle-tested training infrastructure</li>
+<li>Automatic gradient accumulation, mixed precision, and distributed training</li>
+</ul>
+<h3 id="data-collators">Data Collators<a class="headerlink" data-preview="" href="#data-collators" title="Permanent link">&para;</a></h3>
+<p>Data collators prepare batches during training:</p>
+<p><strong><code>DataCollatorForLanguageModeling</code></strong>:</p>
+<ul>
+<li>Handles causal and masked language modeling</li>
+<li>Creates labels automatically from inputs</li>
+<li>Applies dynamic padding for efficiency</li>
+</ul>
+<p><strong>Other common collators</strong>:</p>
+<ul>
+<li><code>DataCollatorWithPadding</code> - Simple padding without label generation</li>
+<li><code>DataCollatorForSeq2Seq</code> - For encoder-decoder models</li>
+<li><code>DataCollatorForTokenClassification</code> - For NER and similar tasks</li>
+</ul>
+<h2 id="customization-examples">Customization Examples<a class="headerlink" data-preview="" href="#customization-examples" title="Permanent link">&para;</a></h2>
+<h3 id="use-a-different-model">Use a Different Model<a class="headerlink" data-preview="" href="#use-a-different-model" title="Permanent link">&para;</a></h3>
+<p>Replace DistilGPT-2 with another model:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-13-1"><span class="k">local</span><span class="w"> </span><span class="nv">base_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoModelForCausalLM.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-13-3"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;gpt2&#39;</span><span class="p">,</span><span class="w">  </span><span class="c1">// or &#39;gpt2-medium&#39;, &#39;EleutherAI/gpt-neo-125M&#39;, etc.</span>
+</span><span id="__span-13-4"><span class="p">};</span>
+</span></code></pre></div>
+<h3 id="add-validation-set">Add Validation Set<a class="headerlink" data-preview="" href="#add-validation-set" title="Permanent link">&para;</a></h3>
+<p>Split the dataset and enable evaluation:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-14-1"><span class="p">{</span>
+</span><span id="__span-14-2"><span class="w">  </span><span class="nv">steps</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-3"><span class="w">    </span><span class="nv">raw_dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-4"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::load&#39;</span><span class="p">,</span>
+</span><span id="__span-14-5"><span class="w">      </span><span class="nv">path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sentence-transformers/eli5&#39;</span><span class="p">,</span>
+</span><span id="__span-14-6"><span class="w">      </span><span class="nv">split</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train[:10000]&#39;</span><span class="p">,</span>
+</span><span id="__span-14-7"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-8">
+</span><span id="__span-14-9"><span class="w">    </span><span class="c1">// Split into train and validation</span>
+</span><span id="__span-14-10"><span class="w">    </span><span class="nv">split_dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-11"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::train_test_split&#39;</span><span class="p">,</span>
+</span><span id="__span-14-12"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;raw_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-13"><span class="w">      </span><span class="nv">test_size</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-14-14"><span class="w">      </span><span class="nv">seed</span><span class="p">:</span><span class="w"> </span><span class="mf">42</span><span class="p">,</span>
+</span><span id="__span-14-15"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-16">
+</span><span id="__span-14-17"><span class="w">    </span><span class="c1">// Tokenize both splits</span>
+</span><span id="__span-14-18"><span class="w">    </span><span class="nv">tokenized_train</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-19"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::tokenize&#39;</span><span class="p">,</span>
+</span><span id="__span-14-20"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;split_dataset.train&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-21"><span class="w">      </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-14-22"><span class="w">      </span><span class="nv">text_column</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;answer&#39;</span><span class="p">,</span>
+</span><span id="__span-14-23"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-24">
+</span><span id="__span-14-25"><span class="w">    </span><span class="nv">tokenized_val</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-26"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::tokenize&#39;</span><span class="p">,</span>
+</span><span id="__span-14-27"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;split_dataset.test&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-28"><span class="w">      </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-14-29"><span class="w">      </span><span class="nv">text_column</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;answer&#39;</span><span class="p">,</span>
+</span><span id="__span-14-30"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-31">
+</span><span id="__span-14-32"><span class="w">    </span><span class="c1">// Combine for training</span>
+</span><span id="__span-14-33"><span class="w">    </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-34"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::compose&#39;</span><span class="p">,</span>
+</span><span id="__span-14-35"><span class="w">      </span><span class="nv">train</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;tokenized_train&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-36"><span class="w">      </span><span class="nv">validation</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;tokenized_val&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-37"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-38">
+</span><span id="__span-14-39"><span class="w">    </span><span class="nv">trained_model</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-40"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::train_model&#39;</span><span class="p">,</span>
+</span><span id="__span-14-41"><span class="w">      </span><span class="c1">// ...</span>
+</span><span id="__span-14-42"><span class="w">      </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-14-43"><span class="w">      </span><span class="nv">args</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-14-44"><span class="w">        </span><span class="c1">// ...</span>
+</span><span id="__span-14-45"><span class="w">        </span><span class="nv">do_eval</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
+</span><span id="__span-14-46"><span class="w">        </span><span class="nv">eval_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;steps&#39;</span><span class="p">,</span>
+</span><span id="__span-14-47"><span class="w">        </span><span class="nv">eval_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">100</span><span class="p">,</span>
+</span><span id="__span-14-48"><span class="w">      </span><span class="p">},</span>
+</span><span id="__span-14-49"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-14-50"><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-14-51"><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="adjust-training-settings">Adjust Training Settings<a class="headerlink" data-preview="" href="#adjust-training-settings" title="Permanent link">&para;</a></h3>
+<p><strong>Longer training with more frequent evaluation</strong>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-15-1"><span class="nv">args</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-2"><span class="w">  </span><span class="nv">num_train_epochs</span><span class="p">:</span><span class="w"> </span><span class="mf">5</span><span class="p">,</span>
+</span><span id="__span-15-3"><span class="w">  </span><span class="nv">eval_strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;steps&#39;</span><span class="p">,</span>
+</span><span id="__span-15-4"><span class="w">  </span><span class="nv">eval_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">50</span><span class="p">,</span>
+</span><span id="__span-15-5"><span class="w">  </span><span class="nv">logging_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">5</span><span class="p">,</span>
+</span><span id="__span-15-6"><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>Larger batch size with gradient accumulation</strong>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-16-1"><span class="nv">args</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-2"><span class="w">  </span><span class="nv">per_device_train_batch_size</span><span class="p">:</span><span class="w"> </span><span class="mf">4</span><span class="p">,</span>
+</span><span id="__span-16-3"><span class="w">  </span><span class="nv">gradient_accumulation_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">4</span><span class="p">,</span><span class="w">  </span><span class="c1">// Effective batch size: 16</span>
+</span><span id="__span-16-4"><span class="w">  </span><span class="nv">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="mf">1</span><span class="nv">e</span><span class="mf">-5</span><span class="p">,</span>
+</span><span id="__span-16-5"><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>Different optimizer</strong>:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-17-1"><span class="nv">trained_model</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::train_model&#39;</span><span class="p">,</span>
+</span><span id="__span-17-3"><span class="w">  </span><span class="c1">// ...</span>
+</span><span id="__span-17-4"><span class="w">  </span><span class="nv">args</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-5"><span class="w">    </span><span class="c1">// ...</span>
+</span><span id="__span-17-6"><span class="w">    </span><span class="nv">optim</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;adamw_torch&#39;</span><span class="p">,</span><span class="w">  </span><span class="c1">// or &#39;adafactor&#39;, &#39;adamw_8bit&#39;, etc.</span>
+</span><span id="__span-17-7"><span class="w">    </span><span class="nv">weight_decay</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span>
+</span><span id="__span-17-8"><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-17-9"><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="custom-learning-rate-schedule">Custom Learning Rate Schedule<a class="headerlink" data-preview="" href="#custom-learning-rate-schedule" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span id="__span-18-1"><span class="nv">args</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-2"><span class="w">  </span><span class="nv">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="mf">5</span><span class="nv">e</span><span class="mf">-5</span><span class="p">,</span>
+</span><span id="__span-18-3"><span class="w">  </span><span class="nv">lr_scheduler_type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;cosine&#39;</span><span class="p">,</span>
+</span><span id="__span-18-4"><span class="w">  </span><span class="nv">warmup_steps</span><span class="p">:</span><span class="w"> </span><span class="mf">500</span><span class="p">,</span>
+</span><span id="__span-18-5"><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="truncate-long-sequences">Truncate Long Sequences<a class="headerlink" data-preview="" href="#truncate-long-sequences" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span id="__span-19-1"><span class="nv">tokenized_dataset</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-19-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers::tokenize&#39;</span><span class="p">,</span>
+</span><span id="__span-19-3"><span class="w">  </span><span class="nv">dataset</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;train_dataset&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-19-4"><span class="w">  </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-19-5"><span class="w">  </span><span class="nv">text_column</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;answer&#39;</span><span class="p">,</span>
+</span><span id="__span-19-6"><span class="w">  </span><span class="nv">truncation</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
+</span><span id="__span-19-7"><span class="w">  </span><span class="nv">max_length</span><span class="p">:</span><span class="w"> </span><span class="mf">512</span><span class="p">,</span>
+</span><span id="__span-19-8"><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="using-the-trained-model">Using the Trained Model<a class="headerlink" data-preview="" href="#using-the-trained-model" title="Permanent link">&para;</a></h2>
+<p>After training, you can load the cached model for inference:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-20-1"><span class="kn">from</span><span class="w"> </span><span class="nn">formed.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_formed_settings</span>
+</span><span id="__span-20-2"><span class="kn">from</span><span class="w"> </span><span class="nn">formed.workflow</span><span class="w"> </span><span class="kn">import</span> <span class="n">WorkflowExecutionID</span>
+</span><span id="__span-20-3">
+</span><span id="__span-20-4"><span class="c1"># Load the workflow execution</span>
+</span><span id="__span-20-5"><span class="n">settings</span> <span class="o">=</span> <span class="n">load_formed_settings</span><span class="p">(</span><span class="s2">&quot;./formed.yml&quot;</span><span class="p">)</span>
+</span><span id="__span-20-6"><span class="n">organizer</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">workflow</span><span class="o">.</span><span class="n">organizer</span>
+</span><span id="__span-20-7">
+</span><span id="__span-20-8"><span class="n">context</span> <span class="o">=</span> <span class="n">organizer</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">WorkflowExecutionID</span><span class="p">(</span><span class="s2">&quot;your-execution-id&quot;</span><span class="p">))</span>
+</span><span id="__span-20-9">
+</span><span id="__span-20-10"><span class="c1"># Get the trained model from cache</span>
+</span><span id="__span-20-11"><span class="n">model_step_id</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s2">&quot;trained_model&quot;</span><span class="p">]</span>
+</span><span id="__span-20-12"><span class="n">model</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">cache</span><span class="p">[</span><span class="n">model_step_id</span><span class="p">]</span>
+</span><span id="__span-20-13">
+</span><span id="__span-20-14"><span class="c1"># Load tokenizer</span>
+</span><span id="__span-20-15"><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoTokenizer</span>
+</span><span id="__span-20-16"><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;distilbert/distilgpt2&quot;</span><span class="p">)</span>
+</span><span id="__span-20-17">
+</span><span id="__span-20-18"><span class="c1"># Generate text</span>
+</span><span id="__span-20-19"><span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="s2">&quot;The meaning of life is&quot;</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span>
+</span><span id="__span-20-20"><span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</span><span id="__span-20-21"><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</span></code></pre></div>
+<p>Or reference the model in a new workflow step:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-21-1"><span class="p">{</span>
+</span><span id="__span-21-2"><span class="w">  </span><span class="nv">steps</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-21-3"><span class="w">    </span><span class="c1">// ... training steps ...</span>
+</span><span id="__span-21-4">
+</span><span id="__span-21-5"><span class="w">    </span><span class="c1">// Generate text using trained model</span>
+</span><span id="__span-21-6"><span class="w">    </span><span class="nv">generated_text</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-21-7"><span class="w">      </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;my_custom::generate&#39;</span><span class="p">,</span>
+</span><span id="__span-21-8"><span class="w">      </span><span class="nv">model</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;ref&#39;</span><span class="p">,</span><span class="w"> </span><span class="nv">ref</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;trained_model&#39;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-21-9"><span class="w">      </span><span class="nv">prompts</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s">&#39;The meaning of life is&#39;</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;Once upon a time&#39;</span><span class="p">],</span>
+</span><span id="__span-21-10"><span class="w">      </span><span class="nv">max_length</span><span class="p">:</span><span class="w"> </span><span class="mf">100</span><span class="p">,</span>
+</span><span id="__span-21-11"><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-21-12"><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-21-13"><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" data-preview="" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<p><strong>Workflow Steps</strong>:</p>
+<ul>
+<li><code>datasets::load</code> loads datasets from Hugging Face Hub</li>
+<li><code>transformers::tokenize</code> prepares text for model input</li>
+<li><code>transformers::train_model</code> orchestrates training with Trainer API</li>
+<li>All steps are cached by fingerprint for reproducibility</li>
+</ul>
+<p><strong>Training Configuration</strong>:</p>
+<ul>
+<li>TrainingArguments control all aspects of training</li>
+<li>Data collators handle batch preparation and label creation</li>
+<li>Callbacks enable custom logging and monitoring</li>
+</ul>
+<p><strong>MLflow Integration</strong>:</p>
+<ul>
+<li>Automatic experiment tracking</li>
+<li>Metrics, parameters, and artifacts logged transparently</li>
+<li>Easy comparison across training runs</li>
+</ul>
+<p><strong>Workflow Benefits</strong>:</p>
+<ul>
+<li>No custom Python code needed for standard tasks</li>
+<li>Configuration-driven experimentation</li>
+<li>Automatic caching and dependency management</li>
+<li>Seamless integration with Hugging Face ecosystem</li>
+</ul>
+<h2 id="next-steps">Next Steps<a class="headerlink" data-preview="" href="#next-steps" title="Permanent link">&para;</a></h2>
+<h3 id="fine-tune-on-custom-data">Fine-tune on Custom Data<a class="headerlink" data-preview="" href="#fine-tune-on-custom-data" title="Permanent link">&para;</a></h3>
+<p>Replace the dataset with your own:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-22-1"><span class="nv">train_dataset</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;datasets::load&#39;</span><span class="p">,</span>
+</span><span id="__span-22-3"><span class="w">  </span><span class="nv">path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;/path/to/your/dataset.jsonl&#39;</span><span class="p">,</span>
+</span><span id="__span-22-4"><span class="p">}</span>
+</span></code></pre></div>
+<p>Your data should be in a format supported by Hugging Face datasets (JSON, CSV, Parquet, etc.).</p>
+<h3 id="try-masked-language-modeling">Try Masked Language Modeling<a class="headerlink" data-preview="" href="#try-masked-language-modeling" title="Permanent link">&para;</a></h3>
+<p>For BERT-style models:</p>
+<div class="highlight"><pre><span></span><code><span id="__span-23-1"><span class="k">local</span><span class="w"> </span><span class="nv">base_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-2"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:AutoModelForMaskedLM.from_pretrained&#39;</span><span class="p">,</span>
+</span><span id="__span-23-3"><span class="w">  </span><span class="nv">pretrained_model_name_or_path</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;bert-base-uncased&#39;</span><span class="p">,</span>
+</span><span id="__span-23-4"><span class="p">};</span>
+</span><span id="__span-23-5">
+</span><span id="__span-23-6"><span class="c1">// ...</span>
+</span><span id="__span-23-7">
+</span><span id="__span-23-8"><span class="nv">data_collator</span><span class="err">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-9"><span class="w">  </span><span class="nv">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;transformers:DataCollatorForLanguageModeling&#39;</span><span class="p">,</span>
+</span><span id="__span-23-10"><span class="w">  </span><span class="nv">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="nv">tokenizer</span><span class="p">,</span>
+</span><span id="__span-23-11"><span class="w">  </span><span class="nv">mlm</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
+</span><span id="__span-23-12"><span class="w">  </span><span class="nv">mlm_probability</span><span class="p">:</span><span class="w"> </span><span class="mf">0.15</span><span class="p">,</span>
+</span><span id="__span-23-13"><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="further-reading">Further Reading<a class="headerlink" data-preview="" href="#further-reading" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a data-preview="" href="../text_classification/">Text Classification Tutorial</a></strong>: Build custom models with PyTorch</li>
+<li><strong><a href="https://huggingface.co/docs/transformers">Transformers Documentation</a></strong>: Complete Hugging Face Transformers guide</li>
+<li><strong><a data-preview="" href="../../guides/workflow/">Workflow Guide</a></strong>: Advanced workflow patterns</li>
+<li><strong><a data-preview="" href="../../reference/integrations/mlflow/">MLflow Integration</a></strong>: Experiment tracking details</li>
+</ul>
+<p>For more examples, see <code>examples/causallm/</code> in the repository.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.tabs.link", "content.tooltips", "navigation.tabs", "navigation.tabs.sticky", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
