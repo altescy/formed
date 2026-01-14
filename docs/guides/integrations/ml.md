@@ -470,7 +470,7 @@ DataModules can be constructed and used in Jsonnet workflow configurations:
         type: 'classification:TextClassificationDataModule',
         id: { accessor: { type: 'classification:ExampleID' } },
         text: {
-          type: 'worktop.integrations.ml:Tokenizer',
+          type: 'formed.integrations.ml:Tokenizer',
           surfaces: { unk_token: '<UNK>', min_df: 3, max_vocab_size: 10000 },
           characters: { unk_token: '<UNK>', min_characters: 5 },
         },
