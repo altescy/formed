@@ -2,7 +2,7 @@
 
 import random
 from collections.abc import Callable, Sequence
-from typing import Literal, Optional, Union, cast
+from typing import Literal, Optional, TypeVar, Union, cast
 
 import numpy
 import torch
@@ -10,6 +10,8 @@ import torch.nn.functional as F
 
 from .context import get_device
 from .types import ModelInputT, TensorCompatible
+
+_TensorT = TypeVar("_TensorT", bound=torch.Tensor)
 
 
 def set_random_seed(seed: int) -> None:
@@ -44,13 +46,13 @@ def ensure_torch_tensor(
         x: Input data (tensor, numpy array, list, etc.)
         dtype: Optional dtype for the output tensor.
         device: Optional device for the output tensor. If None, uses the device
-            from context (set by `use_device()`). If the input is already a tensor,
+            from context (set by use_device()). If the input is already a tensor,
             its device is preserved unless explicitly specified.
 
     Returns:
         PyTorch tensor on the specified device with the specified dtype.
 
-    Examples:
+    Example:
         >>> import numpy as np
         >>> from formed.integrations.torch import ensure_torch_tensor, use_device
         >>> arr = np.array([1, 2, 3])
@@ -113,7 +115,7 @@ def move_to_device(inputs: ModelInputT, device: Optional[Union[torch.device, str
     This function only moves existing torch.Tensor objects to the target device.
     Other types (numpy arrays, primitives, etc.) are left unchanged.
     Users should explicitly convert numpy arrays to tensors in their model's
-    forward method using `ensure_torch_tensor()`.
+    forward method using ensure_torch_tensor().
     """
     from typing import Any
 
@@ -188,14 +190,14 @@ def masked_pool(
     """Apply masked pooling over the sequence dimension.
 
     Args:
-        inputs: Input tensor of shape `(batch_size, seq_len, feature_dim)`.
-        mask: Mask tensor of shape `(batch_size, seq_len)`. `True`/`1` indicates valid positions.
+        inputs: Input tensor of shape (batch_size, seq_len, feature_dim).
+        mask: Mask tensor of shape (batch_size, seq_len). True/1 indicates valid positions.
         pooling: Pooling method or sequence of methods.
         normalize: Whether to L2-normalize before pooling.
-        window_size: Window size for hierarchical pooling (required if `pooling="hier"`).
+        window_size: Window size for hierarchical pooling (required if pooling="hier").
 
     Returns:
-        Pooled tensor of shape `(batch_size, feature_dim * num_pooling_methods)`.
+        Pooled tensor of shape (batch_size, feature_dim * num_pooling_methods).
 
     """
     if normalize:
@@ -270,3 +272,71 @@ def masked_pool(
         results.append(pooled)
 
     return torch.cat(results, dim=-1) if len(results) > 1 else results[0]
+
+
+def info_value_of_dtype(dtype: torch.dtype) -> Union[torch.finfo, torch.iinfo]:
+    """Returns the `finfo` or `iinfo` object of a given PyTorch data type. Does not allow torch.bool."""
+    if dtype == torch.bool:
+        raise TypeError("Does not support torch.bool")
+    elif dtype.is_floating_point:
+        return torch.finfo(dtype)
+    else:
+        return torch.iinfo(dtype)
+
+
+def min_value_of_dtype(dtype: torch.dtype) -> Union[float, int]:
+    """Returns the minimum value of a given PyTorch data type. Does not allow torch.bool."""
+    return info_value_of_dtype(dtype).min
+
+
+def max_value_of_dtype(dtype: torch.dtype) -> Union[float, int]:
+    """Returns the maximum value of a given PyTorch data type. Does not allow torch.bool."""
+    return info_value_of_dtype(dtype).max
+
+
+def tiny_value_of_dtype(dtype: torch.dtype) -> float | int:
+    """
+    Returns a moderately tiny value for a given PyTorch data type that is used to avoid numerical
+    issues such as division by zero.
+    This is different from `info_value_of_dtype(dtype).tiny` because it causes some NaN bugs.
+    Only supports floating point dtypes.
+    """
+    if not dtype.is_floating_point:
+        raise TypeError("Only supports floating point dtypes.")
+    if dtype in (torch.float, torch.double):
+        return 1e-13
+    elif dtype == torch.half:
+        return 1e-4
+    else:
+        raise TypeError("Does not support dtype " + str(dtype))
+
+
+def masked_mean(
+    vector: _TensorT,
+    mask: torch.Tensor,
+    dim: int,
+    keepdim: bool = False,
+) -> _TensorT:
+    replaced_vector = vector.masked_fill(~mask, 0.0)
+    value_sum = torch.sum(replaced_vector, dim=dim, keepdim=keepdim)
+    value_count = torch.sum(mask, dim=dim, keepdim=keepdim)
+    return cast(_TensorT, value_sum / value_count.float().clamp(min=tiny_value_of_dtype(torch.float)))
+
+
+def masked_softmax(
+    vector: _TensorT,
+    mask: torch.Tensor,
+    dim: int = -1,
+    memory_efficient: bool = False,
+) -> _TensorT:
+    while mask.dim() < vector.dim():
+        mask = mask.unsqueeze(1)
+    if not memory_efficient:
+        # To limit numerical errors from large vector elements outside the mask, we zero these out.
+        result = torch.nn.functional.softmax(vector * mask, dim=dim)
+        result = result * mask
+        result = result / (result.sum(dim=dim, keepdim=True) + tiny_value_of_dtype(result.dtype))
+    else:
+        masked_vector = vector.masked_fill(~mask, min_value_of_dtype(vector.dtype))
+        result = torch.nn.functional.softmax(masked_vector, dim=dim)
+    return cast(_TensorT, result)

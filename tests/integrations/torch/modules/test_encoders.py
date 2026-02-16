@@ -6,7 +6,9 @@ import torch
 from formed.integrations.torch.modules.encoders import (
     BasePositionalEncoder,
     BaseSequenceEncoder,
+    ConcatSequenceEncoder,
     FeedForwardSequenceEncoder,
+    GatedCnnSequenceEncoder,
     GRUSequenceEncoder,
     LearnablePositionalEncoder,
     LSTMSequenceEncoder,
@@ -15,6 +17,7 @@ from formed.integrations.torch.modules.encoders import (
     SinusoidalPositionalEncoder,
     StackedSequenceEncoder,
     TransformerEncoder,
+    WindowConcatSequenceEncoder,
 )
 from formed.integrations.torch.modules.feedforward import FeedForward
 from formed.integrations.torch.modules.masks import (
@@ -32,6 +35,15 @@ def create_encoder_instances():
         pytest.param(LSTMSequenceEncoder(input_dim=16, hidden_dim=8, bidirectional=True), id="lstm_bidir"),
         pytest.param(GRUSequenceEncoder(input_dim=16, hidden_dim=8, bidirectional=True), id="gru_bidir"),
         pytest.param(FeedForwardSequenceEncoder(FeedForward(input_dim=16, hidden_dims=[32, 16])), id="feedforward"),
+        pytest.param(
+            GatedCnnSequenceEncoder(
+                input_dim=16,
+                layers=[
+                    [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=16)],
+                ],
+            ),
+            id="gated_cnn",
+        ),
         pytest.param(ResidualSequenceEncoder(LSTMSequenceEncoder(input_dim=16, hidden_dim=16)), id="residual_lstm"),
         pytest.param(ResidualSequenceEncoder(GRUSequenceEncoder(input_dim=16, hidden_dim=16)), id="residual_gru"),
         pytest.param(
@@ -917,3 +929,631 @@ class TestTransformerEncoder:
         )
 
         assert isinstance(encoder, BaseSequenceEncoder)
+
+
+class TestGatedCnnSequenceEncoder:
+    """Tests specific to GatedCnnSequenceEncoder."""
+
+    def test_basic_forward(self):
+        """Test basic forward pass."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        # Default output_dim is input_dim * 2 (forward + backward)
+        assert output.shape == (batch_size, seq_len, input_dim * 2)
+
+    def test_with_custom_output_dim(self):
+        """Test with custom output dimension using projection."""
+        batch_size, seq_len, input_dim, output_dim = 2, 8, 16, 24
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+            output_dim=output_dim,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, output_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        # Create mask where second sample has padding
+        mask = torch.ones(batch_size, seq_len, dtype=torch.bool)
+        mask[1, 5:] = False
+
+        output = encoder(inputs, mask=mask)
+
+        assert output.shape == (batch_size, seq_len, input_dim * 2)
+        # Masked positions should be filled with zeros during computation
+        # Check that the output is not NaN
+        assert not torch.isnan(output).any()
+
+    @pytest.mark.parametrize(
+        ("kernel_size", "dilation"),
+        [
+            pytest.param(3, 1, id="kernel3_dilation1"),
+            pytest.param(5, 1, id="kernel5_dilation1"),
+            pytest.param(2, 2, id="kernel2_dilation2"),
+            pytest.param(2, 4, id="kernel2_dilation4"),
+        ],
+    )
+    def test_different_kernel_sizes_and_dilations(self, kernel_size, dilation):
+        """Test with different kernel sizes and dilation rates."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=kernel_size, output_dim=input_dim, dilation=dilation)],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, input_dim * 2)
+
+    def test_multiple_layers(self):
+        """Test with multiple residual blocks."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, input_dim * 2)
+
+    def test_multiple_convolutions_per_block(self):
+        """Test with multiple convolutions in a single residual block."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [
+                    GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim),
+                    GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim),
+                ],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, input_dim * 2)
+
+    def test_with_dropout(self):
+        """Test with dropout enabled."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+            dropout=0.3,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        # Training mode
+        encoder.train()
+        output_train_1 = encoder(inputs)
+        output_train_2 = encoder(inputs)
+
+        # Outputs should differ due to dropout
+        assert not torch.allclose(output_train_1, output_train_2)
+
+        # Eval mode
+        encoder.eval()
+        output_eval_1 = encoder(inputs)
+        output_eval_2 = encoder(inputs)
+
+        # Outputs should be identical in eval mode
+        assert torch.allclose(output_eval_1, output_eval_2)
+
+    def test_gradients_flow(self):
+        """Test that gradients flow through the encoder."""
+        batch_size, seq_len, input_dim = 2, 4, 8
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
+
+        output = encoder(inputs)
+        loss = output.sum()
+        loss.backward()
+
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
+
+    def test_dimension_methods(self):
+        """Test get_input_dim and get_output_dim methods."""
+        input_dim, output_dim = 16, 24
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+            output_dim=output_dim,
+        )
+
+        assert encoder.get_input_dim() == input_dim
+        assert encoder.get_output_dim() == output_dim
+
+    def test_is_base_sequence_encoder(self):
+        """Test that GatedCnnSequenceEncoder inherits from BaseSequenceEncoder."""
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=16,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=16)],
+            ],
+        )
+
+        assert isinstance(encoder, BaseSequenceEncoder)
+
+    def test_bidirectional_processing(self):
+        """Test that both forward and backward directions produce different outputs."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = GatedCnnSequenceEncoder(
+            input_dim=input_dim,
+            layers=[
+                [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=input_dim)],
+            ],
+        )
+
+        # Create a sequence with clear directionality
+        inputs = torch.zeros(batch_size, seq_len, input_dim)
+        inputs[:, 0, :] = 1.0  # First position has signal
+
+        output = encoder(inputs)
+
+        # Output is concatenation of forward and backward
+        # Split into forward and backward halves
+        forward_output = output[:, :, :input_dim]
+        backward_output = output[:, :, input_dim:]
+
+        # Forward and backward outputs should be different
+        # (they process the sequence in opposite directions)
+        assert not torch.allclose(forward_output, backward_output)
+
+
+class TestConcatSequenceEncoder:
+    """Tests specific to ConcatSequenceEncoder."""
+
+    def test_basic_forward(self):
+        """Test basic forward pass with multiple encoders."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=12),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_encoder(inputs)
+
+        expected_dim = 8 + 12
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_with_bidirectional_encoders(self):
+        """Test with bidirectional encoders."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=4, bidirectional=True),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=6, bidirectional=True),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_encoder(inputs)
+
+        expected_dim = (4 * 2) + (6 * 2)
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        mask = torch.ones(batch_size, seq_len)
+        mask[:, 5:] = 0
+
+        output = concat_encoder(inputs, mask=mask)
+
+        assert output.shape[0] == batch_size
+        assert output.shape[1] <= seq_len
+        assert output.shape[2] == 16
+
+    def test_with_mixed_encoder_types(self):
+        """Test with different types of encoders."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+
+        feedforward = FeedForward(input_dim=input_dim, hidden_dims=[32, 16])
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            FeedForwardSequenceEncoder(feedforward=feedforward),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=12),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_encoder(inputs)
+
+        expected_dim = 8 + 16 + 12
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_output_dimensions(self):
+        """Test get_input_dim and get_output_dim methods."""
+        input_dim = 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=12),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+
+        assert concat_encoder.get_input_dim() == input_dim * 2
+        assert concat_encoder.get_output_dim() == 8 + 12
+
+    def test_is_base_sequence_encoder(self):
+        """Test that ConcatSequenceEncoder inherits from BaseSequenceEncoder."""
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=16, hidden_dim=8),
+        ]
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        assert isinstance(concat_encoder, BaseSequenceEncoder)
+
+    def test_gradients_flow(self):
+        """Test that gradients flow through all encoders."""
+        batch_size, seq_len, input_dim = 2, 8, 8
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
+
+        output = concat_encoder(inputs)
+        loss = output.sum()
+        loss.backward()
+
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
+
+    def test_single_encoder(self):
+        """Test with only a single encoder."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=12),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, 12)
+
+    def test_many_encoders(self):
+        """Test with many encoders."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoders: list[BaseSequenceEncoder] = [
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=4),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=4),
+            LSTMSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+            GRUSequenceEncoder(input_dim=input_dim, hidden_dim=8),
+        ]
+
+        concat_encoder = ConcatSequenceEncoder(encoders=encoders)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_encoder(inputs)
+
+        expected_dim = 4 + 4 + 8 + 8
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+
+class TestWindowConcatSequenceEncoder:
+    """Tests specific to WindowConcatSequenceEncoder."""
+
+    def test_basic_forward(self):
+        """Test basic forward pass with symmetric window."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 1
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        expected_dim = (window_size * 2 + 1) * input_dim
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_with_asymmetric_window(self):
+        """Test with asymmetric window (left, right)."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = (2, 1)
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        expected_dim = (2 + 1 + 1) * input_dim
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_with_zero_window(self):
+        """Test with zero window size (no context)."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 0
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, input_dim)
+
+    def test_with_output_projection(self):
+        """Test with output projection layer."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 1
+        output_dim = 32
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+            output_dim=output_dim,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, output_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 1
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        mask = torch.ones(batch_size, seq_len, dtype=torch.bool)
+        mask[:, 5:] = False
+
+        output = encoder(inputs, mask=mask)
+
+        expected_dim = (window_size * 2 + 1) * input_dim
+        assert output.shape == (batch_size, seq_len, expected_dim)
+        assert not torch.isnan(output).any()
+
+    def test_masked_positions_are_zeroed(self):
+        """Test that masked positions are properly zeroed in output."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 1
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        mask = torch.ones(batch_size, seq_len, dtype=torch.bool)
+        mask[0, 5:] = False
+        mask[1, 3:] = False
+
+        output = encoder(inputs, mask=mask)
+
+        assert torch.allclose(output[0, 5:], torch.zeros_like(output[0, 5:]))
+        assert torch.allclose(output[1, 3:], torch.zeros_like(output[1, 3:]))
+
+    @pytest.mark.parametrize(
+        "window_size",
+        [
+            pytest.param(0, id="zero"),
+            pytest.param(1, id="one"),
+            pytest.param(2, id="two"),
+            pytest.param(3, id="three"),
+        ],
+    )
+    def test_different_window_sizes(self, window_size):
+        """Test with different window sizes."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        expected_dim = (window_size * 2 + 1) * input_dim
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    @pytest.mark.parametrize(
+        "window_size",
+        [
+            pytest.param((0, 0), id="zero_zero"),
+            pytest.param((1, 0), id="left_only"),
+            pytest.param((0, 1), id="right_only"),
+            pytest.param((2, 1), id="left_larger"),
+            pytest.param((1, 2), id="right_larger"),
+        ],
+    )
+    def test_different_asymmetric_windows(self, window_size):
+        """Test with different asymmetric window sizes."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = encoder(inputs)
+
+        expected_dim = (sum(window_size) + 1) * input_dim
+        assert output.shape == (batch_size, seq_len, expected_dim)
+
+    def test_negative_window_size_raises_error(self):
+        """Test that negative window size raises error."""
+        with pytest.raises(ValueError, match="Window size must be greater than or equal to zero"):
+            WindowConcatSequenceEncoder(input_dim=16, window_size=-1)
+
+        with pytest.raises(ValueError, match="Window size must be greater than or equal to zero"):
+            WindowConcatSequenceEncoder(input_dim=16, window_size=(1, -1))
+
+    def test_output_dimensions(self):
+        """Test get_input_dim and get_output_dim methods."""
+        input_dim = 16
+        window_size = 2
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+
+        assert encoder.get_input_dim() == input_dim
+        assert encoder.get_output_dim() == (window_size * 2 + 1) * input_dim
+
+    def test_output_dimensions_with_projection(self):
+        """Test get_output_dim with projection."""
+        input_dim = 16
+        window_size = 2
+        output_dim = 64
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+            output_dim=output_dim,
+        )
+
+        assert encoder.get_input_dim() == input_dim
+        assert encoder.get_output_dim() == output_dim
+
+    def test_is_base_sequence_encoder(self):
+        """Test that WindowConcatSequenceEncoder inherits from BaseSequenceEncoder."""
+        encoder = WindowConcatSequenceEncoder(input_dim=16, window_size=1)
+        assert isinstance(encoder, BaseSequenceEncoder)
+
+    def test_gradients_flow(self):
+        """Test that gradients flow through the encoder."""
+        batch_size, seq_len, input_dim = 2, 8, 8
+        window_size = 1
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
+
+        output = encoder(inputs)
+        loss = output.sum()
+        loss.backward()
+
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
+
+    def test_boundary_behavior(self):
+        """Test behavior at sequence boundaries."""
+        batch_size, seq_len, input_dim = 1, 5, 4
+        window_size = 2
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+
+        inputs = torch.ones(batch_size, seq_len, input_dim)
+        for i in range(seq_len):
+            inputs[:, i, :] = i
+
+        output = encoder(inputs)
+
+        assert output.shape == (batch_size, seq_len, (window_size * 2 + 1) * input_dim)
+
+    def test_deterministic_without_dropout(self):
+        """Test that output is deterministic without dropout."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        window_size = 1
+
+        encoder = WindowConcatSequenceEncoder(
+            input_dim=input_dim,
+            window_size=window_size,
+        )
+        encoder.eval()
+
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output1 = encoder(inputs)
+        output2 = encoder(inputs)
+
+        assert torch.allclose(output1, output2)
