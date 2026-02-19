@@ -5,6 +5,7 @@
 [![Python version](https://img.shields.io/pypi/pyversions/formed)](https://github.com/altescy/formed)
 [![License](https://img.shields.io/github/license/altescy/formed)](https://github.com/altescy/formed/blob/master/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/formed)](https://pypi.org/project/formed/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/altescy/formed)
 
 Formed is a flexible framework for managing data, experiments, and workflows in both research and production environments. It provides a simple yet powerful DAG-based workflow system with automatic caching, dependency tracking, and seamless integration with popular ML tools.
 
