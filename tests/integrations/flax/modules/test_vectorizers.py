@@ -1,176 +1,544 @@
-import jax.numpy as jnp
+"""Tests for vectorizers module."""
 
-from formed.integrations.flax.modules.vectorizers import BagOfEmbeddingsSequenceVectorizer
+import pytest
+import torch
+
+from formed.integrations.torch.modules.vectorizers import (
+    BagOfEmbeddingsSequenceVectorizer,
+    BaseSequenceVectorizer,
+    CnnSequenceVectorizer,
+    ConcatSequenceVectorizer,
+    SelfAttentiveSequenceVectorizer,
+)
 
 
 class TestBagOfEmbeddingsSequenceVectorizer:
-    def test_mean_pooling(self) -> None:
-        """Test mean pooling without mask."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+    """Test BagOfEmbeddingsSequenceVectorizer."""
 
-        # (batch_size=2, seq_len=3, embedding_dim=4)
-        inputs = jnp.array(
-            [
-                [[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0], [9.0, 10.0, 11.0, 12.0]],
-                [[1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0], [3.0, 3.0, 3.0, 3.0]],
-            ]
+    @pytest.mark.parametrize(
+        ("pooling", "expected_multiplier"),
+        [
+            pytest.param("mean", 1, id="mean"),
+            pytest.param("max", 1, id="max"),
+            pytest.param("sum", 1, id="sum"),
+            pytest.param(["mean", "max"], 2, id="mean_max"),
+            pytest.param(["mean", "max", "sum"], 3, id="mean_max_sum"),
+        ],
+    )
+    def test_output_dim(self, pooling, expected_multiplier):
+        """Test output dimension with different pooling methods."""
+        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling=pooling)
+
+        # Output dim should be input_dim * number of pooling methods
+        output_dim_fn = vectorizer.get_output_dim()
+        assert callable(output_dim_fn)
+        assert output_dim_fn(128) == 128 * expected_multiplier
+
+    def test_basic_mean_pooling(self):
+        """Test basic mean pooling."""
+        batch_size, seq_len, input_dim = 2, 4, 8
+
+        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        assert output.shape == (batch_size, input_dim)
+        # Mean should be approximately equal to manual mean
+        expected = inputs.mean(dim=1)
+        assert torch.allclose(output, expected)
+
+    def test_with_mask(self):
+        """Test pooling with padding mask."""
+        batch_size, seq_len, input_dim = 2, 4, 8
+
+        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        # Create mask where second half is padding
+        mask = torch.ones(batch_size, seq_len)
+        mask[:, 2:] = 0
+
+        output = vectorizer(inputs, mask=mask)
+
+        assert output.shape == (batch_size, input_dim)
+        # Should only average over first 2 positions
+        expected = inputs[:, :2].mean(dim=1)
+        assert torch.allclose(output, expected)
+
+    def test_is_base_vectorizer(self):
+        """Test that BagOfEmbeddingsSequenceVectorizer inherits from BaseSequenceVectorizer."""
+        vectorizer = BagOfEmbeddingsSequenceVectorizer()
+        assert isinstance(vectorizer, BaseSequenceVectorizer)
+
+
+class TestCnnSequenceVectorizer:
+    """Test CnnSequenceVectorizer."""
+
+    def test_basic_forward(self):
+        """Test basic forward pass."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+        num_filters = 8
+        ngram_filter_sizes = (2, 3, 4)
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=ngram_filter_sizes,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        # Output should be concatenation of max-pooled features from each filter
+        expected_dim = num_filters * len(ngram_filter_sizes)
+        assert output.shape == (batch_size, expected_dim)
+
+    def test_with_output_projection(self):
+        """Test with output projection layer."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+        num_filters = 8
+        output_dim = 32
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=(2, 3),
+            output_dim=output_dim,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        assert output.shape == (batch_size, output_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+        num_filters = 8
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=(2, 3),
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        # Create mask where second half is padding
+        mask = torch.ones(batch_size, seq_len)
+        mask[0, 7:] = 0  # First sample has padding from position 7
+        mask[1, 5:] = 0  # Second sample has padding from position 5
+
+        output = vectorizer(inputs, mask=mask)
+
+        expected_dim = num_filters * 2  # 2 filter sizes
+        assert output.shape == (batch_size, expected_dim)
+        # Output should not be all zeros or NaN
+        assert not torch.isnan(output).any()
+        assert not (output == 0).all()
+
+    @pytest.mark.parametrize(
+        "ngram_filter_sizes",
+        [
+            pytest.param((2,), id="single_bigram"),
+            pytest.param((3,), id="single_trigram"),
+            pytest.param((2, 3), id="bigram_trigram"),
+            pytest.param((2, 3, 4, 5), id="default"),
+            pytest.param((1, 2, 3), id="unigram_bigram_trigram"),
+        ],
+    )
+    def test_different_ngram_sizes(self, ngram_filter_sizes):
+        """Test with different n-gram filter sizes."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+        num_filters = 8
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=ngram_filter_sizes,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        expected_dim = num_filters * len(ngram_filter_sizes)
+        assert output.shape == (batch_size, expected_dim)
+
+    def test_custom_activation(self):
+        """Test with custom activation function."""
+        batch_size, seq_len, input_dim = 2, 10, 16
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=8,
+            ngram_filter_sizes=(2, 3),
+            conv_layer_activation=torch.nn.Tanh(),
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        assert output.shape == (batch_size, 16)  # 8 filters * 2 sizes
+
+    def test_gradients_flow(self):
+        """Test that gradients flow through the vectorizer."""
+        batch_size, seq_len, input_dim = 2, 8, 8
+
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=4,
+            ngram_filter_sizes=(2, 3),
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
+
+        output = vectorizer(inputs)
+        loss = output.sum()
+        loss.backward()
+
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
+
+    def test_output_dimensions(self):
+        """Test get_input_dim and get_output_dim methods."""
+        input_dim = 16
+        num_filters = 10
+        ngram_filter_sizes = (2, 3, 4)
+
+        # Without projection
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=ngram_filter_sizes,
         )
 
+        assert vectorizer.get_input_dim() == input_dim
+        assert vectorizer.get_output_dim() == num_filters * len(ngram_filter_sizes)
+
+        # With projection
+        output_dim = 32
+        vectorizer_proj = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=ngram_filter_sizes,
+            output_dim=output_dim,
+        )
+
+        assert vectorizer_proj.get_input_dim() == input_dim
+        assert vectorizer_proj.get_output_dim() == output_dim
+
+    def test_is_base_vectorizer(self):
+        """Test that CnnSequenceVectorizer inherits from BaseSequenceVectorizer."""
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=16,
+            num_filters=8,
+            ngram_filter_sizes=(2, 3),
+        )
+        assert isinstance(vectorizer, BaseSequenceVectorizer)
+
+    def test_short_sequences(self):
+        """Test with sequences shorter than largest n-gram size."""
+        batch_size, seq_len, input_dim = 2, 5, 16  # 5 tokens
+        num_filters = 8
+
+        # Use filters where largest is same as sequence length
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=num_filters,
+            ngram_filter_sizes=(2, 3, 5),  # 5 equals seq_len
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        # Should handle when largest filter equals sequence length
         output = vectorizer(inputs)
 
-        assert output.shape == (2, 4)
-        # First sample: mean of [1,2,3,4], [5,6,7,8], [9,10,11,12] = [5,6,7,8]
-        assert jnp.allclose(output[0], jnp.array([5.0, 6.0, 7.0, 8.0]))
-        # Second sample: mean of [1,1,1,1], [2,2,2,2], [3,3,3,3] = [2,2,2,2]
-        assert jnp.allclose(output[1], jnp.array([2.0, 2.0, 2.0, 2.0]))
+        expected_dim = num_filters * 3
+        assert output.shape == (batch_size, expected_dim)
+        # Output should not be all zeros or NaN
+        assert not torch.isnan(output).any()
+        assert not (output == 0).all()
 
-    def test_mean_pooling_with_mask(self) -> None:
-        """Test mean pooling with mask to ignore padding."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+    def test_deterministic_without_dropout(self):
+        """Test that output is deterministic without dropout."""
+        batch_size, seq_len, input_dim = 2, 8, 16
 
-        inputs = jnp.array([[[1.0, 1.0], [2.0, 2.0], [0.0, 0.0]], [[3.0, 3.0], [0.0, 0.0], [0.0, 0.0]]])
-        mask = jnp.array([[True, True, False], [True, False, False]])
+        vectorizer = CnnSequenceVectorizer(
+            input_dim=input_dim,
+            num_filters=8,
+            ngram_filter_sizes=(2, 3),
+        )
+        vectorizer.eval()
+
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output1 = vectorizer(inputs)
+        output2 = vectorizer(inputs)
+
+        assert torch.allclose(output1, output2)
+
+
+class TestSelfAttentiveSequenceVectorizer:
+    """Test SelfAttentiveSequenceVectorizer."""
+
+    def test_basic_forward(self):
+        """Test basic forward pass."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=input_dim)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = vectorizer(inputs)
+
+        assert output.shape == (batch_size, input_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=input_dim)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        mask = torch.ones(batch_size, seq_len, dtype=torch.bool)
+        mask[:, 5:] = False
 
         output = vectorizer(inputs, mask=mask)
 
-        assert output.shape == (2, 2)
-        # First sample: mean of [1,1], [2,2] = [1.5, 1.5]
-        assert jnp.allclose(output[0], jnp.array([1.5, 1.5]))
-        # Second sample: only [3,3] = [3, 3]
-        assert jnp.allclose(output[1], jnp.array([3.0, 3.0]))
+        assert output.shape == (batch_size, input_dim)
+        assert not torch.isnan(output).any()
 
-    def test_max_pooling(self) -> None:
-        """Test max pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="max")
+    def test_with_multiple_heads(self):
+        """Test with multiple attention heads."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        num_heads = 4
 
-        inputs = jnp.array([[[1.0, 5.0], [2.0, 3.0], [4.0, 1.0]], [[3.0, 2.0], [1.0, 4.0], [2.0, 1.0]]])
-
-        output = vectorizer(inputs)
-
-        assert output.shape == (2, 2)
-        # First sample: max of columns [4.0, 5.0]
-        assert jnp.allclose(output[0], jnp.array([4.0, 5.0]))
-        # Second sample: max of columns [3.0, 4.0]
-        assert jnp.allclose(output[1], jnp.array([3.0, 4.0]))
-
-    def test_min_pooling(self) -> None:
-        """Test min pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="min")
-
-        inputs = jnp.array([[[1.0, 5.0], [2.0, 3.0], [4.0, 1.0]], [[3.0, 2.0], [1.0, 4.0], [2.0, 1.0]]])
+        vectorizer = SelfAttentiveSequenceVectorizer(
+            input_dim=input_dim,
+            num_heads=num_heads,
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
 
         output = vectorizer(inputs)
 
-        assert output.shape == (2, 2)
-        # First sample: min of columns [1.0, 1.0]
-        assert jnp.allclose(output[0], jnp.array([1.0, 1.0]))
-        # Second sample: min of columns [1.0, 1.0]
-        assert jnp.allclose(output[1], jnp.array([1.0, 1.0]))
+        assert output.shape == (batch_size, input_dim)
 
-    def test_sum_pooling(self) -> None:
-        """Test sum pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="sum")
+    def test_with_hidden_dims(self):
+        """Test with hidden dimensions in attention mechanism."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+        hidden_dim = 32
 
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]])
-
-        output = vectorizer(inputs)
-
-        assert output.shape == (2, 2)
-        # First sample: sum [9.0, 12.0]
-        assert jnp.allclose(output[0], jnp.array([9.0, 12.0]))
-        # Second sample: sum [3.0, 3.0]
-        assert jnp.allclose(output[1], jnp.array([3.0, 3.0]))
-
-    def test_first_pooling(self) -> None:
-        """Test first token pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="first")
-
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]]])
+        vectorizer = SelfAttentiveSequenceVectorizer(
+            input_dim=input_dim,
+            hidden_dims=(hidden_dim,),
+        )
+        inputs = torch.randn(batch_size, seq_len, input_dim)
 
         output = vectorizer(inputs)
 
-        assert output.shape == (2, 2)
-        # First sample: first token [1.0, 2.0]
-        assert jnp.allclose(output[0], jnp.array([1.0, 2.0]))
-        # Second sample: first token [7.0, 8.0]
-        assert jnp.allclose(output[1], jnp.array([7.0, 8.0]))
+        assert output.shape == (batch_size, input_dim)
 
-    def test_last_pooling(self) -> None:
-        """Test last token pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="last")
+    def test_attention_weights_sum_to_one(self):
+        """Test that attention weights sum to approximately 1."""
+        batch_size, seq_len, input_dim = 2, 8, 16
 
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]]])
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=input_dim)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
 
         output = vectorizer(inputs)
 
-        assert output.shape == (2, 2)
-        # Last token should be selected
-        assert jnp.allclose(output[0], jnp.array([5.0, 6.0]))
-        assert jnp.allclose(output[1], jnp.array([11.0, 12.0]))
+        assert output.shape == (batch_size, input_dim)
+        assert not torch.isnan(output).any()
 
-    def test_last_pooling_with_mask(self) -> None:
-        """Test last token pooling with mask to get actual last non-padding token."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="last")
+    def test_output_dimensions(self):
+        """Test get_input_dim and get_output_dim methods."""
+        input_dim = 16
 
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [0.0, 0.0]], [[7.0, 8.0], [0.0, 0.0], [0.0, 0.0]]])
-        mask = jnp.array([[True, True, False], [True, False, False]])
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=input_dim)
 
-        output = vectorizer(inputs, mask=mask)
+        assert vectorizer.get_input_dim() == input_dim
+        assert vectorizer.get_output_dim() == input_dim
 
-        assert output.shape == (2, 2)
-        # First sample: last valid token [3.0, 4.0]
-        assert jnp.allclose(output[0], jnp.array([3.0, 4.0]))
-        # Second sample: last valid token [7.0, 8.0]
-        assert jnp.allclose(output[1], jnp.array([7.0, 8.0]))
+    def test_is_base_vectorizer(self):
+        """Test that SelfAttentiveSequenceVectorizer inherits from BaseSequenceVectorizer."""
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=16)
+        assert isinstance(vectorizer, BaseSequenceVectorizer)
 
-    def test_hier_pooling(self) -> None:
-        """Test hierarchical pooling."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="hier", window_size=2)
+    def test_gradients_flow(self):
+        """Test that gradients flow through the vectorizer."""
+        batch_size, seq_len, input_dim = 2, 8, 8
 
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]])
+        vectorizer = SelfAttentiveSequenceVectorizer(input_dim=input_dim)
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
 
         output = vectorizer(inputs)
+        loss = output.sum()
+        loss.backward()
 
-        assert output.shape == (1, 2)
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
 
-    def test_with_normalization(self) -> None:
-        """Test pooling with L2 normalization."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean", normalize=True)
 
-        inputs = jnp.array([[[3.0, 4.0], [6.0, 8.0], [9.0, 12.0]]])
+class TestConcatSequenceVectorizer:
+    """Test ConcatSequenceVectorizer."""
 
-        output = vectorizer(inputs)
+    def test_basic_forward(self):
+        """Test basic forward pass with multiple vectorizers."""
+        batch_size, seq_len, input_dim = 2, 8, 16
 
-        assert output.shape == (1, 2)
-        # After normalization, L2 norm should be 1
-        norm = jnp.sqrt(jnp.sum(output**2, axis=-1))
-        assert jnp.allclose(norm, 1.0, atol=1e-5)
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            BagOfEmbeddingsSequenceVectorizer(pooling="max"),
+        ]
 
-    def test_dimension_agnostic(self) -> None:
-        """Test that vectorizer is dimension-agnostic."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
 
-        assert vectorizer.get_input_dim() is None
-        assert callable(vectorizer.get_output_dim())
+        output = concat_vectorizer(inputs)
 
-        # Test with different embedding dimensions
-        inputs_64 = jnp.ones((2, 10, 64))
-        output_64 = vectorizer(inputs_64)
-        assert output_64.shape == (2, 64)
+        expected_dim = input_dim * 2
+        assert output.shape == (batch_size, expected_dim)
 
-        inputs_128 = jnp.ones((2, 10, 128))
-        output_128 = vectorizer(inputs_128)
-        assert output_128.shape == (2, 128)
+    def test_with_different_vectorizers(self):
+        """Test with different types of vectorizers."""
+        batch_size, seq_len, input_dim = 2, 10, 16
 
-    def test_empty_mask_handling(self) -> None:
-        """Test handling of sequences where all positions are masked."""
-        vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            CnnSequenceVectorizer(input_dim=input_dim, num_filters=8, ngram_filter_sizes=(2, 3)),
+            SelfAttentiveSequenceVectorizer(input_dim=input_dim),
+        ]
 
-        inputs = jnp.array([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]])
-        mask = jnp.array([[False, False, False]])
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
 
-        output = vectorizer(inputs, mask=mask)
+        output = concat_vectorizer(inputs)
 
-        assert output.shape == (1, 2)
-        # With all masked, should handle gracefully (likely zeros or similar)
-        assert not jnp.any(jnp.isnan(output))
+        expected_dim = input_dim + (8 * 2) + input_dim
+        assert output.shape == (batch_size, expected_dim)
+
+    def test_with_mask(self):
+        """Test forward pass with padding mask."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            BagOfEmbeddingsSequenceVectorizer(pooling="max"),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        mask = torch.ones(batch_size, seq_len)
+        mask[:, 5:] = 0
+
+        output = concat_vectorizer(inputs, mask=mask)
+
+        expected_dim = input_dim * 2
+        assert output.shape == (batch_size, expected_dim)
+        assert not torch.isnan(output).any()
+
+    def test_output_dimensions_with_fixed_dims(self):
+        """Test get_output_dim with vectorizers that have fixed output dims."""
+        input_dim = 16
+        num_filters = 8
+
+        vectorizers = [
+            CnnSequenceVectorizer(input_dim=input_dim, num_filters=num_filters, ngram_filter_sizes=(2, 3)),
+            SelfAttentiveSequenceVectorizer(input_dim=input_dim),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+
+        assert concat_vectorizer.get_input_dim() == input_dim
+        expected_output_dim = (num_filters * 2) + input_dim
+        assert concat_vectorizer.get_output_dim() == expected_output_dim
+
+    def test_output_dimensions_with_callable_dims(self):
+        """Test get_output_dim with vectorizers that have callable output dims."""
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            BagOfEmbeddingsSequenceVectorizer(pooling=["mean", "max"]),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+
+        output_dim_fn = concat_vectorizer.get_output_dim()
+        assert callable(output_dim_fn)
+
+        input_dim = 16
+        expected_output_dim = input_dim * 1 + input_dim * 2
+        assert output_dim_fn(input_dim) == expected_output_dim
+
+    def test_output_dimensions_mixed(self):
+        """Test get_output_dim with mixed fixed and callable dims."""
+        input_dim = 16
+
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            SelfAttentiveSequenceVectorizer(input_dim=input_dim),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+
+        output_dim_fn = concat_vectorizer.get_output_dim()
+        assert callable(output_dim_fn)
+        assert output_dim_fn(input_dim) == input_dim * 2
+
+    def test_is_base_vectorizer(self):
+        """Test that ConcatSequenceVectorizer inherits from BaseSequenceVectorizer."""
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+        ]
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        assert isinstance(concat_vectorizer, BaseSequenceVectorizer)
+
+    def test_gradients_flow(self):
+        """Test that gradients flow through the vectorizer."""
+        batch_size, seq_len, input_dim = 2, 8, 8
+
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            BagOfEmbeddingsSequenceVectorizer(pooling="max"),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim, requires_grad=True)
+
+        output = concat_vectorizer(inputs)
+        loss = output.sum()
+        loss.backward()
+
+        assert inputs.grad is not None
+        assert not torch.isnan(inputs.grad).any()
+
+    def test_single_vectorizer(self):
+        """Test with only a single vectorizer."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_vectorizer(inputs)
+
+        assert output.shape == (batch_size, input_dim)
+
+    def test_many_vectorizers(self):
+        """Test with many vectorizers."""
+        batch_size, seq_len, input_dim = 2, 8, 16
+
+        vectorizers = [
+            BagOfEmbeddingsSequenceVectorizer(pooling="mean"),
+            BagOfEmbeddingsSequenceVectorizer(pooling="max"),
+            BagOfEmbeddingsSequenceVectorizer(pooling="sum"),
+            SelfAttentiveSequenceVectorizer(input_dim=input_dim),
+        ]
+
+        concat_vectorizer = ConcatSequenceVectorizer(vectorizers=vectorizers)
+        inputs = torch.randn(batch_size, seq_len, input_dim)
+
+        output = concat_vectorizer(inputs)
+
+        expected_dim = input_dim * 4
+        assert output.shape == (batch_size, expected_dim)

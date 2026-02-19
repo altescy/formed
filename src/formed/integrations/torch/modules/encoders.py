@@ -35,7 +35,9 @@ Examples:
 """
 
 import abc
-from typing import Optional
+import math
+from collections.abc import Sequence
+from typing import Literal, NamedTuple, Optional
 
 import torch
 import torch.nn as nn
@@ -246,8 +248,28 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         return self._hidden_dim * (2 if self._bidirectional else 1)
 
 
-@BaseSequenceEncoder.register("recipe_classifier::residual")
+@BaseSequenceEncoder.register("residual")
 class ResidualSequenceEncoder(BaseSequenceEncoder):
+    """Residual wrapper for sequence encoders.
+
+    Adds the input to the encoder output (residual connection).
+    Requires input and output dimensions to match.
+
+    Args:
+        encoder: Base encoder to wrap. Must have matching input and output dimensions.
+
+    Examples:
+        >>> from formed.integrations.torch.modules.encoders import (
+        ...     ResidualSequenceEncoder,
+        ...     LSTMSequenceEncoder
+        ... )
+        >>>
+        >>> # Wrap LSTM with residual connection
+        >>> base_encoder = LSTMSequenceEncoder(input_dim=128, hidden_dim=128)
+        >>> encoder = ResidualSequenceEncoder(encoder=base_encoder)
+
+    """
+
     def __init__(self, encoder: BaseSequenceEncoder) -> None:
         assert encoder.get_input_dim() == encoder.get_output_dim()
 
@@ -269,8 +291,28 @@ class ResidualSequenceEncoder(BaseSequenceEncoder):
         return self._encoder.get_output_dim()
 
 
-@BaseSequenceEncoder.register("recipe_classifier::feedforward")
+@BaseSequenceEncoder.register("feedforward")
 class FeedForwardSequenceEncoder(BaseSequenceEncoder):
+    """Position-wise feedforward sequence encoder.
+
+    Applies a feedforward network independently to each position in the sequence.
+    The same transformation is applied at each position (no cross-position interaction).
+
+    Args:
+        feedforward: Feedforward network to apply at each position.
+
+    Examples:
+        >>> from formed.integrations.torch.modules.encoders import (
+        ...     FeedForwardSequenceEncoder
+        ... )
+        >>> from formed.integrations.torch.modules.feedforward import FeedForward
+        >>>
+        >>> # Apply feedforward to each position independently
+        >>> feedforward = FeedForward(input_dim=128, hidden_dims=[256, 128])
+        >>> encoder = FeedForwardSequenceEncoder(feedforward=feedforward)
+
+    """
+
     def __init__(self, feedforward: FeedForward) -> None:
         super().__init__()
         self._feedforward = feedforward
@@ -294,8 +336,266 @@ class FeedForwardSequenceEncoder(BaseSequenceEncoder):
         return self._feedforward.get_output_dim()
 
 
-@BaseSequenceEncoder.register("recipe_classifier::stacked")
+@BaseSequenceEncoder.register("gated_cnn")
+class GatedCnnSequenceEncoder(BaseSequenceEncoder):
+    """Gated Convolutional Neural Network sequence encoder.
+
+    Uses stacked residual blocks with gated linear units (GLU) for efficient
+    sequence modeling. Processes sequences in both forward and backward directions,
+    then concatenates the results for bidirectional context capture.
+
+    Based on "Language Modeling with Gated Convolutional Networks" (Dauphin et al., 2017).
+
+    Args:
+        input_dim: Input dimension.
+        layers: List of layer configurations for each residual block.
+                Each block is a list of `Layer(kernel_size, output_dim, dilation)`.
+        output_dim: Optional output dimension. If provided, applies linear projection.
+                   Default is input_dim * 2 (concatenation of forward + backward).
+        dropout: Dropout rate applied to the first convolution of each block.
+
+    Examples:
+        >>> # Simple gated CNN encoder
+        >>> encoder = GatedCnnSequenceEncoder(
+        ...     input_dim=128,
+        ...     layers=[
+        ...         [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=128)],
+        ...         [GatedCnnSequenceEncoder.Layer(kernel_size=3, output_dim=128)],
+        ...     ]
+        ... )
+        >>>
+        >>> # With dilated convolutions for larger receptive field
+        >>> encoder = GatedCnnSequenceEncoder(
+        ...     input_dim=128,
+        ...     layers=[
+        ...         [GatedCnnSequenceEncoder.Layer(kernel_size=2, output_dim=128, dilation=1)],
+        ...         [GatedCnnSequenceEncoder.Layer(kernel_size=2, output_dim=128, dilation=2)],
+        ...         [GatedCnnSequenceEncoder.Layer(kernel_size=2, output_dim=128, dilation=4)],
+        ...     ],
+        ...     output_dim=256,
+        ...     dropout=0.1
+        ... )
+
+    """
+
+    class Layer(NamedTuple):
+        """Configuration for a single convolutional layer.
+
+        Attributes:
+            kernel_size: Size of the convolution kernel.
+            output_dim: Output dimension of the layer. Must match input_dim
+                       for residual connections to work.
+            dilation: Dilation rate for the convolution. When dilation > 1,
+                     kernel_size must be 2.
+
+        """
+
+        kernel_size: int
+        output_dim: int
+        dilation: int = 1
+
+    class ResidualBlock(torch.nn.Module):
+        """Residual block with gated convolutions for sequence encoding.
+
+        Stacks multiple gated convolutional layers with residual connections.
+        Supports causal masking via directional processing (forward/backward).
+
+        Args:
+            input_dim: Input dimension. Must match output dimension of all layers
+                      for residual connection.
+            layers: Sequence of Layer configurations defining the convolutional stack.
+            direction: Direction of causal masking (`"forward"` or `"backward"`).
+            do_weight_norm: Whether to apply weight normalization to convolutions.
+            dropout: Dropout rate applied to the first convolution.
+
+        """
+
+        def __init__(
+            self,
+            input_dim: int,
+            layers: Sequence["GatedCnnSequenceEncoder.Layer"],
+            direction: Literal["forward", "backward"],
+            do_weight_norm: bool = True,
+            dropout: float = 0.0,
+        ) -> None:
+            super().__init__()
+
+            self.dropout = dropout
+            self._convolutions = torch.nn.ModuleList()
+            last_dim = input_dim
+            for k, layer in enumerate(layers):
+                if layer.dilation == 1:
+                    conv = torch.nn.Conv1d(
+                        in_channels=last_dim,
+                        out_channels=layer.output_dim * 2,
+                        kernel_size=layer.kernel_size,
+                        stride=1,
+                        padding=layer[0] - 1,
+                        bias=True,
+                    )
+                else:
+                    assert layer.kernel_size == 2, "only support kernel = 2 for now"
+                    conv = torch.nn.Conv1d(
+                        in_channels=last_dim,
+                        out_channels=layer.output_dim * 2,
+                        kernel_size=layer.kernel_size,
+                        stride=1,
+                        padding=layer.dilation,
+                        dilation=layer.dilation,
+                        bias=True,
+                    )
+
+                if k == 0:
+                    conv_dropout = dropout
+                else:
+                    conv_dropout = 0.0
+                std = math.sqrt((4 * (1.0 - conv_dropout)) / (layer.kernel_size * last_dim))
+
+                conv.weight.data.normal_(0, std=std)
+                if conv.bias is not None:
+                    conv.bias.data.zero_()
+
+                if do_weight_norm:
+                    conv = torch.nn.utils.weight_norm(conv, name="weight", dim=0)
+
+                self._convolutions.append(conv)
+                last_dim = layer.output_dim
+
+            assert last_dim == input_dim
+
+            if direction not in ("forward", "backward"):
+                raise ValueError(f"invalid direction: {direction}")
+            self._direction = direction
+
+        def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+            """Apply gated convolutions with residual connection.
+
+            Args:
+                inputs: Input of shape `(batch_size, input_dim, seq_len)`.
+
+            Returns:
+                Encoded sequence with residual connection of shape `(batch_size, output_dim, seq_len)`.
+
+            """
+            output = inputs
+            sequence_length = inputs.size(2)
+            for k, convolution in enumerate(self._convolutions):
+                if k == 0 and self.dropout > 0:
+                    output = torch.nn.functional.dropout(output, self.dropout, self.training)
+
+                conv_out = convolution(output)
+
+                dims_to_remove = conv_out.size(2) - sequence_length
+                if dims_to_remove > 0:
+                    if self._direction == "forward":
+                        conv_out = conv_out.narrow(2, 0, sequence_length)
+                    else:
+                        conv_out = conv_out.narrow(2, dims_to_remove, sequence_length)
+
+                output = torch.nn.functional.glu(conv_out, dim=1)
+
+            return (output + inputs) * math.sqrt(0.5)
+
+    def __init__(
+        self,
+        input_dim: int,
+        layers: Sequence[Sequence["GatedCnnSequenceEncoder.Layer"]],
+        output_dim: Optional[int] = None,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+
+        self._forward_residual_blocks = torch.nn.ModuleList()
+        self._backward_residual_blocks = torch.nn.ModuleList()
+        self._input_dim = input_dim
+        self._output_dim = output_dim or input_dim * 2
+
+        for layer in layers:
+            self._forward_residual_blocks.append(
+                GatedCnnSequenceEncoder.ResidualBlock(input_dim, layer, "forward", dropout=dropout)
+            )
+            self._backward_residual_blocks.append(
+                GatedCnnSequenceEncoder.ResidualBlock(input_dim, layer, "backward", dropout=dropout)
+            )
+
+        self._projection: Optional[torch.nn.Linear] = None
+        if output_dim:
+            self._projection = torch.nn.Linear(input_dim * 2, output_dim)
+
+    def get_input_dim(self) -> int:
+        return self._input_dim
+
+    def get_output_dim(self) -> int:
+        return self._output_dim
+
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """Encode input sequence using gated CNN.
+
+        Args:
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
+                 True indicates valid positions, False indicates padding.
+
+        Returns:
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
+
+        """
+        if mask is None:
+            mask = torch.ones(*inputs.size()[:-1], dtype=torch.bool, device=inputs.device)
+        else:
+            # Ensure mask is boolean
+            mask = mask.bool()
+
+        transposed_embeddings = torch.transpose(inputs, 1, 2)
+        mask_for_fill = ~mask.unsqueeze(1)
+
+        outputs: list[torch.Tensor] = []
+        for blocks in (self._forward_residual_blocks, self._backward_residual_blocks):
+            out = transposed_embeddings
+            for block in blocks:
+                out = block(out.masked_fill(mask_for_fill, 0.0))
+            outputs.append(out)
+
+        output = torch.cat(outputs, dim=1).transpose(1, 2)
+        if self._projection:
+            output = self._projection(output)
+        return output
+
+
+@BaseSequenceEncoder.register("stacked")
 class StackedSequenceEncoder(BaseSequenceEncoder):
+    """Stacks multiple sequence encoders sequentially.
+
+    Applies encoders in order, passing the output of each as input to the next.
+    The output dimension of each encoder must match the input dimension of the next.
+
+    Args:
+        encoders: List of encoders to apply in sequence.
+                 Each encoder's output dimension must match the next encoder's input dimension.
+
+    Examples:
+        >>> from formed.integrations.torch.modules.encoders import (
+        ...     StackedSequenceEncoder,
+        ...     LSTMSequenceEncoder,
+        ...     GRUSequenceEncoder,
+        ...     ResidualSequenceEncoder
+        ... )
+        >>>
+        >>> # Stack LSTM and GRU
+        >>> encoders = [
+        ...     LSTMSequenceEncoder(input_dim=128, hidden_dim=128),
+        ...     GRUSequenceEncoder(input_dim=128, hidden_dim=64),
+        ... ]
+        >>> encoder = StackedSequenceEncoder(encoders=encoders)
+        >>>
+        >>> # More complex: LSTM -> Residual LSTM -> GRU
+        >>> base_lstm = LSTMSequenceEncoder(input_dim=128, hidden_dim=128)
+        >>> residual_lstm = ResidualSequenceEncoder(encoder=base_lstm)
+        >>> gru = GRUSequenceEncoder(input_dim=128, hidden_dim=128)
+        >>> encoder = StackedSequenceEncoder(encoders=[base_lstm, residual_lstm, gru])
+
+    """
+
     def __init__(self, encoders: list[BaseSequenceEncoder]) -> None:
         super().__init__()
         self._encoders = torch.nn.ModuleList(encoders)
@@ -319,6 +619,184 @@ class StackedSequenceEncoder(BaseSequenceEncoder):
         return self._output_dim
 
 
+@BaseSequenceEncoder.register("concat")
+class ConcatSequenceEncoder(BaseSequenceEncoder):
+    """Concatenates outputs from multiple sequence encoders.
+
+    Applies multiple encoders in parallel to the same input and concatenates their outputs
+    along the feature dimension. All encoders receive the same input tensor.
+
+    Args:
+        encoders: List of encoders to apply in parallel.
+                 All encoders must have the same input dimension.
+
+    Examples:
+        >>> from formed.integrations.torch.modules.encoders import (
+        ...     ConcatSequenceEncoder,
+        ...     LSTMSequenceEncoder,
+        ...     GRUSequenceEncoder
+        ... )
+        >>>
+        >>> # Concatenate LSTM and GRU outputs
+        >>> encoders = [
+        ...     LSTMSequenceEncoder(input_dim=128, hidden_dim=64),
+        ...     GRUSequenceEncoder(input_dim=128, hidden_dim=64),
+        ... ]
+        >>> encoder = ConcatSequenceEncoder(encoders=encoders)
+
+    """
+
+    def __init__(self, encoders: list[BaseSequenceEncoder]) -> None:
+        super().__init__()
+        self._encoders = torch.nn.ModuleList(encoders)
+        self._input_dim = sum(encoder.get_input_dim() for encoder in encoders)
+        self._output_dim = sum(encoder.get_output_dim() for encoder in encoders)
+
+    def get_input_dim(self) -> int:
+        """Get the expected input dimension.
+
+        Returns:
+            Sum of input dimensions across all encoders.
+
+        """
+        return self._input_dim
+
+    def get_output_dim(self) -> int:
+        """Get the output dimension.
+
+        Returns:
+            Sum of output dimensions across all encoders.
+
+        """
+        return self._output_dim
+
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """Encode input sequence by concatenating outputs from all encoders.
+
+        Args:
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
+
+        Returns:
+            Concatenated encoded sequence of shape `(batch_size, seq_len, output_dim)`.
+
+        """
+        outputs = []
+        for encoder in self._encoders:
+            outputs.append(encoder(inputs, mask=mask))
+        return torch.cat(outputs, dim=-1)
+
+
+@BaseSequenceEncoder.register("window_concat")
+class WindowConcatSequenceEncoder(BaseSequenceEncoder):
+    """Concatenates context window features for each position in the sequence.
+
+    For each position, concatenates the embeddings from surrounding positions
+    within a specified window. This creates richer positional representations
+    by explicitly including local context.
+
+    Args:
+        input_dim: Input dimension.
+        window_size: Size of context window on each side. If int, uses symmetric window.
+                    If tuple (left, right), uses asymmetric window.
+        output_dim: Optional output dimension. If provided, applies linear projection
+                   to the concatenated features. Otherwise, output dimension is
+                   (left_window + 1 + right_window) * input_dim.
+
+    Examples:
+        >>> # Symmetric 2-position window on each side
+        >>> encoder = WindowConcatSequenceEncoder(
+        ...     input_dim=128,
+        ...     window_size=2
+        ... )
+        >>>
+        >>> # Asymmetric window with projection
+        >>> encoder = WindowConcatSequenceEncoder(
+        ...     input_dim=128,
+        ...     window_size=(1, 2),
+        ...     output_dim=256
+        ... )
+
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        window_size: int | tuple[int, int],
+        output_dim: int | None = None,
+    ) -> None:
+        super().__init__()
+        if isinstance(window_size, int):
+            window_size = (window_size, window_size)
+        if not all(s >= 0 for s in window_size):
+            raise ValueError("Window size must be greater than or equal to zero.")
+        self._input_dim = input_dim
+        self._window_size = window_size
+        self._projection: Optional[torch.nn.Linear] = None
+        if output_dim is not None:
+            self._projection = torch.nn.Linear(
+                (sum(window_size) + 1) * input_dim,
+                output_dim,
+            )
+
+    def get_input_dim(self) -> int:
+        """Get the expected input dimension.
+
+        Returns:
+            Input dimension of the embeddings.
+
+        """
+        return self._input_dim
+
+    def get_output_dim(self) -> int:
+        """Get the output dimension.
+
+        Returns:
+            Output dimension after window concatenation and optional projection.
+
+        """
+        if self._projection is not None:
+            return self._projection.out_features
+        return (sum(self._window_size) + 1) * self._input_dim
+
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """Encode input sequence by concatenating context windows.
+
+        Args:
+            inputs: Input of shape (batch_size, seq_len, input_dim).
+            mask: Optional mask of shape (batch_size, seq_len).
+                 True indicates valid positions, False indicates padding.
+
+        Returns:
+            Window-concatenated sequence of shape (batch_size, seq_len, output_dim).
+
+        """
+        batch_size, max_length, embedding_dim = inputs.size()
+
+        if mask is None:
+            mask = torch.ones((batch_size, max_length), dtype=torch.bool, device=inputs.device)
+
+        inputs = inputs * mask.float().unsqueeze(2)
+
+        output = inputs
+        lws, rws = self._window_size
+        if lws > 0:
+            pad = inputs.new_zeros((batch_size, lws, embedding_dim))
+            x = torch.cat([pad, inputs], dim=1)
+            x = torch.cat([x[:, offset : offset + max_length] for offset in range(lws)], dim=2)
+            output = torch.cat([output, x], dim=2)
+        if rws > 0:
+            pad = inputs.new_zeros((batch_size, rws, embedding_dim))
+            x = torch.cat([inputs, pad], dim=1)
+            x = torch.cat([x[:, offset : offset + max_length] for offset in range(1, rws + 1)], dim=2)
+            output = torch.cat([output, x], dim=2)
+
+        if self._projection is not None:
+            output = self._projection(output)
+
+        return output * mask.float().unsqueeze(2)
+
+
 class BasePositionalEncoder(nn.Module, Registrable, abc.ABC):
     """Abstract base class for positional encoders.
 
@@ -335,11 +813,11 @@ class BasePositionalEncoder(nn.Module, Registrable, abc.ABC):
         """Add positional encoding to input sequence.
 
         Args:
-            inputs: Input sequence of shape `(batch_size, seq_len, input_dim)`.
-            mask: Optional mask of shape `(batch_size, seq_len)`.
+            inputs: Input sequence of shape (batch_size, seq_len, input_dim).
+            mask: Optional mask of shape (batch_size, seq_len).
 
         Returns:
-            Position-encoded sequence of shape `(batch_size, seq_len, output_dim)`.
+            Position-encoded sequence of shape (batch_size, seq_len, output_dim).
 
         """
         raise NotImplementedError
@@ -414,11 +892,11 @@ class SinusoidalPositionalEncoder(BasePositionalEncoder):
         """Add sinusoidal positional encoding to inputs.
 
         Args:
-            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
-            mask: Optional mask of shape `(batch_size, seq_len)`.
+            inputs: Input of shape (batch_size, seq_len, input_dim).
+            mask: Optional mask of shape (batch_size, seq_len).
 
         Returns:
-            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
+            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
 
         """
         seq_len = inputs.size(1)
@@ -445,7 +923,7 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
     Args:
         input_dim: Dimension of the embeddings (must be even).
         max_len: Maximum sequence length to pre-compute.
-        base: Base for the geometric progression (default: `10000`).
+        base: Base for the geometric progression (default: 10000).
 
     Examples:
         >>> encoder = RotaryPositionalEncoder(
@@ -497,11 +975,11 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
         """Apply rotary positional encoding to inputs.
 
         Args:
-            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
-            mask: Optional mask of shape `(batch_size, seq_len)`.
+            inputs: Input of shape (batch_size, seq_len, input_dim).
+            mask: Optional mask of shape (batch_size, seq_len).
 
         Returns:
-            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
+            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
 
         """
         seq_len = inputs.size(1)
@@ -563,11 +1041,11 @@ class LearnablePositionalEncoder(BasePositionalEncoder):
         """Add learnable positional encoding to inputs.
 
         Args:
-            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
-            mask: Optional mask of shape `(batch_size, seq_len)`.
+            inputs: Input of shape (batch_size, seq_len, input_dim).
+            mask: Optional mask of shape (batch_size, seq_len).
 
         Returns:
-            Position-encoded sequence of shape `(batch_size, seq_len, input_dim)`.
+            Position-encoded sequence of shape (batch_size, seq_len, input_dim).
 
         """
         seq_len = inputs.size(1)
@@ -596,16 +1074,16 @@ class TransformerEncoder(BaseSequenceEncoder):
     configurable attention masking via dependency injection.
 
     Args:
-        input_dim: Dimension of the embeddings (`d_model`).
+        input_dim: Dimension of the embeddings (d_model).
         num_heads: Number of attention heads.
         num_layers: Number of transformer layers.
         feedforward_dim: Dimension of feedforward network.
         dropout: Dropout rate.
         positional_encoder: Optional positional encoder to add position information.
         attention_mask: Optional mask generator for self-attention.
-        activation: Activation function (default: `"relu"`).
+        activation: Activation function (default: "relu").
         layer_norm_eps: Epsilon for layer normalization.
-        batch_first: Whether input is batch-first (default: `True`).
+        batch_first: Whether input is batch-first (default: True).
 
     Examples:
         >>> from formed.integrations.torch.modules.encoders import (
@@ -681,9 +1159,9 @@ class TransformerEncoder(BaseSequenceEncoder):
         """Encode input sequence using transformer.
 
         Args:
-            inputs: Input of shape `(batch_size, seq_len, input_dim)` if `batch_first=True`,
-                   or `(seq_len, batch_size, input_dim)` if `batch_first=False`.
-            mask: Optional mask of shape `(batch_size, seq_len)` where 1=valid, 0=padding.
+            inputs: Input of shape (batch_size, seq_len, input_dim) if batch_first=True,
+                   or (seq_len, batch_size, input_dim) if batch_first=False.
+            mask: Optional mask of shape (batch_size, seq_len) where 1=valid, 0=padding.
 
         Returns:
             Encoded sequence of same shape as input.
