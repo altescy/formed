@@ -1,5 +1,6 @@
 """Tests for PyTorch workflow steps."""
 
+import copy
 import dataclasses
 from collections.abc import Callable
 from pathlib import Path
@@ -9,6 +10,7 @@ import numpy
 import pytest
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 from formed.integrations.ml import (
     BasicBatchSampler,
@@ -97,6 +99,9 @@ class RegressionEvaluator:
         self._loss.reset()
         self._mse.reset()
 
+    def clone(self) -> Self:
+        return copy.deepcopy(self)
+
 
 @BaseTorchModel.register("torch_regressor_test")
 class TorchRegressor(BaseTorchModel[RegressionDataModule[AsBatch], RegressorOutput, None]):
@@ -171,6 +176,9 @@ class ClassificationEvaluator:
     def reset(self) -> None:
         self._loss.reset()
         self._accuracy.reset()
+
+    def clone(self) -> Self:
+        return copy.deepcopy(self)
 
 
 @BaseTorchModel.register("simple_text_classifier_test")

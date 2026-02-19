@@ -69,6 +69,7 @@ Examples:
 """
 
 import abc
+import copy
 import dataclasses
 import math
 from collections import defaultdict
@@ -76,6 +77,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Generic, Literal, TypeVar
 
 from colt import Registrable
+from typing_extensions import Self
 
 from .types import BinaryLabelT, LabelT
 
@@ -144,6 +146,13 @@ class BaseMetric(Registrable, Generic[_T], abc.ABC):
         """
         self.update(inputs)
         return self.compute()
+
+    def clone(self) -> Self:
+        """Create a deep copy of this metric.
+        Returns:
+            A new instance of the metric with the same internal state.
+        """
+        return copy.deepcopy(self)
 
 
 @BaseMetric.register("empty")

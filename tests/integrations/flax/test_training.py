@@ -6,6 +6,7 @@ import numpy
 import optax
 import pytest
 from flax import nnx, struct
+from typing_extensions import Self
 
 from formed.integrations.flax import (
     BaseFlaxModel,
@@ -87,6 +88,12 @@ class RegressionEvaluator:
     def reset(self) -> None:
         self._loss.reset()
         self._mse.reset()
+
+    def clone(self) -> Self:
+        evaluator = self.__class__()
+        evaluator._loss = self._loss.clone()
+        evaluator._mse = self._mse.clone()
+        return evaluator
 
 
 @pytest.fixture
@@ -205,6 +212,12 @@ class ClassificationEvaluator:
     def reset(self) -> None:
         self._loss.reset()
         self._accuracy.reset()
+
+    def clone(self) -> Self:
+        evaluator = self.__class__()
+        evaluator._loss = self._loss.clone()
+        evaluator._accuracy = self._accuracy.clone()
+        return evaluator
 
 
 @pytest.fixture
