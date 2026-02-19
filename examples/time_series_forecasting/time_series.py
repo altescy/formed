@@ -9,6 +9,7 @@ This example demonstrates:
 Task: Given a sequence of time series values, predict the next value.
 """
 
+import copy
 import dataclasses
 import math
 import random
@@ -16,7 +17,7 @@ from typing import Any, Generic
 
 import numpy
 import torch
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
 from formed import workflow
 from formed.integrations import ml
@@ -146,6 +147,9 @@ class ForecastingEvaluator(wtt.IEvaluator[TimeSeriesDataModule[mlt.AsBatch], For
     def reset(self) -> None:
         self._loss.reset()
         self._mae.reset()
+
+    def clone(self) -> Self:
+        return copy.deepcopy(self)
 
 
 @workflow.step

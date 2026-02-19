@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Generic, cast
 
 import orbax.checkpoint
 from colt import Registrable
+from typing_extensions import Self
 
 from formed.workflow import use_step_logger, use_step_workdir
 
@@ -152,6 +153,9 @@ class FlaxTrainingCallback(Registrable):
 
             def reset(self) -> None:
                 pass
+
+            def clone(self) -> Self:
+                return self
 
         return DummyMetric()
 

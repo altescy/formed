@@ -17,6 +17,7 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 from formed.integrations.ml.metrics import Average
 from formed.integrations.torch import (
@@ -34,7 +35,7 @@ from formed.integrations.torch.types import IEvaluator
 class SimpleModel(BaseTorchModel):
     """Simple regression model."""
 
-    def __init__(self, input_dim: int, hidden_dim: int):
+    def __init__(self, input_dim: int, hidden_dim: int) -> None:
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -53,7 +54,7 @@ class SimpleModel(BaseTorchModel):
 class SimpleEvaluator(IEvaluator):
     """Simple evaluator that tracks loss."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._loss_metric = Average("loss")
 
     def update(self, inputs, output):
@@ -65,6 +66,11 @@ class SimpleEvaluator(IEvaluator):
 
     def reset(self):
         self._loss_metric.reset()
+
+    def clone(self) -> Self:
+        evaluator = self.__class__()
+        evaluator._loss_metric = self._loss_metric.clone()
+        return evaluator
 
 
 def create_dataset(num_samples: int, input_dim: int, seed: int = 42):

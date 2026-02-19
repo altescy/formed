@@ -26,7 +26,7 @@ from typing import Any, Optional, Protocol, Union, runtime_checkable
 import numpy
 import torch
 from colt import Lazy
-from typing_extensions import TypeAlias, TypeVar
+from typing_extensions import Self, TypeAlias, TypeVar
 
 
 @runtime_checkable
@@ -184,6 +184,10 @@ class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
 
     def reset(self) -> None:
         """Reset internal state for new evaluation."""
+        ...
+
+    def clone(self) -> Self:
+        """Create a copy of the evaluator with the same configuration but reset state."""
         ...
 
 

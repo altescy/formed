@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 from typing import Any, Generic, Optional, cast
 
@@ -5,6 +6,7 @@ import numpy
 import pytest
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 from formed.integrations.ml import (
     BasicBatchSampler,
@@ -86,6 +88,9 @@ class RegressionEvaluator:
     def reset(self) -> None:
         self._loss.reset()
         self._mse.reset()
+
+    def clone(self) -> Self:
+        return copy.deepcopy(self)
 
 
 @pytest.fixture
@@ -211,6 +216,9 @@ class ClassificationEvaluator:
     def reset(self) -> None:
         self._loss.reset()
         self._accuracy.reset()
+
+    def clone(self) -> Self:
+        return copy.deepcopy(self)
 
 
 @pytest.fixture

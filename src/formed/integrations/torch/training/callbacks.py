@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Optional
 
 from colt import Registrable
+from typing_extensions import Self
 
 from formed.workflow import use_step_logger, use_step_workdir
 
@@ -150,6 +151,9 @@ class TorchTrainingCallback(Registrable):
 
             def reset(self) -> None:
                 pass
+
+            def clone(self) -> Self:
+                return self
 
         return DummyMetric()
 

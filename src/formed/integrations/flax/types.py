@@ -24,7 +24,7 @@ from typing import Any, Optional, Protocol, TypeAlias, Union, runtime_checkable
 import jax
 import numpy
 import optax
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
 
 @runtime_checkable
@@ -115,6 +115,10 @@ class IEvaluator(Protocol[ModelInputT_contra, ModelOutputT_contra]):
 
     def reset(self) -> None:
         """Reset internal state for new evaluation."""
+        ...
+
+    def clone(self) -> Self:
+        """Create a copy of the evaluator with the same state."""
         ...
 
 
