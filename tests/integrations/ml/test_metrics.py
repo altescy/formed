@@ -1,6 +1,8 @@
 """Tests for machine learning metrics."""
 # pyright: reportArgumentType=false
 
+import pytest
+
 from formed.integrations.ml.metrics import (
     NDCG,
     Average,
@@ -21,6 +23,32 @@ from formed.integrations.ml.metrics import (
     RankingInput,
     RegressionInput,
 )
+
+# Try to import sklearn for comparison tests
+try:
+    from sklearn.metrics import average_precision_score as _average_precision_score
+    from sklearn.metrics import roc_auc_score as _roc_auc_score
+
+    SKLEARN_AVAILABLE = True
+
+    def average_precision_score(y_true: list[int], y_score: list[float]) -> float:
+        """Wrapper for sklearn's average_precision_score with proper typing."""
+        return float(_average_precision_score(y_true, y_score))
+
+    def roc_auc_score(y_true: list[int], y_score: list[float]) -> float:
+        """Wrapper for sklearn's roc_auc_score with proper typing."""
+        return float(_roc_auc_score(y_true, y_score))
+
+except ImportError:
+    SKLEARN_AVAILABLE = False
+
+    def average_precision_score(y_true: list[int], y_score: list[float]) -> float:
+        """Dummy implementation for when sklearn is not available."""
+        raise ImportError("sklearn is not available")
+
+    def roc_auc_score(y_true: list[int], y_score: list[float]) -> float:
+        """Dummy implementation for when sklearn is not available."""
+        raise ImportError("sklearn is not available")
 
 
 class TestEmptyMetric:
@@ -71,38 +99,21 @@ class TestAverage:
 class TestBinaryAccuracy:
     """Test BinaryAccuracy metric."""
 
-    def test_perfect_accuracy(self) -> None:
-        """Test with perfect predictions."""
+    @pytest.mark.parametrize(
+        ("predictions", "targets", "expected"),
+        [
+            pytest.param([1, 1, 0, 0], [1, 1, 0, 0], 1.0, id="perfect"),
+            pytest.param([1, 1, 0, 0], [1, 0, 1, 0], 0.5, id="half"),
+            pytest.param([1, 1, 0, 0], [0, 0, 1, 1], 0.0, id="zero"),
+        ],
+    )
+    def test_accuracy(self, predictions: list[int], targets: list[int], expected: float) -> None:
+        """Test accuracy with various prediction patterns."""
         metric = BinaryAccuracy()
-        inputs = ClassificationInput(
-            predictions=[1, 1, 0, 0],
-            targets=[1, 1, 0, 0],
-        )
+        inputs = ClassificationInput(predictions=predictions, targets=targets)
         metric.update(inputs)
         result = metric.compute()
-        assert result == {"accuracy": 1.0}
-
-    def test_half_accuracy(self) -> None:
-        """Test with 50% accuracy."""
-        metric = BinaryAccuracy()
-        inputs = ClassificationInput(
-            predictions=[1, 1, 0, 0],
-            targets=[1, 0, 1, 0],
-        )
-        metric.update(inputs)
-        result = metric.compute()
-        assert result == {"accuracy": 0.5}
-
-    def test_zero_accuracy(self) -> None:
-        """Test with 0% accuracy."""
-        metric = BinaryAccuracy()
-        inputs = ClassificationInput(
-            predictions=[1, 1, 0, 0],
-            targets=[0, 0, 1, 1],
-        )
-        metric.update(inputs)
-        result = metric.compute()
-        assert result == {"accuracy": 0.0}
+        assert result == {"accuracy": expected}
 
     def test_multiple_batches(self) -> None:
         """Test with multiple batches."""
@@ -314,6 +325,124 @@ class TestBinaryROCAUC:
         result = metric.compute()
         assert result["roc_auc"] == 1.0
 
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    @pytest.mark.parametrize(
+        ("targets", "scores", "predictions"),
+        [
+            pytest.param(
+                [1, 0, 0, 1],
+                [0.9, 0.8, 0.3, 0.7],
+                [1, 1, 0, 1],
+                id="basic",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.9, 0.8, 0.3, 0.2],
+                [1, 1, 0, 0],
+                id="perfect",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.2, 0.3, 0.8, 0.9],
+                [1, 1, 0, 0],
+                id="worst",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.9, 0.5, 0.5, 0.1],
+                [1, 1, 1, 0],
+                id="tied_scores",
+            ),
+            pytest.param(
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+                [1] * 10,
+                id="imbalanced",
+            ),
+            pytest.param(
+                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0],
+                [0.8, 0.6, 0.75, 0.9, 0.4, 0.85, 0.3, 0.2, 0.7, 0.5],
+                None,  # Will be computed from scores
+                id="random",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.5, 0.5, 0.5, 0.5],
+                [1, 1, 0, 0],
+                id="all_same_scores",
+            ),
+            pytest.param(
+                [1, 0, 1, 0],
+                [0.6, 0.6, 0.4, 0.4],
+                [1, 1, 0, 0],
+                id="two_tied_groups",
+            ),
+            pytest.param(
+                [0] * 99 + [1],
+                [0.01 * i for i in range(100)],
+                None,  # Will be computed from scores
+                id="extreme_imbalance",
+            ),
+        ],
+    )
+    def test_roc_auc_vs_sklearn(
+        self,
+        targets: list[int],
+        scores: list[float],
+        predictions: list[int] | None,
+    ) -> None:
+        """Compare ROC-AUC with sklearn across various cases."""
+        if predictions is None:
+            predictions = [1 if s > 0.5 else 0 for s in scores]
+
+        metric = BinaryROCAUC()
+        inputs = BinaryClassificationInput(
+            predictions=predictions,
+            scores=scores,
+            targets=targets,
+        )
+        metric.update(inputs)
+        result = metric.compute()
+
+        sklearn_result = roc_auc_score(targets, scores)
+        assert abs(result["roc_auc"] - sklearn_result) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_roc_auc_vs_sklearn_multiple_batches(self) -> None:
+        """Compare with sklearn when data comes in batches."""
+        # First batch
+        targets1 = [1, 0, 1]
+        scores1 = [0.9, 0.4, 0.8]
+
+        # Second batch
+        targets2 = [0, 1, 0, 1]
+        scores2 = [0.3, 0.85, 0.2, 0.75]
+
+        # Our implementation (batched)
+        metric = BinaryROCAUC()
+        metric.update(
+            BinaryClassificationInput(
+                predictions=[1, 0, 1],
+                scores=scores1,
+                targets=targets1,
+            )
+        )
+        metric.update(
+            BinaryClassificationInput(
+                predictions=[0, 1, 0, 1],
+                scores=scores2,
+                targets=targets2,
+            )
+        )
+        result = metric.compute()
+
+        # sklearn (all at once)
+        all_targets = targets1 + targets2
+        all_scores = scores1 + scores2
+        sklearn_result = roc_auc_score(all_targets, all_scores)
+
+        assert abs(result["roc_auc"] - sklearn_result) < 1e-6
+
 
 class TestBinaryPRAUC:
     """Test BinaryPRAUC metric."""
@@ -419,6 +548,145 @@ class TestBinaryPRAUC:
         # Results should be different and second should be better (perfect = 1.0)
         assert first_result["pr_auc"] != second_result["pr_auc"]
         assert second_result["pr_auc"] == 1.0
+
+    def test_pr_auc_with_tied_scores(self) -> None:
+        """Test with samples that have identical scores."""
+        metric = BinaryPRAUC()
+        inputs = BinaryClassificationInput(
+            predictions=[1, 1, 1, 0],
+            scores=[0.9, 0.5, 0.5, 0.1],  # Two samples with score 0.5
+            targets=[1, 1, 0, 0],
+        )
+        metric.update(inputs)
+        result = metric.compute()
+        # Should handle ties correctly
+        assert 0.0 <= result["pr_auc"] <= 1.0
+
+    def test_pr_auc_imbalanced_dataset(self) -> None:
+        """Test with highly imbalanced dataset (1 positive, many negatives)."""
+        metric = BinaryPRAUC()
+        inputs = BinaryClassificationInput(
+            predictions=[1, 0, 0, 0, 0],
+            scores=[0.9, 0.8, 0.7, 0.6, 0.5],
+            targets=[1, 0, 0, 0, 0],
+        )
+        metric.update(inputs)
+        result = metric.compute()
+        # With perfect ranking of the single positive, PR AUC should be 1.0
+        assert result["pr_auc"] == 1.0
+
+    def test_pr_auc_all_same_scores(self) -> None:
+        """Test when all samples have the same score."""
+        metric = BinaryPRAUC()
+        inputs = BinaryClassificationInput(
+            predictions=[1, 1, 0, 0],
+            scores=[0.5, 0.5, 0.5, 0.5],
+            targets=[1, 1, 0, 0],
+        )
+        metric.update(inputs)
+        result = metric.compute()
+        # Should handle this edge case without error
+        assert 0.0 <= result["pr_auc"] <= 1.0
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    @pytest.mark.parametrize(
+        ("targets", "scores", "predictions"),
+        [
+            pytest.param(
+                [1, 0, 0, 1],
+                [0.9, 0.8, 0.3, 0.7],
+                [1, 1, 0, 1],
+                id="basic",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.9, 0.8, 0.3, 0.2],
+                [1, 1, 0, 0],
+                id="perfect",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.2, 0.3, 0.8, 0.9],
+                [1, 1, 0, 0],
+                id="worst",
+            ),
+            pytest.param(
+                [1, 1, 0, 0],
+                [0.9, 0.5, 0.5, 0.1],
+                [1, 1, 1, 0],
+                id="tied_scores",
+            ),
+            pytest.param(
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+                [1] * 10,
+                id="imbalanced",
+            ),
+            pytest.param(
+                [1, 0, 1, 1, 0, 1, 0, 0, 1, 0],
+                [0.8, 0.6, 0.75, 0.9, 0.4, 0.85, 0.3, 0.2, 0.7, 0.5],
+                None,  # Will be computed from scores
+                id="random",
+            ),
+        ],
+    )
+    def test_pr_auc_vs_sklearn(
+        self,
+        targets: list[int],
+        scores: list[float],
+        predictions: list[int] | None,
+    ) -> None:
+        """Compare PR-AUC with sklearn across various cases."""
+        if predictions is None:
+            predictions = [1 if s > 0.5 else 0 for s in scores]
+
+        metric = BinaryPRAUC()
+        inputs = BinaryClassificationInput(
+            predictions=predictions,
+            scores=scores,
+            targets=targets,
+        )
+        metric.update(inputs)
+        result = metric.compute()
+
+        sklearn_result = average_precision_score(targets, scores)
+        assert abs(result["pr_auc"] - sklearn_result) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_pr_auc_vs_sklearn_multiple_batches(self) -> None:
+        """Compare with sklearn when data comes in batches."""
+        # First batch
+        targets1 = [1, 0, 1]
+        scores1 = [0.9, 0.4, 0.8]
+
+        # Second batch
+        targets2 = [0, 1, 0, 1]
+        scores2 = [0.3, 0.85, 0.2, 0.75]
+
+        # Our implementation (batched)
+        metric = BinaryPRAUC()
+        metric.update(
+            BinaryClassificationInput(
+                predictions=[1, 0, 1],
+                scores=scores1,
+                targets=targets1,
+            )
+        )
+        metric.update(
+            BinaryClassificationInput(
+                predictions=[0, 1, 0, 1],
+                scores=scores2,
+                targets=targets2,
+            )
+        )
+        result = metric.compute()
+
+        # sklearn (all at once)
+        all_targets = targets1 + targets2
+        all_scores = scores1 + scores2
+        sklearn_result = average_precision_score(all_targets, all_scores)
+
+        assert abs(result["pr_auc"] - sklearn_result) < 1e-6
 
 
 class TestMulticlassAccuracy:
@@ -560,9 +828,9 @@ class TestMulticlassFBeta:
 class TestMultilabelAccuracy:
     """Test MultilabelAccuracy metric."""
 
-    def test_micro_perfect_accuracy(self) -> None:
-        """Test micro average with perfect predictions."""
-        metric = MultilabelAccuracy(average="micro")
+    def test_subset_perfect_accuracy(self) -> None:
+        """Test subset mode with perfect predictions."""
+        metric = MultilabelAccuracy(mode="subset")
         inputs = ClassificationInput(
             predictions=[[0, 1], [1, 2], [0]],
             targets=[[0, 1], [1, 2], [0]],
@@ -571,30 +839,99 @@ class TestMultilabelAccuracy:
         result = metric.compute()
         assert result == {"accuracy": 1.0}
 
-    def test_micro_partial_accuracy(self) -> None:
-        """Test micro average with partial accuracy."""
-        metric = MultilabelAccuracy(average="micro")
+    def test_subset_partial_accuracy(self) -> None:
+        """Test subset mode with partial matches."""
+        metric = MultilabelAccuracy(mode="subset")
         inputs = ClassificationInput(
             predictions=[[0, 1], [1], [0, 2]],
             targets=[[0, 1], [1, 2], [0]],
         )
         metric.update(inputs)
         result = metric.compute()
-        # The algorithm counts per-label matches
-        # Actual computed accuracy is 2/3
-        assert abs(result["accuracy"] - 2 / 3) < 1e-6
+        # Only first instance is exact match
+        assert result["accuracy"] == 1 / 3
 
-    def test_macro_accuracy(self) -> None:
-        """Test macro average."""
-        metric = MultilabelAccuracy(average="macro")
+    def test_samples_micro_perfect_accuracy(self) -> None:
+        """Test samples mode with micro averaging, perfect predictions."""
+        metric = MultilabelAccuracy(mode="samples", average="micro")
+        inputs = ClassificationInput(
+            predictions=[[0, 1], [1, 2], [0]],
+            targets=[[0, 1], [1, 2], [0]],
+        )
+        metric.update(inputs)
+        result = metric.compute()
+        assert result == {"accuracy": 1.0}
+
+    def test_samples_micro_partial_accuracy(self) -> None:
+        """Test samples mode with micro averaging, partial accuracy."""
+        metric = MultilabelAccuracy(mode="samples", average="micro")
         inputs = ClassificationInput(
             predictions=[[0, 1], [1], [0, 2]],
             targets=[[0, 1], [1, 2], [0]],
         )
         metric.update(inputs)
         result = metric.compute()
-        # Per-label accuracy then averaged
-        assert 0.0 <= result["accuracy"] <= 1.0
+        # All labels: {0, 1, 2}
+        # Instance 0: pred={0,1}, target={0,1} -> all 3 labels correct (0✓, 1✓, 2✓)
+        # Instance 1: pred={1}, target={1,2} -> 2 correct (0✓, 1✓, 2✗)
+        # Instance 2: pred={0,2}, target={0} -> 2 correct (0✓, 1✓, 2✗)
+        # Total: 7/9
+        assert abs(result["accuracy"] - 7 / 9) < 1e-6
+
+    def test_samples_macro_accuracy(self) -> None:
+        """Test samples mode with macro averaging."""
+        metric = MultilabelAccuracy(mode="samples", average="macro")
+        inputs = ClassificationInput(
+            predictions=[[0, 1], [1], [0, 2]],
+            targets=[[0, 1], [1, 2], [0]],
+        )
+        metric.update(inputs)
+        result = metric.compute()
+        # Label 0: 3/3 correct = 1.0
+        # Label 1: 3/3 correct = 1.0
+        # Label 2: 1/3 correct = 0.333
+        # Macro: (1.0 + 1.0 + 0.333) / 3 = 0.778
+        assert abs(result["accuracy"] - 7 / 9) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_subset_vs_sklearn(self) -> None:
+        """Compare subset mode with sklearn accuracy_score."""
+        from sklearn.metrics import accuracy_score
+
+        predictions = [[0, 1], [1], [0, 2], [0, 1]]
+        targets = [[0, 1], [1, 2], [0], [0, 1]]
+
+        # Our implementation
+        metric = MultilabelAccuracy(mode="subset")
+        metric.update(ClassificationInput(predictions=predictions, targets=targets))
+        result = metric.compute()
+
+        # sklearn implementation (requires indicator format)
+        y_true = [[1, 1, 0], [0, 1, 1], [1, 0, 0], [1, 1, 0]]
+        y_pred = [[1, 1, 0], [0, 1, 0], [1, 0, 1], [1, 1, 0]]
+        sklearn_result = accuracy_score(y_true, y_pred)
+
+        assert abs(result["accuracy"] - sklearn_result) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_samples_vs_sklearn_hamming(self) -> None:
+        """Compare samples mode with sklearn hamming loss."""
+        from sklearn.metrics import hamming_loss
+
+        predictions = [[0, 1], [1], [0, 2]]
+        targets = [[0, 1], [1, 2], [0]]
+
+        # Our implementation
+        metric = MultilabelAccuracy(mode="samples", average="micro")
+        metric.update(ClassificationInput(predictions=predictions, targets=targets))
+        result = metric.compute()
+
+        # sklearn implementation
+        y_true = [[1, 1, 0], [0, 1, 1], [1, 0, 0]]
+        y_pred = [[1, 1, 0], [0, 1, 0], [1, 0, 1]]
+        sklearn_accuracy = 1 - hamming_loss(y_true, y_pred)
+
+        assert abs(result["accuracy"] - sklearn_accuracy) < 1e-6
 
 
 class TestMultilabelFBeta:
@@ -622,9 +959,15 @@ class TestMultilabelFBeta:
         )
         metric.update(inputs)
         result = metric.compute()
-        assert 0.0 <= result["fbeta"] <= 1.0
-        assert 0.0 <= result["precision"] <= 1.0
-        assert 0.0 <= result["recall"] <= 1.0
+        # All labels: {0, 1, 2}
+        # Instance 0: TP={0,1}, FP={}, FN={}
+        # Instance 1: TP={1}, FP={}, FN={2}
+        # Instance 2: TP={0}, FP={2}, FN={}
+        # Total: TP=4, FP=1, FN=1
+        # Precision = 4/5, Recall = 4/5, F1 = 4/5
+        assert abs(result["precision"] - 4 / 5) < 1e-6
+        assert abs(result["recall"] - 4 / 5) < 1e-6
+        assert abs(result["fbeta"] - 4 / 5) < 1e-6
 
     def test_macro_fbeta(self) -> None:
         """Test macro average."""
@@ -635,7 +978,61 @@ class TestMultilabelFBeta:
         )
         metric.update(inputs)
         result = metric.compute()
-        assert 0.0 <= result["fbeta"] <= 1.0
+        # Label 0: TP=2, FP=0, FN=0 -> P=1.0, R=1.0, F1=1.0
+        # Label 1: TP=2, FP=0, FN=0 -> P=1.0, R=1.0, F1=1.0
+        # Label 2: TP=0, FP=1, FN=1 -> P=0.0, R=0.0, F1=0.0
+        # Macro: (1.0 + 1.0 + 0.0) / 3 = 0.667
+        assert abs(result["fbeta"] - 2 / 3) < 1e-6
+        assert abs(result["precision"] - 2 / 3) < 1e-6
+        assert abs(result["recall"] - 2 / 3) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_vs_sklearn_micro(self) -> None:
+        """Compare micro mode with sklearn f1_score."""
+        from sklearn.metrics import f1_score, precision_score, recall_score
+
+        predictions = [[0, 1], [1], [0, 2]]
+        targets = [[0, 1], [1, 2], [0]]
+
+        # Our implementation
+        metric = MultilabelFBeta(beta=1.0, average="micro")
+        metric.update(ClassificationInput(predictions=predictions, targets=targets))
+        result = metric.compute()
+
+        # sklearn implementation
+        y_true = [[1, 1, 0], [0, 1, 1], [1, 0, 0]]
+        y_pred = [[1, 1, 0], [0, 1, 0], [1, 0, 1]]
+        sklearn_f1 = f1_score(y_true, y_pred, average="micro")
+        sklearn_precision = precision_score(y_true, y_pred, average="micro", zero_division=0)
+        sklearn_recall = recall_score(y_true, y_pred, average="micro", zero_division=0)
+
+        assert abs(result["fbeta"] - sklearn_f1) < 1e-6
+        assert abs(result["precision"] - sklearn_precision) < 1e-6
+        assert abs(result["recall"] - sklearn_recall) < 1e-6
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not available")
+    def test_vs_sklearn_macro(self) -> None:
+        """Compare macro mode with sklearn f1_score."""
+        from sklearn.metrics import f1_score, precision_score, recall_score
+
+        predictions = [[0, 1], [1], [0, 2]]
+        targets = [[0, 1], [1, 2], [0]]
+
+        # Our implementation
+        metric = MultilabelFBeta(beta=1.0, average="macro")
+        metric.update(ClassificationInput(predictions=predictions, targets=targets))
+        result = metric.compute()
+
+        # sklearn implementation
+        y_true = [[1, 1, 0], [0, 1, 1], [1, 0, 0]]
+        y_pred = [[1, 1, 0], [0, 1, 0], [1, 0, 1]]
+        sklearn_f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
+        sklearn_precision = precision_score(y_true, y_pred, average="macro", zero_division=0)
+        sklearn_recall = recall_score(y_true, y_pred, average="macro", zero_division=0)
+
+        assert abs(result["fbeta"] - sklearn_f1) < 1e-6
+        assert abs(result["precision"] - sklearn_precision) < 1e-6
+        assert abs(result["recall"] - sklearn_recall) < 1e-6
 
 
 class TestRegressionMetrics:
