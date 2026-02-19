@@ -206,8 +206,9 @@ class EvaluationCallback(TorchTrainingCallback, Generic[ModelInputT, ModelOutput
         model: BaseTorchModel[ModelInputT, ModelOutputT, ModelParamsT],
         state: TrainState,
     ) -> IEvaluator[ModelInputT, ModelOutputT]:
-        self._evaluator.reset()
-        return self._evaluator
+        evaluator = self._evaluator.clone()
+        evaluator.reset()
+        return evaluator
 
 
 @TorchTrainingCallback.register("early_stopping")

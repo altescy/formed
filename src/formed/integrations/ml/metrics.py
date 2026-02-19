@@ -510,43 +510,50 @@ class BinaryPRAUC(BinaryClassificationMetric[BinaryLabelT], Generic[BinaryLabelT
         if n_pos == 0:
             return {"pr_auc": 0.0}
 
-        # Sort by scores in descending order
-        sorted_pairs = sorted(zip(self._scores, self._targets), key=lambda x: (-x[0], x[1]))
+        # Sort by scores in descending order (stable sort to preserve order for ties)
+        # mergesort is stable in Python
+        indexed_pairs = [(self._scores[i], self._targets[i], i) for i in range(len(self._scores))]
+        indexed_pairs.sort(key=lambda x: -x[0], reverse=False)
 
-        # Calculate precision and recall at each threshold
-        precisions = []
-        recalls = []
+        # Group by unique scores to handle ties correctly
+        score_groups: list[list[tuple[float, int, int]]] = []
+        current_group: list[tuple[float, int, int]] = []
+        current_score = None
 
+        for score, target, idx in indexed_pairs:
+            if current_score is not None and score != current_score:
+                score_groups.append(current_group)
+                current_group = []
+            current_group.append((score, target, idx))
+            current_score = score
+
+        if current_group:
+            score_groups.append(current_group)
+
+        # Calculate average precision: sum of precisions at each positive sample divided by n_pos
+        # For tied scores, we use the average precision across the group
         tp = 0
         fp = 0
+        ap_sum = 0.0
 
-        for score, target in sorted_pairs:
-            if target == 1:
-                tp += 1
-            else:
-                fp += 1
+        for group in score_groups:
+            # Count positives and negatives in this group
+            group_positives = sum(1 for _, target, _ in group if target == 1)
+            group_negatives = len(group) - group_positives
 
-            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-            recall = tp / n_pos
+            if group_positives > 0:
+                # sklearn uses: precision at the END of processing all samples in the group
+                tp_after_group = tp + group_positives
+                fp_after_group = fp + group_negatives
 
-            precisions.append(precision)
-            recalls.append(recall)
+                # Add precision for each positive (using precision at end of group)
+                precision_at_group = tp_after_group / (tp_after_group + fp_after_group)
+                ap_sum += precision_at_group * group_positives
 
-        # Add point (0, 1) at the beginning if not already there
-        if recalls[0] != 0:
-            recalls.insert(0, 0.0)
-            precisions.insert(0, precisions[0])
+            tp += group_positives
+            fp += group_negatives
 
-        # Calculate AUC using trapezoidal rule
-        auc = 0.0
-        for i in range(len(recalls) - 1):
-            # Width in recall axis
-            width = recalls[i + 1] - recalls[i]
-            # Average height (precision)
-            height = (precisions[i] + precisions[i + 1]) / 2.0
-            auc += width * height
-
-        return {"pr_auc": auc}
+        return {"pr_auc": ap_sum / n_pos}
 
 
 class MulticlassClassificationMetric(BaseMetric[ClassificationInput[LabelT]], Generic[LabelT]):
@@ -745,76 +752,192 @@ class MultilabelClassificationMetric(BaseMetric[ClassificationInput[Sequence[Lab
 @BaseMetric.register("multilabel_accuracy")
 @MultilabelClassificationMetric.register("accuracy")
 class MultilabelAccuracy(MultilabelClassificationMetric[LabelT], Generic[LabelT]):
-    def __init__(self, average: Literal["micro", "macro"] = "micro") -> None:
+    """Multilabel classification accuracy metric.
+
+    Supports two modes:
+    - "subset": Subset accuracy (exact match) - default, matches sklearn's accuracy_score
+    - "samples": Sample-wise accuracy (label-wise, equivalent to 1 - hamming_loss)
+
+    For "samples" mode with micro averaging, computes accuracy across all label predictions.
+    For "samples" mode with macro averaging, computes per-label accuracy then averages.
+
+    Args:
+        mode: Accuracy calculation mode:
+            - `"subset"`: Counts exact matches (predicted set == target set)
+            - `"samples"`: Counts label-wise matches across all labels
+        average: Averaging strategy (only applies to `"samples"` mode):
+            - `"micro"`: Overall accuracy across all samples
+            - `"macro"`: Average of per-label accuracies
+
+    Examples:
+        >>> # Subset accuracy (exact match)
+        >>> metric = MultilabelAccuracy(mode="subset")
+        >>> inputs = ClassificationInput(
+        ...     predictions=[[0, 1], [1, 2]],
+        ...     targets=[[0, 1], [1, 2]]
+        ... )
+        >>> metric.update(inputs)
+        >>> metric.compute()  # {"accuracy": 1.0} - both instances match exactly
+        >>>
+        >>> # Sample-wise accuracy
+        >>> metric = MultilabelAccuracy(mode="samples", average="micro")
+        >>> metric.compute()  # Counts all label predictions
+
+    """
+
+    def __init__(
+        self,
+        mode: Literal["subset", "samples"] = "subset",
+        average: Literal["micro", "macro"] = "micro",
+    ) -> None:
+        self._mode = mode
         self._average = average
-        self._correct: dict[LabelT, int] = defaultdict(int)
-        self._total: dict[LabelT, int] = defaultdict(int)
+
+        if mode == "subset":
+            # For subset accuracy, track exact matches
+            self._exact_matches = 0
+            self._total_instances = 0
+        else:
+            # For samples mode, track label-wise statistics
+            self._correct: dict[LabelT, int] = defaultdict(int)
+            self._total: dict[LabelT, int] = defaultdict(int)
 
     def reset(self) -> None:
-        self._correct = defaultdict(int)
-        self._total = defaultdict(int)
+        if self._mode == "subset":
+            self._exact_matches = 0
+            self._total_instances = 0
+        else:
+            self._correct = defaultdict(int)
+            self._total = defaultdict(int)
 
     def update(self, inputs: ClassificationInput[Sequence[LabelT]]) -> None:
         predictions = inputs.predictions
         targets = inputs.targets
         assert len(predictions) == len(targets), "Predictions and targets must have the same length"
 
-        for pred_labels, target_labels in zip(predictions, targets):
-            pred_set = set(pred_labels)
-            target_set = set(target_labels)
-            for label in target_set.union(pred_set):
-                if label in target_set and label in pred_set:
-                    self._correct[label] += 1
-                self._total[label] += 1
+        if self._mode == "subset":
+            # Subset accuracy: exact match of label sets
+            for pred_labels, target_labels in zip(predictions, targets):
+                if set(pred_labels) == set(target_labels):
+                    self._exact_matches += 1
+                self._total_instances += 1
+        else:
+            # Sample-wise accuracy: count label matches
+            # Get all labels that appear in any prediction or target
+            all_labels: set[LabelT] = set()
+            for pred_labels, target_labels in zip(predictions, targets):
+                all_labels.update(pred_labels)
+                all_labels.update(target_labels)
+
+            # For each instance, check each label
+            for pred_labels, target_labels in zip(predictions, targets):
+                pred_set = set(pred_labels)
+                target_set = set(target_labels)
+
+                for label in all_labels:
+                    # Correct if presence matches: both have it or both don't
+                    if (label in pred_set) == (label in target_set):
+                        self._correct[label] += 1
+                    self._total[label] += 1
 
     def compute(self) -> dict[str, float]:
-        if self._average == "micro":
-            total_correct = sum(self._correct.values())
-            total_count = sum(self._total.values())
-            accuracy = total_correct / total_count if total_count > 0 else 0.0
+        if self._mode == "subset":
+            # Subset accuracy: fraction of exact matches
+            accuracy = self._exact_matches / self._total_instances if self._total_instances > 0 else 0.0
             return {"accuracy": accuracy}
-        elif self._average == "macro":
-            accuracies = []
-            for label in self._total.keys():
-                correct = self._correct[label]
-                total = self._total[label]
-                accuracies.append(correct / total if total > 0 else 0.0)
-            macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
-            return {"accuracy": macro_accuracy}
         else:
-            raise ValueError(f"Unknown average type: {self._average}")
+            # Sample-wise accuracy with micro or macro averaging
+            if self._average == "micro":
+                total_correct = sum(self._correct.values())
+                total_count = sum(self._total.values())
+                accuracy = total_correct / total_count if total_count > 0 else 0.0
+                return {"accuracy": accuracy}
+            elif self._average == "macro":
+                accuracies = []
+                for label in self._total.keys():
+                    correct = self._correct[label]
+                    total = self._total[label]
+                    accuracies.append(correct / total if total > 0 else 0.0)
+                macro_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
+                return {"accuracy": macro_accuracy}
+            else:
+                raise ValueError(f"Unknown average type: {self._average}")
 
 
 @BaseMetric.register("multilabel_fbeta")
 @MultilabelClassificationMetric.register("fbeta")
 class MultilabelFBeta(MultilabelClassificationMetric[LabelT], Generic[LabelT]):
+    """Multilabel F-beta score with precision and recall.
+
+    Computes label-wise TP, FP, FN across all labels that appear in predictions or targets,
+    then calculates F-beta, precision, and recall with micro or macro averaging.
+
+    Note: This metric computes sample-wise (label-wise) statistics. For multilabel data,
+    each label is treated independently and statistics are aggregated across all labels.
+
+    Args:
+        beta: Weight of recall relative to precision (default: 1.0 for F1).
+        average: Averaging strategy:
+            - "micro": Compute globally across all labels
+            - "macro": Compute per-label then average
+
+    Returns:
+        Dictionary with "fbeta", "precision", and "recall" metrics.
+
+    Examples:
+        >>> metric = MultilabelFBeta(beta=1.0, average="micro")
+        >>> inputs = ClassificationInput(
+        ...     predictions=[[0, 1], [1], [0, 2]],
+        ...     targets=[[0, 1], [1, 2], [0]]
+        ... )
+        >>> metric.update(inputs)
+        >>> metric.compute()
+        >>> # {"fbeta": ..., "precision": ..., "recall": ...}
+
+    """
+
     def __init__(self, beta: float = 1.0, average: Literal["micro", "macro"] = "micro") -> None:
         self._beta = beta
         self._average = average
         self._true_positive: dict[LabelT, int] = defaultdict(int)
         self._false_positive: dict[LabelT, int] = defaultdict(int)
         self._false_negative: dict[LabelT, int] = defaultdict(int)
+        self._true_negative: dict[LabelT, int] = defaultdict(int)
 
     def reset(self) -> None:
         self._true_positive = defaultdict(int)
         self._false_positive = defaultdict(int)
         self._false_negative = defaultdict(int)
+        self._true_negative = defaultdict(int)
 
     def update(self, inputs: ClassificationInput[Sequence[LabelT]]) -> None:
         predictions = inputs.predictions
         targets = inputs.targets
         assert len(predictions) == len(targets), "Predictions and targets must have the same length"
 
+        # Get all labels that appear in any prediction or target
+        all_labels: set[LabelT] = set()
+        for pred_labels, target_labels in zip(predictions, targets):
+            all_labels.update(pred_labels)
+            all_labels.update(target_labels)
+
+        # For each instance, compute TP/FP/FN/TN for each label
         for pred_labels, target_labels in zip(predictions, targets):
             pred_set = set(pred_labels)
             target_set = set(target_labels)
-            for label in target_set.union(pred_set):
-                if label in target_set and label in pred_set:
+
+            for label in all_labels:
+                in_pred = label in pred_set
+                in_target = label in target_set
+
+                if in_pred and in_target:
                     self._true_positive[label] += 1
-                elif label in pred_set and label not in target_set:
+                elif in_pred and not in_target:
                     self._false_positive[label] += 1
-                elif label in target_set and label not in pred_set:
+                elif not in_pred and in_target:
                     self._false_negative[label] += 1
+                else:  # not in_pred and not in_target
+                    self._true_negative[label] += 1
 
     def compute(self) -> dict[str, float]:
         beta_sq = self._beta**2
@@ -841,9 +964,12 @@ class MultilabelFBeta(MultilabelClassificationMetric[LabelT], Generic[LabelT]):
             precisions = []
             recalls = []
 
-            for label in (
+            # Get all labels that have any TP, FP, or FN
+            all_labels = (
                 set(self._true_positive.keys()).union(self._false_positive.keys()).union(self._false_negative.keys())
-            ):
+            )
+
+            for label in all_labels:
                 tp = self._true_positive[label]
                 fp = self._false_positive[label]
                 fn = self._false_negative[label]
