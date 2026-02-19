@@ -5,8 +5,8 @@ into fixed-size vectors. Vectorizers apply pooling operations over the
 sequence dimension to produce single vectors per sequence.
 
 Key Components:
-    - BaseSequenceVectorizer: Abstract base class for vectorizers
-    - BagOfEmbeddingsSequenceVectorizer: Pools sequence embeddings
+    - `BaseSequenceVectorizer`: Abstract base class for vectorizers
+    - `BagOfEmbeddingsSequenceVectorizer`: Pools sequence embeddings
 
 Features:
     - Multiple pooling strategies (mean, max, min, sum, first, last, hier)
@@ -14,7 +14,7 @@ Features:
     - Optional normalization before pooling
     - Hierarchical pooling with sliding windows
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import BagOfEmbeddingsSequenceVectorizer
     >>>
     >>> # Mean pooling over sequence
@@ -58,11 +58,11 @@ class BaseSequenceVectorizer(torch.nn.Module, Registrable, abc.ABC):
         """Vectorize a sequence into a fixed-size vector.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, embedding_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, embedding_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Vectorized output of shape (batch_size, output_dim).
+            Vectorized output of shape `(batch_size, output_dim)`.
 
         """
         raise NotImplementedError
@@ -107,17 +107,17 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
 
     Args:
         pooling: Pooling strategy to use:
-            - "mean": Average pooling (default)
-            - "max": Max pooling
-            - "min": Min pooling
-            - "sum": Sum pooling
-            - "first": Take first token
-            - "last": Take last non-padding token
-            - "hier": Hierarchical pooling with sliding window
+            - `"mean"`: Average pooling (default)
+            - `"max"`: Max pooling
+            - `"min"`: Min pooling
+            - `"sum"`: Sum pooling
+            - `"first"`: Take first token
+            - `"last"`: Take last non-padding token
+            - `"hier"`: Hierarchical pooling with sliding window
         normalize: Whether to L2-normalize embeddings before pooling.
-        window_size: Window size for hierarchical pooling (required if pooling="hier").
+        window_size: Window size for hierarchical pooling (required if `pooling="hier"`).
 
-    Example:
+    Examples:
         >>> # Mean pooling
         >>> vectorizer = BagOfEmbeddingsSequenceVectorizer(pooling="mean")
         >>> vector = vectorizer(embeddings, mask=mask)
@@ -165,12 +165,12 @@ class BagOfEmbeddingsSequenceVectorizer(BaseSequenceVectorizer):
         """Vectorize sequence using bag-of-embeddings pooling.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, input_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
                  True indicates valid positions, False indicates padding.
 
         Returns:
-            Vectorized output of shape (batch_size, output_dim).
+            Vectorized output of shape `(batch_size, output_dim)`.
             If multiple pooling methods are used, output_dim = input_dim * num_pooling.
 
         """
@@ -223,7 +223,7 @@ class CnnSequenceVectorizer(BaseSequenceVectorizer):
         output_dim: Optional output dimension. If provided, applies linear projection
                    after concatenating filter outputs.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.vectorizers import CnnSequenceVectorizer
         >>>
         >>> # Standard CNN with multiple n-gram filters
@@ -320,12 +320,12 @@ class CnnSequenceVectorizer(BaseSequenceVectorizer):
         """Vectorize sequence using CNN with multiple n-gram filters.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, input_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
                  True indicates valid positions, False indicates padding.
 
         Returns:
-            Vectorized output of shape (batch_size, output_dim).
+            Vectorized output of shape `(batch_size, output_dim)`.
 
         """
         if mask is not None:
@@ -387,7 +387,7 @@ class SelfAttentiveSequenceVectorizer(BaseSequenceVectorizer):
         hidden_dims: Hidden dimensions for the attention scoring network.
                     Empty tuple means direct scoring without hidden layers.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.vectorizers import (
         ...     SelfAttentiveSequenceVectorizer
         ... )
@@ -473,12 +473,12 @@ class SelfAttentiveSequenceVectorizer(BaseSequenceVectorizer):
         """Vectorize sequence using self-attention.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, input_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
                  True indicates valid positions, False indicates padding.
 
         Returns:
-            Vectorized output of shape (batch_size, input_dim).
+            Vectorized output of shape `(batch_size, input_dim)`.
 
         """
         if mask is None:
@@ -520,7 +520,7 @@ class ConcatSequenceVectorizer(BaseSequenceVectorizer):
         vectorizers: List of vectorizers to apply in parallel.
                     All vectorizers receive the same input sequence.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.vectorizers import (
         ...     ConcatSequenceVectorizer,
         ...     BagOfEmbeddingsSequenceVectorizer,
@@ -593,11 +593,11 @@ class ConcatSequenceVectorizer(BaseSequenceVectorizer):
         """Vectorize sequence by concatenating multiple vectorizer outputs.
 
         Args:
-            inputs: Input embeddings of shape (batch_size, seq_len, input_dim).
-            mask: Optional attention mask of shape (batch_size, seq_len).
+            inputs: Input embeddings of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional attention mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Concatenated vectors of shape (batch_size, output_dim).
+            Concatenated vectors of shape `(batch_size, output_dim)`.
 
         """
         vectors = [vectorizer(inputs, mask=mask) for vectorizer in self._vectorizers]

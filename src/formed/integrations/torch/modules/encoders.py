@@ -4,14 +4,14 @@ This module provides encoders that process sequential data, including
 RNN-based encoders, positional encoders, and Transformer encoders.
 
 Key Components:
-    - BaseSequenceEncoder: Abstract base for sequence encoders
-    - LSTMSequenceEncoder: LSTM-specific encoder
-    - GRUSequenceEncoder: GRU-specific encoder
-    - BasePositionalEncoder: Abstract base for positional encoders
-    - SinusoidalPositionalEncoder: Sinusoidal positional encoding
-    - RotaryPositionalEncoder: Rotary positional encoding (RoPE)
-    - LearnablePositionalEncoder: Learnable positional embeddings
-    - TransformerEncoder: Transformer-based encoder with configurable masking
+    - `BaseSequenceEncoder`: Abstract base for sequence encoders
+    - `LSTMSequenceEncoder`: LSTM-specific encoder
+    - `GRUSequenceEncoder`: GRU-specific encoder
+    - `BasePositionalEncoder`: Abstract base for positional encoders
+    - `SinusoidalPositionalEncoder`: Sinusoidal positional encoding
+    - `RotaryPositionalEncoder`: Rotary positional encoding (RoPE)
+    - `LearnablePositionalEncoder`: Learnable positional embeddings
+    - `TransformerEncoder`: Transformer-based encoder with configurable masking
 
 Features:
     - Bidirectional RNN support
@@ -20,7 +20,7 @@ Features:
     - Various positional encoding strategies
     - Flexible attention masking
 
-Example:
+Examples:
     >>> from formed.integrations.torch.modules import LSTMSequenceEncoder
     >>>
     >>> # Bidirectional LSTM encoder
@@ -63,11 +63,11 @@ class BaseSequenceEncoder(nn.Module, Registrable, abc.ABC):
         """Encode input sequence.
 
         Args:
-            inputs: Input sequence of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input sequence of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         raise NotImplementedError
@@ -100,9 +100,9 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         num_layers: Number of LSTM layers.
         bidirectional: Whether to use bidirectional LSTM.
         dropout: Dropout rate between layers.
-        batch_first: Whether input is batch-first (default: True).
+        batch_first: Whether input is batch-first (default: `True`).
 
-    Example:
+    Examples:
         >>> encoder = LSTMSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -144,11 +144,11 @@ class LSTMSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         if mask is not None:
@@ -179,9 +179,9 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         num_layers: Number of GRU layers.
         bidirectional: Whether to use bidirectional GRU.
         dropout: Dropout rate between layers.
-        batch_first: Whether input is batch-first (default: True).
+        batch_first: Whether input is batch-first (default: `True`).
 
-    Example:
+    Examples:
         >>> encoder = GRUSequenceEncoder(
         ...     input_dim=128,
         ...     hidden_dim=256,
@@ -223,11 +223,11 @@ class GRUSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         if mask is not None:
@@ -258,7 +258,7 @@ class ResidualSequenceEncoder(BaseSequenceEncoder):
     Args:
         encoder: Base encoder to wrap. Must have matching input and output dimensions.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     ResidualSequenceEncoder,
         ...     LSTMSequenceEncoder
@@ -301,7 +301,7 @@ class FeedForwardSequenceEncoder(BaseSequenceEncoder):
     Args:
         feedforward: Feedforward network to apply at each position.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     FeedForwardSequenceEncoder
         ... )
@@ -349,12 +349,12 @@ class GatedCnnSequenceEncoder(BaseSequenceEncoder):
     Args:
         input_dim: Input dimension.
         layers: List of layer configurations for each residual block.
-                Each block is a list of Layer(kernel_size, output_dim, dilation).
+                Each block is a list of `Layer(kernel_size, output_dim, dilation)`.
         output_dim: Optional output dimension. If provided, applies linear projection.
                    Default is input_dim * 2 (concatenation of forward + backward).
         dropout: Dropout rate applied to the first convolution of each block.
 
-    Example:
+    Examples:
         >>> # Simple gated CNN encoder
         >>> encoder = GatedCnnSequenceEncoder(
         ...     input_dim=128,
@@ -404,7 +404,7 @@ class GatedCnnSequenceEncoder(BaseSequenceEncoder):
             input_dim: Input dimension. Must match output dimension of all layers
                       for residual connection.
             layers: Sequence of Layer configurations defining the convolutional stack.
-            direction: Direction of causal masking ("forward" or "backward").
+            direction: Direction of causal masking (`"forward"` or `"backward"`).
             do_weight_norm: Whether to apply weight normalization to convolutions.
             dropout: Dropout rate applied to the first convolution.
 
@@ -471,10 +471,10 @@ class GatedCnnSequenceEncoder(BaseSequenceEncoder):
             """Apply gated convolutions with residual connection.
 
             Args:
-                inputs: Input of shape (batch_size, input_dim, seq_len).
+                inputs: Input of shape `(batch_size, input_dim, seq_len)`.
 
             Returns:
-                Encoded sequence with residual connection of shape (batch_size, output_dim, seq_len).
+                Encoded sequence with residual connection of shape `(batch_size, output_dim, seq_len)`.
 
             """
             output = inputs
@@ -532,12 +532,12 @@ class GatedCnnSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence using gated CNN.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
                  True indicates valid positions, False indicates padding.
 
         Returns:
-            Encoded sequence of shape (batch_size, seq_len, output_dim).
+            Encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         if mask is None:
@@ -573,7 +573,7 @@ class StackedSequenceEncoder(BaseSequenceEncoder):
         encoders: List of encoders to apply in sequence.
                  Each encoder's output dimension must match the next encoder's input dimension.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     StackedSequenceEncoder,
         ...     LSTMSequenceEncoder,
@@ -630,7 +630,7 @@ class ConcatSequenceEncoder(BaseSequenceEncoder):
         encoders: List of encoders to apply in parallel.
                  All encoders must have the same input dimension.
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     ConcatSequenceEncoder,
         ...     LSTMSequenceEncoder,
@@ -674,11 +674,11 @@ class ConcatSequenceEncoder(BaseSequenceEncoder):
         """Encode input sequence by concatenating outputs from all encoders.
 
         Args:
-            inputs: Input of shape (batch_size, seq_len, input_dim).
-            mask: Optional mask of shape (batch_size, seq_len).
+            inputs: Input of shape `(batch_size, seq_len, input_dim)`.
+            mask: Optional mask of shape `(batch_size, seq_len)`.
 
         Returns:
-            Concatenated encoded sequence of shape (batch_size, seq_len, output_dim).
+            Concatenated encoded sequence of shape `(batch_size, seq_len, output_dim)`.
 
         """
         outputs = []
@@ -703,7 +703,7 @@ class WindowConcatSequenceEncoder(BaseSequenceEncoder):
                    to the concatenated features. Otherwise, output dimension is
                    (left_window + 1 + right_window) * input_dim.
 
-    Example:
+    Examples:
         >>> # Symmetric 2-position window on each side
         >>> encoder = WindowConcatSequenceEncoder(
         ...     input_dim=128,
@@ -852,7 +852,7 @@ class SinusoidalPositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length to pre-compute.
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = SinusoidalPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=5000,
@@ -925,7 +925,7 @@ class RotaryPositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length to pre-compute.
         base: Base for the geometric progression (default: 10000).
 
-    Example:
+    Examples:
         >>> encoder = RotaryPositionalEncoder(
         ...     input_dim=512,
         ...     max_len=2048
@@ -1011,7 +1011,7 @@ class LearnablePositionalEncoder(BasePositionalEncoder):
         max_len: Maximum sequence length (vocabulary size for positions).
         dropout: Dropout rate to apply after adding positional encoding.
 
-    Example:
+    Examples:
         >>> encoder = LearnablePositionalEncoder(
         ...     input_dim=512,
         ...     max_len=1024,
@@ -1085,7 +1085,7 @@ class TransformerEncoder(BaseSequenceEncoder):
         layer_norm_eps: Epsilon for layer normalization.
         batch_first: Whether input is batch-first (default: True).
 
-    Example:
+    Examples:
         >>> from formed.integrations.torch.modules.encoders import (
         ...     TransformerEncoder,
         ...     SinusoidalPositionalEncoder,
