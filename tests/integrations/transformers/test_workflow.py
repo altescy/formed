@@ -53,11 +53,10 @@ class TestLoadPretrainedTokenizerStep:
         """Test loading a tokenizer with additional kwargs."""
         tokenizer = load_pretrained_tokenizer_step(
             "hf-internal-testing/tiny-random-bert",
-            use_fast=False,
+            model_max_length=128,
         )
         assert tokenizer is not None
-        # Check that it's a slow tokenizer
-        assert not tokenizer.is_fast
+        assert tokenizer.model_max_length == 128
 
 
 class TestLoadPretrainedModelStep:
