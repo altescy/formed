@@ -33,6 +33,7 @@ Examples:
 import math
 from typing import Any
 
+import torch
 import torch.optim as optim
 
 
@@ -115,7 +116,7 @@ class CosineLRScheduler(optim.lr_scheduler.LRScheduler):
 
         super().__init__(optimizer, last_epoch)
 
-    def get_lr(self) -> list[float]:
+    def get_lr(self) -> list[float | torch.Tensor]:
         """Compute learning rate at the current step.
 
         Returns:
