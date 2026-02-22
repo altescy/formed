@@ -242,7 +242,14 @@ def train_transformer_model(
 
 
 with suppress(ImportError):
-    from formed.integrations.ml import Param, Tokenizer, TokenSequenceIndexer
+    from formed.integrations.ml import (
+        Param,
+        TensorSequenceTransform,
+        TensorTransform,
+        TokenCharactersIndexer,
+        Tokenizer,
+        TokenSequenceIndexer,
+    )
 
     from .analyzers import PretrainedTransformerAnalyzer
 
@@ -255,6 +262,9 @@ with suppress(ImportError):
         eos_token: str | None | NotSpecified = NotSpecified.VALUE,
         freeze: bool = True,
         accessor: str | Callable | None = None,
+        characters: TokenCharactersIndexer | None = None,
+        text_vector: TensorTransform | None = None,
+        token_vectors: TensorSequenceTransform | None = None,
     ) -> Tokenizer:
         """Convert a transformer tokenizer to a formed Tokenizer.
 
@@ -307,6 +317,9 @@ with suppress(ImportError):
         analyzer = PretrainedTransformerAnalyzer(given_tokenizer)
         return Tokenizer(
             surfaces=surface_indexer,
+            characters=characters,
+            text_vector=text_vector,
+            token_vectors=token_vectors,
             analyzer=Param.cast(analyzer),
             accessor=accessor,
         )

@@ -183,7 +183,14 @@ def train_sentence_transformer(
 
 
 with suppress(ImportError):
-    from formed.integrations.ml import Param, Tokenizer, TokenSequenceIndexer
+    from formed.integrations.ml import (
+        Param,
+        TensorSequenceTransform,
+        TensorTransform,
+        TokenCharactersIndexer,
+        Tokenizer,
+        TokenSequenceIndexer,
+    )
 
     from .analyzers import SentenceTransformerAnalyzer
 
@@ -196,6 +203,9 @@ with suppress(ImportError):
         eos_token: str | None | NotSpecified = NotSpecified.VALUE,
         freeze: bool = True,
         accessor: str | Callable | None = None,
+        characters: TokenCharactersIndexer | None = None,
+        text_vector: TensorTransform | None = None,
+        token_vectors: TensorSequenceTransform | None = None,
     ) -> Tokenizer:
         """Convert a sentence transformer model's tokenizer to a formed Tokenizer.
 
@@ -245,6 +255,9 @@ with suppress(ImportError):
         analyzer = SentenceTransformerAnalyzer(model_name_or_path)
         return Tokenizer(
             surfaces=surface_indexer,
+            characters=characters,
+            text_vector=text_vector,
+            token_vectors=token_vectors,
             analyzer=Param.cast(analyzer),
             accessor=accessor,
         )
