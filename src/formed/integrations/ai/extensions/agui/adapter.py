@@ -162,7 +162,7 @@ class AGUIState:
 
 
 def to_agui_stream(
-    response: Response[StreamEvent, Any],
+    response: Response[StreamEvent, Any, Any],
     run_id: str = "run-1",
 ) -> AsyncIterator[AGUIEvent]:
     """Convert a :class:`~response.Response` event stream to AG-UI protocol events.
@@ -355,7 +355,7 @@ def _reduce_agui_full(
 
 
 def to_agui_stream_full(
-    response: Response[StreamEvent, Any],
+    response: Response[StreamEvent, Any, Any],
     run_id: str = "run-1",
 ) -> AsyncIterator[AGUIEvent]:
     """Like :func:`to_agui_stream` but also emits :class:`AGUIToolCallArgs` events.

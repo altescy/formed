@@ -35,7 +35,7 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
     2. `engine(query)` opens a streaming context; the `reducer` folds every
        event into state and accumulates signals.
     3. The `handler` folds each signal:
-       - `Stop(result)` — terminates the loop and returns `result`.
+       - `Stop(result)` — terminates the loop and returns ``(final_state, result)``.
        - `Continue` — goes back to step 2 with the updated query.
     4. If the engine stream ends without producing any signals,
        `AgentExhausted` is raised.
@@ -60,7 +60,7 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
         >>> response = agent(state=my_state, request=my_request)
         >>> async for event in response.events():
         ...     print(event)
-        >>> result = await response.collect()
+        >>> final_state, result = await response.collect()
     """
 
     def __init__(
@@ -81,7 +81,7 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
         state: StateT,
         request: RequestT,
         response_format: Callable[[TerminalT], ResultT],
-    ) -> Response[EventT, ResultT]: ...
+    ) -> Response[EventT, StateT, ResultT]: ...
 
     @overload
     def __call__(
@@ -89,14 +89,14 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
         state: StateT,
         request: RequestT,
         response_format: None = None,
-    ) -> Response[EventT, TerminalT]: ...
+    ) -> Response[EventT, StateT, TerminalT]: ...
 
     def __call__(
         self,
         state: StateT,
         request: RequestT,
         response_format: Callable[[TerminalT], ResultT] | None = None,
-    ) -> Response[EventT, ResultT | TerminalT]:
+    ) -> Response[EventT, StateT, ResultT | TerminalT]:
         """Start (lazily) and return a handle to the agent execution.
 
         The agent does not actually start until the returned `Response` is
@@ -107,15 +107,16 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
             request: Caller's request, converted to the first query by the
                 `Contextualizer`.
             response_format: Optional function to post-process the terminal
-                result before it is surfaced by `Response.collect`.
+                result before it is surfaced by ``Response.collect``.
 
         Returns:
-            A `Response` handle for streaming events and collecting the result.
+            A `Response` handle for streaming events and collecting
+            ``(final_state, result)``.
         """
         source: EventSource[EventT] = EventSource()
         initial_state = state
 
-        async def _run() -> ResultT | TerminalT:
+        async def _run() -> tuple[StateT, ResultT | TerminalT]:
             state = initial_state
             exc: BaseException | None = None
             try:
@@ -137,8 +138,8 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
                         state, query, control = await self._handler(state, query, signal)
                         if isinstance(control, Stop):
                             if response_format is not None:
-                                return response_format(control.result)
-                            return control.result
+                                return state, response_format(control.result)
+                            return state, control.result
 
             except BaseException as e:
                 exc = e

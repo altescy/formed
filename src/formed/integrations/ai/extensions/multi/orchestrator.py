@@ -86,7 +86,7 @@ class Orchestrator(Generic[RequestT, ResultT_co]):
         self._agents = agents
         self._router = router
 
-    def __call__(self, state: Any, request: RequestT) -> Response[Any, ResultT_co]:
+    def __call__(self, state: Any, request: RequestT) -> Response[Any, Any, ResultT_co]:
         """Route *request* through the router and execute the selected worker.
 
         Creates a background coroutine that:
@@ -114,21 +114,21 @@ class Orchestrator(Generic[RequestT, ResultT_co]):
         """
         source: EventSource[Any] = EventSource()
 
-        async def _run() -> ResultT_co:
+        async def _run() -> tuple[Any, ResultT_co]:
             exc: BaseException | None = None
             try:
                 router_response = self._router(state, request)
                 async for event in router_response.events():
                     await source.publish(event)
-                routing: tuple[str, Any] = await router_response.collect()
+                _, routing = await router_response.collect()
                 agent_name, sub_request = routing
 
                 agent = self._agents[agent_name]
                 sub_response = agent(state, sub_request)
                 async for event in sub_response.events():
                     await source.publish(event)
-                result: ResultT_co = await sub_response.collect()
-                return result
+                sub_state, result = await sub_response.collect()
+                return sub_state, result
             except BaseException as e:
                 exc = e
                 raise

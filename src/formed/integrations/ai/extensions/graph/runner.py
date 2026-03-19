@@ -85,7 +85,7 @@ class GraphRunner(Generic[StateT, RequestT, ResultT]):
                     response = node.agent(state, current_request)
                     async for event in response.events():
                         await source.publish(event)
-                    result = await response.collect()
+                    _, result = await response.collect()
                     current_node_name = node.edges(result)
                     current_request = result
             except BaseException as e:

@@ -112,8 +112,8 @@ class Graph(Generic[StateT, RequestT, ResultT]):
 
         while current_node_name is not None:
             node = self.nodes[current_node_name]
-            response: Response[Any, Any] = node.agent(state, current_request)
-            result = await response.collect()
+            response: Response[Any, Any, Any] = node.agent(state, current_request)
+            _, result = await response.collect()
             current_node_name = node.edges(result)
             current_request = result
 

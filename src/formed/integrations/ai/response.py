@@ -7,13 +7,13 @@ from typing import Any, Generic, TypeVar
 from .source import EventSource
 
 EventT = TypeVar("EventT")
-StateT = TypeVar("StateT")
+StateT_co = TypeVar("StateT_co", covariant=True)
 ResultT_co = TypeVar("ResultT_co", covariant=True)
-ResultT = TypeVar("ResultT")
+StateT = TypeVar("StateT")
 ItemT = TypeVar("ItemT")
 
 
-class Response(Generic[EventT, ResultT_co]):
+class Response(Generic[EventT, StateT_co, ResultT_co]):
     """Handle to a lazily-started agent execution.
 
     `Response` decouples *subscribing* to the event stream from *starting*
@@ -31,19 +31,19 @@ class Response(Generic[EventT, ResultT_co]):
     Args:
         source: The `EventSource` that the agent publishes events to.
         coro: Zero-argument coroutine factory that runs the agent and returns
-            the terminal result.
+            ``(final_state, terminal_result)``.
     """
 
     def __init__(
         self,
         source: EventSource[EventT],
-        coro: Callable[[], Coroutine[Any, Any, ResultT_co]],
+        coro: Callable[[], Coroutine[Any, Any, tuple[StateT_co, ResultT_co]]],
     ) -> None:
         self._source = source
         self._coro = coro
-        self._task: asyncio.Task[ResultT_co] | None = None
+        self._task: asyncio.Task[tuple[StateT_co, ResultT_co]] | None = None
 
-    def _ensure_started(self) -> asyncio.Task[ResultT_co]:
+    def _ensure_started(self) -> asyncio.Task[tuple[StateT_co, ResultT_co]]:
         if self._task is None:
             self._task = asyncio.create_task(self._coro())
         return self._task
@@ -110,13 +110,16 @@ class Response(Generic[EventT, ResultT_co]):
 
         return _iter()
 
-    async def collect(self) -> ResultT_co:
-        """Await the agent to completion and return the terminal result.
+    async def collect(self) -> tuple[StateT_co, ResultT_co]:
+        """Await the agent to completion and return ``(final_state, result)``.
 
         Starts the agent if it has not started yet.
 
         Returns:
-            The value wrapped in `Stop` by the `Handler`.
+            A tuple of ``(final_state, result)`` where ``final_state`` is the
+            agent state after the last ``Handler`` invocation and ``result`` is
+            the value wrapped in ``Stop`` (post-processed by ``response_format``
+            if one was supplied).
 
         Raises:
             Exception: Any exception raised inside the agent coroutine.
