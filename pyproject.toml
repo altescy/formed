@@ -76,6 +76,9 @@ all = [
     "sentence-transformers>=3.0",
     "transformers[torch]>=4.0",
 ]
+ai = [
+    "litellm>=1.82.4",
+]
 
 [dependency-groups]
 dev = [
