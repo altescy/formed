@@ -8,7 +8,7 @@ stream events.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 
 import pytest
@@ -90,11 +90,12 @@ class _Handler:
         self,
         state: AgentState,
         query: Query,
-        signal: Signal,
+        signals: Sequence[Signal],
     ) -> tuple[AgentState, Query, Continue | Stop[str]]:
-        if isinstance(signal, TextOutput):
-            new_history = state.query_history + (AssistantMessage(parts=(TextContent(text=signal.text),)),)
-            return dataclasses.replace(state, query_history=new_history), query, Stop(signal.text)
+        for signal in signals:
+            if isinstance(signal, TextOutput):
+                new_history = state.query_history + (AssistantMessage(parts=(TextContent(text=signal.text),)),)
+                return dataclasses.replace(state, query_history=new_history), query, Stop(signal.text)
         return state, query, Continue()
 
 

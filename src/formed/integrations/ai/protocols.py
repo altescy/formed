@@ -62,7 +62,7 @@ class Handler(Protocol[QueryT, StateT, SignalT_contra, TerminalT_co]):
     """Protocol for folding signals into control decisions.
 
     A `Handler` is an async function
-    ``(state, query, signal) → (new_state, new_query, control)`` that acts as
+    ``(state, query, signals) → (new_state, new_query, control)`` that acts as
     the second fold layer, symmetric to the `Reducer`.
 
     ```
@@ -81,7 +81,7 @@ class Handler(Protocol[QueryT, StateT, SignalT_contra, TerminalT_co]):
         self,
         state: StateT,
         query: QueryT,
-        signal: SignalT_contra,
+        signals: Sequence[SignalT_contra],
     ) -> tuple[StateT, QueryT, Continue | Stop[TerminalT_co]]: ...
 
 

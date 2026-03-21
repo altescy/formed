@@ -34,9 +34,9 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
     1. `contextualizer(state, request)` builds the initial query.
     2. `engine(query)` opens a streaming context; the `reducer` folds every
        event into state and accumulates signals.
-    3. The `handler` folds each signal:
-       - `Stop(result)` — terminates the loop and returns ``(final_state, result)``.
-       - `Continue` — goes back to step 2 with the updated query.
+    3. The `handler` folds all signals emitted in the turn:
+        - `Stop(result)` — terminates the loop and returns ``(final_state, result)``.
+        - `Continue` — goes back to step 2 with the updated query.
     4. If the engine stream ends without producing any signals,
        `AgentExhausted` is raised.
 
@@ -134,12 +134,11 @@ class Agent(Generic[RequestT, QueryT, EventT, StateT, SignalT, TerminalT]):
                     if not signals:
                         raise AgentExhausted("Engine stream ended without producing any signals.")
 
-                    for signal in signals:
-                        state, query, control = await self._handler(state, query, signal)
-                        if isinstance(control, Stop):
-                            if response_format is not None:
-                                return state, response_format(control.result)
-                            return state, control.result
+                    state, query, control = await self._handler(state, query, signals)
+                    if isinstance(control, Stop):
+                        if response_format is not None:
+                            return state, response_format(control.result)
+                        return state, control.result
 
             except BaseException as e:
                 exc = e
