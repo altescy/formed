@@ -32,10 +32,12 @@ Examples:
 
 """
 
+import asyncio
 import contextvars
 import dataclasses
 import datetime
-from collections.abc import Iterator, Mapping, Sequence
+import inspect
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from enum import Enum
 from importlib.metadata import version
 from logging import getLogger
@@ -61,7 +63,7 @@ from .step import (
     WorkflowStepState,
     WorkflowStepStatus,
 )
-from .utils import as_jsonvalue, from_jsonvalue
+from .utils import BufferedAsyncIteratorState, as_jsonvalue, buffer_async_iterator, from_jsonvalue
 
 logger = getLogger(__name__)
 
@@ -218,6 +220,35 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
         temporary_cache: dict[WorkflowStepInfo, Any] = {}
 
+        def _resolve_awaitable(result: Any, step_name: str) -> Any:
+            if not inspect.isawaitable(result):
+                return result
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return asyncio.run(cast(Any, result))
+            raise RuntimeError(
+                f"Step '{step_name}' returned an awaitable while an event loop is already running. "
+                "Use AsyncWorkflowExecutor in async contexts."
+            )
+
+        def _materialize_async_iterator_sync(result: Any, step_name: str) -> Any:
+            if not isinstance(result, AsyncIterator):
+                return result
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return asyncio.run(buffer_async_iterator(result))
+            raise RuntimeError(
+                f"Step '{step_name}' returned an async iterator while an event loop is already running. "
+                "Use AsyncWorkflowExecutor in async contexts."
+            )
+
+        def _restore_stream(result: Any) -> Any:
+            if isinstance(result, BufferedAsyncIteratorState):
+                return result.iterator()
+            return result
+
         def _run_step(step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
             assert cache is not None
             assert callback is not None
@@ -234,10 +265,10 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
             if step_info in cache:
                 logger.info(f"Cached value found for step {step_info.name}")
-                result = cache[step_info]
+                result = cast(T, _restore_stream(cache[step_info]))
             elif step_info in temporary_cache:
                 logger.info(f"Temporary cached value found for step {step_info.name}")
-                result = temporary_cache[step_info]
+                result = cast(T, _restore_stream(temporary_cache[step_info]))
             else:
                 try:
                     callback.on_step_start(step_context, execution_context)
@@ -261,13 +292,14 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                         )
 
                     step = step_info.step.construct(dependencies)
-                    result = step(step_context)
+                    result = cast(T, _resolve_awaitable(step(step_context), step_info.name))
+                    result = cast(T, _materialize_async_iterator_sync(result, step_info.name))
 
                     if step_info.should_be_cached:
                         cache[step_info] = result
-                        if isinstance(result, Iterator):
+                        if isinstance(result, Iterator) or isinstance(result, BufferedAsyncIteratorState):
                             # NOTE: iterator should be restored since it is consumed by the cache
-                            result = cache[step_info]
+                            result = cast(T, _restore_stream(cache[step_info]))
                     elif not step_info.name.endswith("!"):
                         # NOTE: You can force to run the step without caching by adding "!" at the end of the name
                         if not isinstance(result, Iterator):
@@ -325,3 +357,164 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
 
 def use_execution_context() -> Optional[WorkflowExecutionContext]:
     return _EXECUTION_CONTEXT.get()
+
+
+class AsyncWorkflowExecutor:
+    def __init__(self, *, max_concurrency: int | None = None) -> None:
+        if max_concurrency is not None and max_concurrency <= 0:
+            raise ValueError("max_concurrency must be a positive integer")
+        self._max_concurrency = max_concurrency
+
+    async def __call__(
+        self,
+        graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
+        *,
+        cache: Optional[WorkflowCache] = None,
+        callback: Optional[WorkflowCallback] = None,
+    ) -> WorkflowExecutionContext:
+        cache = cache if cache is not None else EmptyWorkflowCache()
+        callback = callback if callback is not None else EmptyWorkflowCallback()
+
+        execution_info = (
+            graph_or_execution
+            if isinstance(graph_or_execution, WorkflowExecutionInfo)
+            else WorkflowExecutionInfo(graph_or_execution)
+        )
+
+        execution_state = WorkflowExecutionState(
+            execution_id=execution_info.id,
+            status=WorkflowExecutionStatus.RUNNING,
+            started_at=datetime.datetime.now(),
+        )
+        execution_context = WorkflowExecutionContext(execution_info, execution_state, cache, callback)
+
+        callback.on_execution_start(execution_context)
+
+        execution_state = dataclasses.replace(execution_state, execution_id=execution_info.id)
+        execution_context = dataclasses.replace(execution_context, state=execution_state)
+
+        semaphore = asyncio.Semaphore(self._max_concurrency) if self._max_concurrency is not None else None
+        temporary_cache: dict[str, Any] = {}
+        running_tasks: dict[str, asyncio.Task[Any]] = {}
+
+        def _restore_stream(result: Any) -> Any:
+            if isinstance(result, BufferedAsyncIteratorState):
+                return result.iterator()
+            return result
+
+        async def _run_step_raw(step_info: WorkflowStepInfo[WorkflowStep[Any]]) -> Any:
+            assert cache is not None
+
+            fp = step_info.fingerprint
+            if step_info in cache:
+                logger.info(f"Cached value found for step {step_info.name}")
+                return _restore_stream(cache[step_info])
+            if fp in temporary_cache:
+                logger.info(f"Temporary cached value found for step {step_info.name}")
+                return _restore_stream(temporary_cache[fp])
+
+            if fp in running_tasks:
+                return await running_tasks[fp]
+
+            async def _execute_step() -> Any:
+                assert callback is not None
+
+                step_state = WorkflowStepState(
+                    fingerprint=step_info.fingerprint,
+                    status=WorkflowStepStatus.RUNNING,
+                    started_at=datetime.datetime.now(),
+                )
+                step_context = WorkflowStepContext(step_info, step_state)
+
+                try:
+                    callback.on_step_start(step_context, execution_context)
+                    dependency_items = list(step_info.dependencies)
+                    dependency_values = await asyncio.gather(*(_run_step(dep) for _, dep in dependency_items))
+                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = cast(
+                        Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
+                        {path: value for (path, _), value in zip(dependency_items, dependency_values)},
+                    )
+
+                    if not isinstance(step_info.step, Lazy):
+                        raise TypeError(
+                            f"Cannot execute archived step '{step_info.name}'. "
+                            "Archived steps are immutable snapshots from past executions."
+                        )
+
+                    step = step_info.step.construct(dependencies)
+
+                    async def _execute_step_call() -> Any:
+                        maybe_awaitable = step(step_context)
+                        if inspect.isawaitable(maybe_awaitable):
+                            return await cast(Any, maybe_awaitable)
+                        return maybe_awaitable
+
+                    if semaphore is None:
+                        result = await _execute_step_call()
+                    else:
+                        async with semaphore:
+                            result = await _execute_step_call()
+
+                    if isinstance(result, AsyncIterator):
+                        result = await buffer_async_iterator(result)
+
+                    if step_info.should_be_cached:
+                        cache[step_info] = result
+                        if isinstance(result, Iterator) or isinstance(result, BufferedAsyncIteratorState):
+                            result = _restore_stream(cache[step_info])
+                    elif not step_info.name.endswith("!"):
+                        if not isinstance(result, Iterator):
+                            temporary_cache[fp] = result
+                except KeyboardInterrupt:
+                    step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
+                    step_context = dataclasses.replace(step_context, state=step_state)
+                    raise
+                except Exception as e:
+                    step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.FAILURE)
+                    step_context = dataclasses.replace(step_context, state=step_state)
+                    raise e
+                else:
+                    step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.COMPLETED)
+                    step_context = dataclasses.replace(step_context, state=step_state)
+                finally:
+                    step_state = dataclasses.replace(step_state, finished_at=datetime.datetime.now())
+                    step_context = dataclasses.replace(step_context, state=step_state)
+                    callback.on_step_end(step_context, execution_context)
+
+                return result
+
+            task = asyncio.create_task(_execute_step())
+            running_tasks[fp] = task
+            try:
+                return await task
+            finally:
+                current = running_tasks.get(fp)
+                if current is task and task.done():
+                    running_tasks.pop(fp, None)
+
+        async def _run_step(step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
+            result = await _run_step_raw(step_info)
+            if step_info.fieldref is not None:
+                result = cast(T, xgetattr(result, step_info.fieldref))
+            return cast(T, result)
+
+        token = _EXECUTION_CONTEXT.set(execution_context)
+        try:
+            await asyncio.gather(*(_run_step(step_info) for step_info in execution_info.graph))
+        except KeyboardInterrupt:
+            execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.CANCELED)
+            execution_context = dataclasses.replace(execution_context, state=execution_state)
+            raise
+        except Exception as e:
+            execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.FAILURE)
+            execution_context = dataclasses.replace(execution_context, state=execution_state)
+            raise e
+        else:
+            execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.COMPLETED)
+            execution_context = dataclasses.replace(execution_context, state=execution_state)
+        finally:
+            execution_state = dataclasses.replace(execution_state, finished_at=datetime.datetime.now())
+            callback.on_execution_end(execution_context)
+            _EXECUTION_CONTEXT.reset(token)
+
+        return dataclasses.replace(execution_context, state=execution_state)
