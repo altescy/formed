@@ -39,7 +39,7 @@ flax = [
     "flax>=0.10",
 ]
 mlflow = [
-    "mlflow>=2.0",
+    "mlflow>=3.6.0",
     "mlflow>=3.6.0; python_version >= '3.14'",
     "numpy>=1.26.4",
     "scipy>=1.14; python_version >= '3.12'",
@@ -65,7 +65,7 @@ sentence-transformers = [
 all = [
     "datasets>=2.0",
     "flax>=0.10",
-    "mlflow>=2.0",
+    "mlflow>=3.6.0",
     "numpy>=1.26.4",
     "protobuf>=5.0",
     "scipy>=1.14; python_version >= '3.12'",
