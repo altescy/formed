@@ -5,6 +5,8 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from formed.common.dataset import Dataset
 from formed.workflow.format import AutoFormat, DatasetFormat, Format, JsonFormat, PickleFormat
 
@@ -22,6 +24,11 @@ class NestedData:
     simple: SimpleData
     items: list[str]
     metadata: dict[str, int]
+
+
+class PydanticModel(BaseModel):
+    id: str
+    value: int
 
 
 class TestPickleFormat:
@@ -284,6 +291,22 @@ class TestJsonFormat:
             pass
 
         assert not JsonFormat.is_default_of(CustomClass())
+
+    def test_pydantic_model(self) -> None:
+        """Test that JsonFormat can handle Pydantic models"""
+        data = PydanticModel(id="pydantic1", value=10)
+        format_handler = JsonFormat[PydanticModel]()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            directory = Path(tmpdir) / "artifact"
+            directory.mkdir(parents=True, exist_ok=True)
+
+            format_handler.write(data, directory)
+            loaded = format_handler.read(directory)
+
+            assert isinstance(loaded, PydanticModel)
+            assert loaded.id == "pydantic1"
+            assert loaded.value == 10
 
 
 class TestDatasetFormat:
