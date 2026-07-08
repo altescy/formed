@@ -76,6 +76,9 @@ all = [
     "sentence-transformers>=3.0",
     "transformers[torch]>=4.0",
 ]
+burr = [
+    "apache-burr[start]>=0.42.0",
+]
 
 [dependency-groups]
 dev = [

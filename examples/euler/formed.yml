@@ -1,6 +1,9 @@
 workflow:
   organizer:
     type: filesystem
+  executor:
+    type: burr
 
 required_modules:
   - euler
+  - formed.integrations.burr
