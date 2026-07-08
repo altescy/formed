@@ -48,6 +48,12 @@ class _JSONDataType(str, enum.Enum):
 
 class WorkflowJSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
+        if isinstance(o, IPydanticModel):
+            return {
+                _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
+                _PYTHON_DATA_VALUE_KEY: o.model_dump(mode="json"),
+                _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
+            }
         if isinstance(o, IJsonCompatible):
             return {
                 _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
@@ -84,12 +90,6 @@ class WorkflowJSONEncoder(json.JSONEncoder):
                     for field in dataclasses.fields(o)
                     if hasattr(o, field.name)
                 },
-                _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
-            }
-        if isinstance(o, IPydanticModel):
-            return {
-                _PYTHON_DATA_TYPE_KEY: _JSONDataType.CONTAINER,
-                _PYTHON_DATA_VALUE_KEY: o.model_dump(mode="json"),
                 _PYTHON_DATA_CONTAINER_KEY: f"{o.__class__.__module__}.{o.__class__.__qualname__}",
             }
         if isinstance(o, type):

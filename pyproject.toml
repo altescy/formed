@@ -79,6 +79,7 @@ all = [
 
 [dependency-groups]
 dev = [
+    "pydantic>=2.12.5",
     "pyright>=1.1.405",
     "pytest>=8.3.3",
     "ruff>=0.13.1",
