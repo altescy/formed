@@ -237,6 +237,20 @@ class MlflowWorkflowCallback(WorkflowCallback):
         self._dependents_map = self._build_dependents_map(execution_info.graph)
         self._step_run_ids = {}
 
+        # Register run IDs for steps that are already cached so that dependency
+        # links in notes still point to the existing MLflow runs.
+        cache = execution_context.cache
+        if cache is not None:
+            for step_name, step_info in execution_info.graph._step_info.items():
+                if step_info in cache:
+                    run = mlflow_utils.fetch_mlflow_run(
+                        self._client,
+                        self._experiment_name,
+                        step_info=step_info,
+                    )
+                    if run is not None:
+                        self._step_run_ids[step_name] = run.info.run_id
+
         # Set initial execution note
         initial_note = self._generate_execution_note_markdown(
             execution_info,
