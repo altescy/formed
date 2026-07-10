@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from copy import deepcopy
 
 import numpy
+from typing_extensions import Self
 
 import formed.integrations.ml as ml
 import formed.integrations.ml.types as mlt
@@ -70,3 +71,6 @@ class ClassificationEvaluator:
         self._loss.reset()
         for metric in self._metrics:
             metric.reset()
+
+    def clone(self) -> Self:
+        return deepcopy(self)
