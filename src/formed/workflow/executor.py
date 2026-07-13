@@ -43,6 +43,7 @@ from types import TracebackType
 from typing import Any, NewType, Optional, TypeVar, Union, cast
 
 from colt import Lazy, Registrable
+from colt.constructed import Constructed
 from typing_extensions import Self
 
 from formed.common.attributeutils import xgetattr
@@ -234,11 +235,17 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             else:
                 try:
                     callback.on_step_start(step_context, execution_context)
-                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = {
+                    raw_dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = {
                         path: _run_step(dep) for path, dep in step_info.dependencies
                     }
-                    if set(dependencies.keys()) != set(path for path, _ in step_info.dependencies):
+                    if set(raw_dependencies.keys()) != set(path for path, _ in step_info.dependencies):
                         raise ValueError("Dependencies are not consistent with the graph")
+
+                    # Wrap resolved ref values so colt does not try to re-build them as
+                    # configuration objects (e.g., a dict containing a plain `type` key).
+                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = {
+                        path: Constructed(value) for path, value in raw_dependencies.items()
+                    }
 
                     # Type narrowing: ensure we're working with a live step
                     if not isinstance(step_info.step, Lazy):

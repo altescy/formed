@@ -464,11 +464,11 @@ wheels = [
 
 [[package]]
 name = "colt"
-version = "0.18.1"
+version = "0.20.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/11/5e/3cd7babdbe2a0de1019b55e05bc95beddc3a4a490384763a6d144d6f2dc6/colt-0.18.1.tar.gz", hash = "sha256:baec2e45842104440a8f3962129164daa1746ff88510dc5c5759ad51cb1f2eb5", size = 17539, upload-time = "2025-12-06T17:12:51.83Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/b0/f24037a55fc774b7574034ad66df62dc8057360f6076c8cd5e4ea347cec3/colt-0.20.0.tar.gz", hash = "sha256:01ca142c59a88c50ce651e6149f295bd37dc3dfe369294323a7c04082a90badf", size = 18002, upload-time = "2026-07-13T19:12:45.337Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/6a/c426843ec70a3d1b3d2c5ba95bf81b870fcdb285f1924af5d63d67d918f0/colt-0.18.1-py3-none-any.whl", hash = "sha256:59b7e871b6def39564b6a0c2db482f5ba6dd0f1e0b6d10f5158edd3a09af6ada", size = 21906, upload-time = "2025-12-06T17:12:52.474Z" },
+    { url = "https://files.pythonhosted.org/packages/31/d5/55b81d4796dc6f0f22df7903cceb33c38485002ab7491aa34ab13be43d51/colt-0.20.0-py3-none-any.whl", hash = "sha256:28e8575d320e510163b95b3ab4ee460a4bc5087f119e635fd84e625dac171666", size = 22588, upload-time = "2026-07-13T19:12:44.433Z" },
 ]
 
 [[package]]
@@ -950,7 +950,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "cloudpickle", specifier = ">=3.1.1" },
-    { name = "colt", specifier = ">=0.18.1" },
+    { name = "colt", specifier = ">=0.20.0" },
     { name = "datasets", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "datasets", marker = "extra == 'sentence-transformers'", specifier = ">=2.0" },
     { name = "datasets", marker = "extra == 'transformers'", specifier = ">=2.0" },

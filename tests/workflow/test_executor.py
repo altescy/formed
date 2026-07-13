@@ -30,6 +30,33 @@ class TestWorkflowExecutor:
         result = context.cache[context.info.graph["result"]]
         assert result == 2
 
+    def test_default_executor_with_ref_of_dict_having_type_key(self) -> None:
+        @step("test_default_executor::generate_state")
+        def _() -> dict:
+            return {"learner_profile": {"type": "Learner"}}
+
+        @step("test_default_executor::consume_state")
+        def _(state: dict) -> str:
+            return state["learner_profile"]["type"]
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "state": {"type": "test_default_executor::generate_state"},
+                    "result": {
+                        "type": "test_default_executor::consume_state",
+                        "state": {"type": "ref", "ref": "state"},
+                    },
+                }
+            }
+        )
+
+        cache = MemoryWorkflowCache()
+        executor = DefaultWorkflowExecutor()
+        context = executor(graph, cache=cache)
+        result = context.cache[context.info.graph["result"]]
+        assert result == "Learner"
+
 
 class TestWorkflowExecutionInfo:
     def test_execution_info_json_compatibility(self) -> None:
