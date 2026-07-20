@@ -33,7 +33,7 @@ from filelock import BaseFileLock, FileLock
 
 from formed.common.dataset import Dataset
 
-from .utils import BufferedAsyncIteratorState
+from .utils import BufferedAsyncIteratorState, BufferedSyncIteratorState
 
 if TYPE_CHECKING:
     from .step import WorkflowStep, WorkflowStepInfo
@@ -194,7 +194,7 @@ class MemoryWorkflowCache(WorkflowCache):
         value = self._cache[step_info]
         if isinstance(value, self._IteratorWrapper):
             return cast(_T, iter(value))
-        if isinstance(value, BufferedAsyncIteratorState):
+        if isinstance(value, (BufferedAsyncIteratorState, BufferedSyncIteratorState)):
             return cast(_T, value.iterator())
         return cast(_T, value)
 

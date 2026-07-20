@@ -1,6 +1,6 @@
 import asyncio
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 
 import pytest
 
@@ -371,3 +371,150 @@ class TestAsyncWorkflowExecutor:
         assert end_statuses["a"] == WorkflowStepStatus.COMPLETED
         assert end_statuses["c"] == WorkflowStepStatus.COMPLETED
         assert "d" not in end_statuses, "dependent step 'd' should not start and therefore not receive on_step_end"
+
+    def test_max_concurrency_bounds_async_iterator_work(self) -> None:
+        # The real work of a streaming step happens while its async iterator is
+        # consumed. That consumption must be bounded by max_concurrency, so two
+        # streaming steps must not iterate at the same time when concurrency is 1.
+        state = {"active": 0, "max_active": 0}
+
+        def _make_source(name: str) -> None:
+            @step(name, version="1", cacheable=False)
+            async def _() -> AsyncIterator[int]:
+                async def _iterator() -> AsyncIterator[int]:
+                    state["active"] += 1
+                    state["max_active"] = max(state["max_active"], state["active"])
+                    try:
+                        for i in range(3):
+                            await asyncio.sleep(0.02)
+                            yield i
+                    finally:
+                        state["active"] -= 1
+
+                return _iterator()
+
+        _make_source("test_async_executor_concurrency::a")
+        _make_source("test_async_executor_concurrency::b")
+
+        @step("test_async_executor_concurrency::combine", version="1")
+        async def _(a: AsyncIterator[int], b: AsyncIterator[int]) -> int:
+            total = 0
+            async for item in a:
+                total += item
+            async for item in b:
+                total += item
+            return total
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "a": {"type": "test_async_executor_concurrency::a"},
+                    "b": {"type": "test_async_executor_concurrency::b"},
+                    "result": {
+                        "type": "test_async_executor_concurrency::combine",
+                        "a": {"type": "ref", "ref": "a"},
+                        "b": {"type": "ref", "ref": "b"},
+                    },
+                }
+            }
+        )
+
+        context = AsyncWorkflowExecutor(max_concurrency=1)(graph, cache=MemoryWorkflowCache())
+
+        assert context.cache[context.info.graph["result"]] == 6
+        assert state["max_active"] == 1
+
+    def test_shared_async_iterator_delivers_full_data_to_concurrent_dependents(self) -> None:
+        # The source is slow enough that both dependents resolve it while it is
+        # still in flight (the `running_tasks` path). Each dependent must receive
+        # an independent iterator over the full stream.
+        @step("test_async_executor_shared_async::source", version="1")
+        async def _() -> AsyncIterator[int]:
+            await asyncio.sleep(0.1)
+
+            async def _iterator() -> AsyncIterator[int]:
+                for i in range(5):
+                    yield i
+
+            return _iterator()
+
+        @step("test_async_executor_shared_async::sum", version="1")
+        async def _(source: AsyncIterator[int]) -> int:
+            return sum([item async for item in source])
+
+        @step("test_async_executor_shared_async::count", version="1")
+        async def _(source: AsyncIterator[int]) -> int:
+            return len([item async for item in source])
+
+        @step("test_async_executor_shared_async::combine", version="1")
+        async def _(total: int, cnt: int) -> tuple[int, int]:
+            return total, cnt
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "source": {"type": "test_async_executor_shared_async::source"},
+                    "total": {
+                        "type": "test_async_executor_shared_async::sum",
+                        "source": {"type": "ref", "ref": "source"},
+                    },
+                    "count": {
+                        "type": "test_async_executor_shared_async::count",
+                        "source": {"type": "ref", "ref": "source"},
+                    },
+                    "result": {
+                        "type": "test_async_executor_shared_async::combine",
+                        "total": {"type": "ref", "ref": "total"},
+                        "cnt": {"type": "ref", "ref": "count"},
+                    },
+                }
+            }
+        )
+
+        context = AsyncWorkflowExecutor(max_concurrency=4)(graph, cache=MemoryWorkflowCache())
+        assert context.cache[context.info.graph["result"]] == (10, 5)
+
+    def test_shared_sync_iterator_delivers_full_data_to_concurrent_dependents(self) -> None:
+        # A non-cached step returning a plain (sync) generator, shared by two
+        # dependents resolving concurrently. Without per-consumer buffering the
+        # two would share a single generator and split its items.
+        @step("test_async_executor_shared_sync::source", version="1", cacheable=False)
+        async def _() -> Iterator[int]:
+            await asyncio.sleep(0.1)
+            return iter(range(5))
+
+        @step("test_async_executor_shared_sync::sum", version="1")
+        async def _(source: Iterator[int]) -> int:
+            return sum(list(source))
+
+        @step("test_async_executor_shared_sync::count", version="1")
+        async def _(source: Iterator[int]) -> int:
+            return len(list(source))
+
+        @step("test_async_executor_shared_sync::combine", version="1")
+        async def _(total: int, cnt: int) -> tuple[int, int]:
+            return total, cnt
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "source": {"type": "test_async_executor_shared_sync::source"},
+                    "total": {
+                        "type": "test_async_executor_shared_sync::sum",
+                        "source": {"type": "ref", "ref": "source"},
+                    },
+                    "count": {
+                        "type": "test_async_executor_shared_sync::count",
+                        "source": {"type": "ref", "ref": "source"},
+                    },
+                    "result": {
+                        "type": "test_async_executor_shared_sync::combine",
+                        "total": {"type": "ref", "ref": "total"},
+                        "cnt": {"type": "ref", "ref": "count"},
+                    },
+                }
+            }
+        )
+
+        context = AsyncWorkflowExecutor(max_concurrency=4)(graph, cache=MemoryWorkflowCache())
+        assert context.cache[context.info.graph["result"]] == (10, 5)

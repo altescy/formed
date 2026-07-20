@@ -5,7 +5,7 @@ import enum
 import importlib
 import json
 from collections import Counter
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterable, Iterator, Sequence
 from contextlib import suppress
 from typing import Any, Final, Generic, TypeVar, cast
 
@@ -214,3 +214,19 @@ async def buffer_async_iterator(iterator: AsyncIterator[_T]) -> BufferedAsyncIte
     async for item in iterator:
         items.append(item)
     return BufferedAsyncIteratorState(items)
+
+
+class BufferedSyncIteratorState(Generic[_T]):
+    """Replayable snapshot of a synchronous iterator.
+
+    A synchronous iterator returned by a step is fully consumed once and stored
+    here so that each consumer can obtain an independent iterator via
+    `iterator()`. This is required by concurrent executors where a single step
+    result may be shared by multiple dependents at the same time.
+    """
+
+    def __init__(self, items: Iterable[_T]) -> None:
+        self._items = tuple(items)
+
+    def iterator(self) -> Iterator[_T]:
+        return iter(self._items)

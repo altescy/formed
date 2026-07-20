@@ -63,7 +63,13 @@ from .step import (
     WorkflowStepState,
     WorkflowStepStatus,
 )
-from .utils import BufferedAsyncIteratorState, as_jsonvalue, buffer_async_iterator, from_jsonvalue
+from .utils import (
+    BufferedAsyncIteratorState,
+    BufferedSyncIteratorState,
+    as_jsonvalue,
+    buffer_async_iterator,
+    from_jsonvalue,
+)
 
 logger = getLogger(__name__)
 
@@ -190,6 +196,19 @@ class WorkflowExecutor(Registrable):
 
 @WorkflowExecutor.register("default")
 class DefaultWorkflowExecutor(WorkflowExecutor):
+    """Sequential executor with transparent support for async steps.
+
+    Steps run one at a time in dependency order. A step that returns an awaitable
+    or async iterator is driven to completion via ``asyncio.run`` in its own
+    fresh event loop for that step; async iterators are materialized eagerly.
+
+    Because each async step runs on a separate short-lived event loop, async
+    resources bound to one step's loop (e.g. an ``aiohttp`` session or an
+    ``asyncio.Lock``) cannot be shared with another step, and no steps run
+    concurrently. Use ``AsyncWorkflowExecutor`` when steps must share an event
+    loop or run in parallel.
+    """
+
     def __call__(
         self,
         graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
@@ -245,7 +264,7 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             )
 
         def _restore_stream(result: Any) -> Any:
-            if isinstance(result, BufferedAsyncIteratorState):
+            if isinstance(result, (BufferedAsyncIteratorState, BufferedSyncIteratorState)):
                 return result.iterator()
             return result
 
@@ -361,6 +380,23 @@ def use_execution_context() -> Optional[WorkflowExecutionContext]:
 
 @WorkflowExecutor.register("async")
 class AsyncWorkflowExecutor(WorkflowExecutor):
+    """Executor that runs independent steps concurrently on a single event loop.
+
+    Steps whose dependencies are satisfied are scheduled concurrently, optionally
+    bounded by ``max_concurrency``. Awaitable and non-awaitable steps may be mixed
+    freely.
+
+    Notes:
+        - Callbacks are invoked concurrently from multiple step tasks and their
+          ``on_step_start``/``on_step_end`` calls may interleave across steps.
+          Callback implementations must therefore be concurrency-safe.
+        - Streaming results (sync and async iterators) are fully buffered in
+          memory so they can be replayed independently by every consumer.
+          Steps returning unbounded/infinite iterators are not supported here;
+          use ``DefaultWorkflowExecutor`` for lazy streaming.
+
+    """
+
     def __init__(self, *, max_concurrency: int | None = None) -> None:
         if max_concurrency is not None and max_concurrency <= 0:
             raise ValueError("max_concurrency must be a positive integer")
@@ -408,7 +444,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
         running_tasks: dict[str, asyncio.Task[Any]] = {}
 
         def _restore_stream(result: Any) -> Any:
-            if isinstance(result, BufferedAsyncIteratorState):
+            if isinstance(result, (BufferedAsyncIteratorState, BufferedSyncIteratorState)):
                 return result.iterator()
             return result
 
@@ -424,7 +460,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                 return _restore_stream(temporary_cache[fp])
 
             if fp in running_tasks:
-                return await running_tasks[fp]
+                return _restore_stream(await running_tasks[fp])
 
             async def _execute_step(
                 dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
@@ -449,28 +485,32 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
                     step = step_info.step.construct(dependencies)
 
-                    async def _execute_step_call() -> Any:
-                        maybe_awaitable = step(step_context)
-                        if inspect.isawaitable(maybe_awaitable):
-                            return await cast(Any, maybe_awaitable)
-                        return maybe_awaitable
+                    async def _call_step() -> Any:
+                        # Call the step and, while still holding the concurrency
+                        # slot, fully materialize any streaming result. Buffering
+                        # here (rather than after the semaphore is released) makes
+                        # the real streaming work count against `max_concurrency`
+                        # and produces a replayable snapshot that every consumer
+                        # can iterate independently.
+                        output = step(step_context)
+                        if inspect.isawaitable(output):
+                            output = await cast(Any, output)
+                        if isinstance(output, AsyncIterator):
+                            return await buffer_async_iterator(output)
+                        if isinstance(output, Iterator):
+                            return BufferedSyncIteratorState(output)
+                        return output
 
                     if semaphore is None:
-                        result = await _execute_step_call()
+                        result = await _call_step()
                     else:
                         async with semaphore:
-                            result = await _execute_step_call()
-
-                    if isinstance(result, AsyncIterator):
-                        result = await buffer_async_iterator(result)
+                            result = await _call_step()
 
                     if step_info.should_be_cached:
                         cache[step_info] = result
-                        if isinstance(result, (Iterator, BufferedAsyncIteratorState)):
-                            result = _restore_stream(cache[step_info])
                     elif not step_info.name.endswith("!"):
-                        if not isinstance(result, Iterator):
-                            temporary_cache[fp] = result
+                        temporary_cache[fp] = result
                 except asyncio.CancelledError:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
                     step_context = dataclasses.replace(step_context, state=step_state)
@@ -506,7 +546,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
             task = asyncio.create_task(_resolve_and_execute())
             running_tasks[fp] = task
             try:
-                return await task
+                return _restore_stream(await task)
             finally:
                 current = running_tasks.get(fp)
                 if current is task and task.done():
