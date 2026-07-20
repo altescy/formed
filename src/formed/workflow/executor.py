@@ -97,6 +97,12 @@ class WorkflowExecutionMetadata:
     environment: Mapping[str, str] = dataclasses.field(default_factory=dict)
     required_modules: Sequence[str] = dataclasses.field(default_factory=list)
     dependent_packages: Sequence[PackageInfo] = dataclasses.field(default_factory=get_installed_packages)
+    tags: Sequence[str] = dataclasses.field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        # Normalize tags to a tuple for hashability and consistency
+        if not isinstance(self.tags, tuple):
+            object.__setattr__(self, "tags", tuple(self.tags))
 
 
 @dataclasses.dataclass

@@ -6,6 +6,7 @@ executions, including step fingerprints, source code hashes, and dependency
 information.
 """
 
+from collections.abc import Sequence
 from typing import Literal, NamedTuple, cast
 
 from typing_extensions import Self
@@ -51,6 +52,9 @@ class WorkflowStepArchive(NamedTuple):
 
     # Field reference (for WorkflowStepRef behavior)
     fieldref: str | None = None  # Optional field reference like "model.encoder"
+
+    # Tags for categorizing and filtering steps
+    tags: Sequence[str] = ()
 
     def json(self) -> dict[str, JsonValue]:
         """Convert to JSON-serializable dict."""

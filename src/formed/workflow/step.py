@@ -3,7 +3,7 @@ import dataclasses
 import datetime
 import inspect
 import typing
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from enum import Enum
 from functools import cached_property
 from logging import Logger, getLogger
@@ -90,6 +90,7 @@ class WorkflowStep(Generic[OutputT], Registrable):
     VERSION: ClassVar[Optional[str]] = None
     DETERMINISTIC: ClassVar[bool] = True
     CACHEABLE: ClassVar[Optional[bool]] = None
+    TAGS: ClassVar[Sequence[str]] = ()
     FORMAT: Format[OutputT]
     FUNCTION: Callable[..., OutputT]
 
@@ -127,6 +128,7 @@ class WorkflowStep(Generic[OutputT], Registrable):
         version: Optional[str] = None,
         deterministic: bool = True,
         cacheable: Optional[bool] = None,
+        tags: Optional[Sequence[str]] = None,
         format: Optional[Union[str, Format[OutputT]]] = None,
     ) -> type["WorkflowStep[OutputT]"]:
         if isinstance(format, str):
@@ -134,10 +136,13 @@ class WorkflowStep(Generic[OutputT], Registrable):
         if version is None:
             version = object_fingerprint(normalize_source(inspect.getsource(func)))
 
+        tags = tuple(tags or ())
+
         class WrapperStep(WorkflowStep):
             VERSION = version
             DETERMINISTIC = deterministic
             CACHEABLE = cacheable
+            TAGS = tags
             FUNCTION = func
             FORMAT = format or AutoFormat()
 
@@ -264,6 +269,13 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
         return self.step_class.CACHEABLE
 
     @cached_property
+    def tags(self) -> Sequence[str]:
+        """Get tags. Works in both modes."""
+        if isinstance(self.step, WorkflowStepArchive):
+            return self.step.tags
+        return tuple(sorted(self.step_class.TAGS))
+
+    @cached_property
     def should_be_cached(self) -> bool:
         """Check if step should be cached. Works in both modes."""
         if isinstance(self.step, WorkflowStepArchive):
@@ -286,6 +298,7 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
             self.deterministic,
             self.cacheable,
             self.format.identifier,
+            tuple(sorted(self.tags)),
         )
         config = self.step.config
         ignore_args = self.step_class.get_ignore_args()
@@ -346,6 +359,7 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
             should_be_cached=self.should_be_cached,
             dependency_fingerprints=dependency_fingerprints,
             fieldref=self.fieldref,
+            tags=tuple(sorted(self.tags)),
         )
 
     @classmethod
@@ -414,6 +428,7 @@ class WorkflowStepInfo(Generic[WorkflowStepT]):
             "format": self.format.identifier,
             "deterministic": self.deterministic,
             "cacheable": self.cacheable,
+            "tags": list(self.tags),
             "fingerprint": self.fingerprint,
             "config": config,
         }
@@ -442,6 +457,7 @@ def step(
     version: Optional[str] = ...,
     deterministic: bool = ...,
     cacheable: Optional[bool] = ...,
+    tags: Optional[Sequence[str]] = ...,
     exist_ok: bool = ...,
     format: Optional[Union[str, Format]] = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
@@ -454,6 +470,7 @@ def step(
     version: Optional[str] = ...,
     deterministic: bool = ...,
     cacheable: Optional[bool] = ...,
+    tags: Optional[Sequence[str]] = ...,
     exist_ok: bool = ...,
     format: Optional[Union[str, Format]] = ...,
 ) -> StepFunctionT: ...
@@ -465,6 +482,7 @@ def step(
     version: Optional[str] = ...,
     deterministic: bool = ...,
     cacheable: Optional[bool] = ...,
+    tags: Optional[Sequence[str]] = ...,
     exist_ok: bool = ...,
     format: Optional[Union[str, Format]] = ...,
 ) -> Callable[[StepFunctionT], StepFunctionT]: ...
@@ -476,6 +494,7 @@ def step(
     version: Optional[str] = None,
     deterministic: bool = True,
     cacheable: Optional[bool] = None,
+    tags: Optional[Sequence[str]] = None,
     exist_ok: bool = False,
     format: Optional[Union[str, Format]] = None,
 ) -> Union[StepFunctionT, Callable[[StepFunctionT], StepFunctionT]]:
@@ -485,6 +504,7 @@ def step(
             version=version,
             deterministic=deterministic,
             cacheable=cacheable,
+            tags=tags,
             format=format,
         )
         WorkflowStep.register(name, exist_ok=exist_ok)(step_class)
