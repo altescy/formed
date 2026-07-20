@@ -112,9 +112,7 @@ class TestAsyncSupportInDefaultExecutor:
             assert context is not None
             return context.info.name
 
-        graph = WorkflowGraph.from_config(
-            {"steps": {"result": {"type": "test_default_async_context::step"}}}
-        )
+        graph = WorkflowGraph.from_config({"steps": {"result": {"type": "test_default_async_context::step"}}})
 
         context = DefaultWorkflowExecutor()(graph, cache=MemoryWorkflowCache())
         assert context.cache[context.info.graph["result"]] == "result"
@@ -197,9 +195,7 @@ class TestAsyncWorkflowExecutor:
             assert context is not None
             return context.info.name
 
-        graph = WorkflowGraph.from_config(
-            {"steps": {"result": {"type": "test_async_executor_context::step"}}}
-        )
+        graph = WorkflowGraph.from_config({"steps": {"result": {"type": "test_async_executor_context::step"}}})
 
         context = AsyncWorkflowExecutor()(graph, cache=MemoryWorkflowCache())
         assert context.cache[context.info.graph["result"]] == "result"
