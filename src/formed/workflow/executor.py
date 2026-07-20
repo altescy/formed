@@ -405,7 +405,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
         semaphore = asyncio.Semaphore(self._max_concurrency) if self._max_concurrency is not None else None
         temporary_cache: dict[str, Any] = {}
-        running_tasks: dict[str, asyncio.Future[Any]] = {}
+        running_tasks: dict[str, asyncio.Task[Any]] = {}
 
         def _restore_stream(result: Any) -> Any:
             if isinstance(result, BufferedAsyncIteratorState):
@@ -425,12 +425,6 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
             if fp in running_tasks:
                 return await running_tasks[fp]
-
-            # Placeholder so concurrent callers for the same fingerprint wait for
-            # a single execution instead of duplicating work.
-            loop = asyncio.get_running_loop()
-            placeholder: asyncio.Future[Any] = loop.create_future()
-            running_tasks[fp] = placeholder
 
             async def _execute_step(
                 dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
@@ -499,38 +493,24 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
                 return result
 
-            try:
-                # Resolve dependencies before creating the actual execution task.
+            async def _resolve_and_execute() -> Any:
+                # Resolve dependencies before starting the actual execution.
                 dependency_items = list(step_info.dependencies)
                 dependency_values = await asyncio.gather(*(_run_step(dep) for _, dep in dependency_items))
                 dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = cast(
                     Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
                     {path: value for (path, _), value in zip(dependency_items, dependency_values)},
                 )
+                return await _execute_step(dependencies)
 
-                task = asyncio.create_task(_execute_step(dependencies))
-                running_tasks[fp] = task
-
-                def _propagate_result(t: asyncio.Task[Any]) -> None:
-                    if t.cancelled():
-                        placeholder.cancel()
-                    elif (exc := t.exception()) is not None:
-                        placeholder.set_exception(exc)
-                    else:
-                        placeholder.set_result(t.result())
-
-                task.add_done_callback(_propagate_result)
-
+            task = asyncio.create_task(_resolve_and_execute())
+            running_tasks[fp] = task
+            try:
                 return await task
-            except Exception as e:
-                if not placeholder.done():
-                    placeholder.set_exception(e)
-                raise
             finally:
                 current = running_tasks.get(fp)
-                if current is placeholder or current is task:
-                    if current.done():
-                        running_tasks.pop(fp, None)
+                if current is task and task.done():
+                    running_tasks.pop(fp, None)
 
         async def _run_step(step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
             result = await _run_step_raw(step_info)
