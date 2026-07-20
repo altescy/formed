@@ -2,6 +2,8 @@ import asyncio
 import time
 from collections.abc import AsyncIterator
 
+import pytest
+
 from formed.types import IJsonCompatible
 from formed.workflow import (
     AsyncWorkflowExecutor,
@@ -264,3 +266,108 @@ class TestAsyncWorkflowExecutor:
 
         context = AsyncWorkflowExecutor(max_concurrency=4)(graph, cache=MemoryWorkflowCache())
         assert context.cache[context.info.graph["result"]] == (10, 5)
+
+    def test_dependent_step_starts_after_dependencies_resolve(self) -> None:
+        from formed.workflow.callback import WorkflowCallback
+
+        class TimingCallback(WorkflowCallback):
+            def __init__(self) -> None:
+                self.events: list[tuple[str, str, float]] = []
+
+            def on_step_start(self, step_context, execution_context):
+                self.events.append((step_context.info.name, "start", time.perf_counter()))
+
+            def on_step_end(self, step_context, execution_context):
+                self.events.append((step_context.info.name, "end", time.perf_counter()))
+
+        @step("test_async_executor_dependency_order::source", version="1")
+        async def _() -> int:
+            await asyncio.sleep(0.2)
+            return 1
+
+        @step("test_async_executor_dependency_order::dependent", version="1")
+        async def _(source: int) -> int:
+            await asyncio.sleep(0.1)
+            return source + 1
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "source": {"type": "test_async_executor_dependency_order::source"},
+                    "result": {
+                        "type": "test_async_executor_dependency_order::dependent",
+                        "source": {"type": "ref", "ref": "source"},
+                    },
+                }
+            }
+        )
+
+        callback = TimingCallback()
+        executor = AsyncWorkflowExecutor()
+        executor(graph, cache=MemoryWorkflowCache(), callback=callback)
+
+        source_end = next(t for name, event, t in callback.events if name == "source" and event == "end")
+        dependent_start = next(t for name, event, t in callback.events if name == "result" and event == "start")
+        assert dependent_start > source_end
+
+    def test_running_steps_get_on_step_end_on_failure(self) -> None:
+        from formed.workflow.callback import WorkflowCallback
+        from formed.workflow.step import WorkflowStepStatus
+
+        class StatusCallback(WorkflowCallback):
+            def __init__(self) -> None:
+                self.events: list[tuple[str, str, WorkflowStepStatus]] = []
+
+            def on_step_start(self, step_context, execution_context):
+                self.events.append((step_context.info.name, "start", step_context.state.status))
+
+            def on_step_end(self, step_context, execution_context):
+                self.events.append((step_context.info.name, "end", step_context.state.status))
+
+        @step("test_async_executor_failure::a", version="1")
+        async def _() -> int:
+            await asyncio.sleep(0.3)
+            return 1
+
+        @step("test_async_executor_failure::b", version="1")
+        async def _() -> int:
+            await asyncio.sleep(0.1)
+            raise RuntimeError("b failed")
+
+        @step("test_async_executor_failure::c", version="1")
+        async def _() -> int:
+            await asyncio.sleep(0.3)
+            return 3
+
+        @step("test_async_executor_failure::d", version="1")
+        async def _(a: int, b: int, c: int) -> int:
+            return a + b + c
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "a": {"type": "test_async_executor_failure::a"},
+                    "b": {"type": "test_async_executor_failure::b"},
+                    "c": {"type": "test_async_executor_failure::c"},
+                    "d": {
+                        "type": "test_async_executor_failure::d",
+                        "a": {"type": "ref", "ref": "a"},
+                        "b": {"type": "ref", "ref": "b"},
+                        "c": {"type": "ref", "ref": "c"},
+                    },
+                }
+            }
+        )
+
+        callback = StatusCallback()
+        executor = AsyncWorkflowExecutor()
+        with pytest.raises(Exception):
+            executor(graph, cache=MemoryWorkflowCache(), callback=callback)
+
+        end_statuses = {name: status for name, event, status in callback.events if event == "end"}
+        assert "b" in end_statuses and end_statuses["b"] == WorkflowStepStatus.FAILURE
+        assert "a" in end_statuses, "independent step 'a' should receive on_step_end"
+        assert "c" in end_statuses, "independent step 'c' should receive on_step_end"
+        assert end_statuses["a"] == WorkflowStepStatus.COMPLETED
+        assert end_statuses["c"] == WorkflowStepStatus.COMPLETED
+        assert "d" not in end_statuses, "dependent step 'd' should not start and therefore not receive on_step_end"

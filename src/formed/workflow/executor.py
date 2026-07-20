@@ -405,7 +405,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
         semaphore = asyncio.Semaphore(self._max_concurrency) if self._max_concurrency is not None else None
         temporary_cache: dict[str, Any] = {}
-        running_tasks: dict[str, asyncio.Task[Any]] = {}
+        running_tasks: dict[str, asyncio.Future[Any]] = {}
 
         def _restore_stream(result: Any) -> Any:
             if isinstance(result, BufferedAsyncIteratorState):
@@ -426,7 +426,15 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
             if fp in running_tasks:
                 return await running_tasks[fp]
 
-            async def _execute_step() -> Any:
+            # Placeholder so concurrent callers for the same fingerprint wait for
+            # a single execution instead of duplicating work.
+            loop = asyncio.get_running_loop()
+            placeholder: asyncio.Future[Any] = loop.create_future()
+            running_tasks[fp] = placeholder
+
+            async def _execute_step(
+                dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
+            ) -> Any:
                 assert callback is not None
 
                 step_state = WorkflowStepState(
@@ -438,12 +446,6 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
                 try:
                     callback.on_step_start(step_context, execution_context)
-                    dependency_items = list(step_info.dependencies)
-                    dependency_values = await asyncio.gather(*(_run_step(dep) for _, dep in dependency_items))
-                    dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = cast(
-                        Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
-                        {path: value for (path, _), value in zip(dependency_items, dependency_values)},
-                    )
 
                     if not isinstance(step_info.step, Lazy):
                         raise TypeError(
@@ -475,6 +477,10 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                     elif not step_info.name.endswith("!"):
                         if not isinstance(result, Iterator):
                             temporary_cache[fp] = result
+                except asyncio.CancelledError:
+                    step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
+                    step_context = dataclasses.replace(step_context, state=step_state)
+                    raise
                 except KeyboardInterrupt:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.CANCELED)
                     step_context = dataclasses.replace(step_context, state=step_state)
@@ -493,14 +499,46 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
 
                 return result
 
-            task = asyncio.create_task(_execute_step())
-            running_tasks[fp] = task
             try:
+                # Resolve dependencies before creating the actual execution task.
+                dependency_items = list(step_info.dependencies)
+                dependency_values = await asyncio.gather(*(_run_step(dep) for _, dep in dependency_items))
+                dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = cast(
+                    Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
+                    {path: value for (path, _), value in zip(dependency_items, dependency_values)},
+                )
+
+                task = asyncio.create_task(_execute_step(dependencies))
+                running_tasks[fp] = task
+
+                def _propagate_result(t: asyncio.Task[Any]) -> None:
+                    if t.cancelled():
+                        placeholder.cancel()
+                    elif (exc := t.exception()) is not None:
+                        placeholder.set_exception(exc)
+                    else:
+                        placeholder.set_result(t.result())
+
+                    # Mark the placeholder's result as retrieved so asyncio does not
+                    # emit "Future exception was never retrieved" when callers are
+                    # cancelled before they can read the outcome.
+                    try:
+                        placeholder.exception()
+                    except asyncio.CancelledError:
+                        pass
+
+                task.add_done_callback(_propagate_result)
+
                 return await task
+            except Exception as e:
+                if not placeholder.done():
+                    placeholder.set_exception(e)
+                raise
             finally:
                 current = running_tasks.get(fp)
-                if current is task and task.done():
-                    running_tasks.pop(fp, None)
+                if current is placeholder or current is task:
+                    if current.done():
+                        running_tasks.pop(fp, None)
 
         async def _run_step(step_info: WorkflowStepInfo[WorkflowStep[T]]) -> T:
             result = await _run_step_raw(step_info)
@@ -509,8 +547,20 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
             return cast(T, result)
 
         token = _EXECUTION_CONTEXT.set(execution_context)
+        tasks = [asyncio.create_task(_run_step(step_info)) for step_info in execution_info.graph]
         try:
-            await asyncio.gather(*(_run_step(step_info) for step_info in execution_info.graph))
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            first_exception: Optional[BaseException] = None
+            for result in results:
+                if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                    first_exception = result
+                    break
+
+            if first_exception is not None:
+                execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.FAILURE)
+                execution_context = dataclasses.replace(execution_context, state=execution_state)
+                raise first_exception
         except KeyboardInterrupt:
             execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.CANCELED)
             execution_context = dataclasses.replace(execution_context, state=execution_state)
