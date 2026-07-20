@@ -359,13 +359,23 @@ def use_execution_context() -> Optional[WorkflowExecutionContext]:
     return _EXECUTION_CONTEXT.get()
 
 
-class AsyncWorkflowExecutor:
+@WorkflowExecutor.register("async")
+class AsyncWorkflowExecutor(WorkflowExecutor):
     def __init__(self, *, max_concurrency: int | None = None) -> None:
         if max_concurrency is not None and max_concurrency <= 0:
             raise ValueError("max_concurrency must be a positive integer")
         self._max_concurrency = max_concurrency
 
-    async def __call__(
+    def __call__(
+        self,
+        graph_or_execution: Union[WorkflowGraph, WorkflowExecutionInfo],
+        *,
+        cache: Optional[WorkflowCache] = None,
+        callback: Optional[WorkflowCallback] = None,
+    ) -> WorkflowExecutionContext:
+        return asyncio.run(self._run_workflow(graph_or_execution, cache=cache, callback=callback))
+
+    async def _run_workflow(
         self,
         graph_or_execution: WorkflowGraph | WorkflowExecutionInfo,
         *,
@@ -460,7 +470,7 @@ class AsyncWorkflowExecutor:
 
                     if step_info.should_be_cached:
                         cache[step_info] = result
-                        if isinstance(result, Iterator) or isinstance(result, BufferedAsyncIteratorState):
+                        if isinstance(result, (Iterator, BufferedAsyncIteratorState)):
                             result = _restore_stream(cache[step_info])
                     elif not step_info.name.endswith("!"):
                         if not isinstance(result, Iterator):

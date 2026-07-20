@@ -204,11 +204,11 @@ class TestAsyncWorkflowExecutor:
         parallel_executor = AsyncWorkflowExecutor(max_concurrency=2)
 
         start = time.perf_counter()
-        asyncio.run(sequential_executor(graph, cache=MemoryWorkflowCache()))
+        sequential_executor(graph, cache=MemoryWorkflowCache())
         sequential_elapsed = time.perf_counter() - start
 
         start = time.perf_counter()
-        context = asyncio.run(parallel_executor(graph, cache=MemoryWorkflowCache()))
+        context = parallel_executor(graph, cache=MemoryWorkflowCache())
         parallel_elapsed = time.perf_counter() - start
 
         assert context.cache[context.info.graph["result"]] == 3
@@ -262,5 +262,5 @@ class TestAsyncWorkflowExecutor:
             }
         )
 
-        context = asyncio.run(AsyncWorkflowExecutor(max_concurrency=4)(graph, cache=MemoryWorkflowCache()))
+        context = AsyncWorkflowExecutor(max_concurrency=4)(graph, cache=MemoryWorkflowCache())
         assert context.cache[context.info.graph["result"]] == (10, 5)
