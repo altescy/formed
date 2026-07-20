@@ -519,14 +519,6 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                     else:
                         placeholder.set_result(t.result())
 
-                    # Mark the placeholder's result as retrieved so asyncio does not
-                    # emit "Future exception was never retrieved" when callers are
-                    # cancelled before they can read the outcome.
-                    try:
-                        placeholder.exception()
-                    except asyncio.CancelledError:
-                        pass
-
                 task.add_done_callback(_propagate_result)
 
                 return await task
