@@ -62,6 +62,7 @@ from .step import (
     WorkflowStepInfo,
     WorkflowStepState,
     WorkflowStepStatus,
+    _set_step_context,
 )
 from .utils import (
     BufferedAsyncIteratorState,
@@ -311,8 +312,12 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                         )
 
                     step = step_info.step.construct(dependencies)
-                    result = cast(T, _resolve_awaitable(step(step_context), step_info.name))
-                    result = cast(T, _materialize_async_iterator_sync(result, step_info.name))
+                    # ``WorkflowStep.__call__`` can only set the context while a
+                    # coroutine object is being created. Keep it active while
+                    # the coroutine (and any async iterator it returns) runs.
+                    with _set_step_context(step_context):
+                        result = cast(T, _resolve_awaitable(step(step_context), step_info.name))
+                        result = cast(T, _materialize_async_iterator_sync(result, step_info.name))
 
                     if step_info.should_be_cached:
                         cache[step_info] = result
@@ -492,14 +497,15 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                         # the real streaming work count against `max_concurrency`
                         # and produces a replayable snapshot that every consumer
                         # can iterate independently.
-                        output = step(step_context)
-                        if inspect.isawaitable(output):
-                            output = await cast(Any, output)
-                        if isinstance(output, AsyncIterator):
-                            return await buffer_async_iterator(output)
-                        if isinstance(output, Iterator):
-                            return BufferedSyncIteratorState(output)
-                        return output
+                        with _set_step_context(step_context):
+                            output = step(step_context)
+                            if inspect.isawaitable(output):
+                                output = await cast(Any, output)
+                            if isinstance(output, AsyncIterator):
+                                return await buffer_async_iterator(output)
+                            if isinstance(output, Iterator):
+                                return BufferedSyncIteratorState(output)
+                            return output
 
                     if semaphore is None:
                         result = await _call_step()

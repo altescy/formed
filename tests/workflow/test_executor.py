@@ -13,6 +13,7 @@ from formed.workflow import (
     WorkflowExecutionInfo,
     WorkflowGraph,
     step,
+    use_step_context,
 )
 
 
@@ -103,6 +104,21 @@ class TestWorkflowExecutionInfo:
 
 
 class TestAsyncSupportInDefaultExecutor:
+    def test_async_step_keeps_step_context_after_await(self) -> None:
+        @step("test_default_async_context::step", version="1")
+        async def _() -> str:
+            await asyncio.sleep(0)
+            context = use_step_context()
+            assert context is not None
+            return context.info.name
+
+        graph = WorkflowGraph.from_config(
+            {"steps": {"result": {"type": "test_default_async_context::step"}}}
+        )
+
+        context = DefaultWorkflowExecutor()(graph, cache=MemoryWorkflowCache())
+        assert context.cache[context.info.graph["result"]] == "result"
+
     def test_runs_mixed_sync_and_async_steps(self) -> None:
         @step("test_default_async::left", version="1")
         async def _() -> int:
@@ -173,6 +189,21 @@ class TestAsyncSupportInDefaultExecutor:
 
 
 class TestAsyncWorkflowExecutor:
+    def test_async_step_keeps_step_context_after_await(self) -> None:
+        @step("test_async_executor_context::step", version="1")
+        async def _() -> str:
+            await asyncio.sleep(0)
+            context = use_step_context()
+            assert context is not None
+            return context.info.name
+
+        graph = WorkflowGraph.from_config(
+            {"steps": {"result": {"type": "test_async_executor_context::step"}}}
+        )
+
+        context = AsyncWorkflowExecutor()(graph, cache=MemoryWorkflowCache())
+        assert context.cache[context.info.graph["result"]] == "result"
+
     def test_runs_independent_async_steps_concurrently(self) -> None:
         @step("test_async_executor::left", version="1")
         async def _() -> int:
