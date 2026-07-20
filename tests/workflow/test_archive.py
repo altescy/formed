@@ -226,6 +226,22 @@ class TestWorkflowStepArchive:
 
         assert step_info.fieldref == "encoder"
 
+    @staticmethod
+    def test_from_archive_preserves_tags():
+        """Test that tags are preserved through archive roundtrip."""
+
+        @step("test_step_archive::tagged_step", tags=["foo", "bar"])
+        def tagged_step(value: int) -> int:
+            return value
+
+        graph = WorkflowGraph.from_config({"steps": {"test": {"type": "test_step_archive::tagged_step", "value": 42}}})
+        archive = graph.to_archive()
+
+        assert archive.steps["test"].tags == ("bar", "foo")
+
+        restored_graph = WorkflowGraph.from_archive(archive)
+        assert restored_graph["test"].tags == ("bar", "foo")
+
 
 class TestWorkflowGraphArchive:
     @staticmethod

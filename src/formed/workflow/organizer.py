@@ -124,6 +124,7 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
         _STATE_FILENAME: ClassVar[str] = "state.json"
         _RESULT_FILENAME: ClassVar[str] = "result"
         _EXECUTION_FILENAME: ClassVar[str] = "execution.json"
+        _TAGS_FILENAME: ClassVar[str] = "tags.json"
 
         def __init__(self, organizer: "FilesystemWorkflowOrganizer") -> None:
             self._organizer = organizer
@@ -184,6 +185,15 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                         ensure_ascii=False,
                     )
 
+                # Save execution tags for easy discovery/filtering
+                with (execution_directory / self._TAGS_FILENAME).open("w") as jsonfile:
+                    json.dump(
+                        list(execution_info.metadata.tags),
+                        jsonfile,
+                        indent=2,
+                        ensure_ascii=False,
+                    )
+
         def on_execution_end(
             self,
             execution_context: "WorkflowExecutionContext",
@@ -238,6 +248,13 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                         step_context.state,
                         jsonfile,
                         cls=WorkflowJSONEncoder,
+                        indent=2,
+                        ensure_ascii=False,
+                    )
+                with open(step_directory / self._TAGS_FILENAME, "w") as jsonfile:
+                    json.dump(
+                        list(step_info.tags),
+                        jsonfile,
                         indent=2,
                         ensure_ascii=False,
                     )

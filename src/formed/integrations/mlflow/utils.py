@@ -275,11 +275,13 @@ def add_mlflow_run(
         run_name = step_or_execution_info.name
         params = get_step_params(step_or_execution_info)
         tags = get_step_tags(step_or_execution_info)
+        custom_tags = get_step_custom_tags(step_or_execution_info)
     elif isinstance(step_or_execution_info, WorkflowExecutionInfo):
         assert step_or_execution_info.id is not None
         run_name = step_or_execution_info.id
         params = get_execution_params(step_or_execution_info)
         tags = get_execution_tags(step_or_execution_info)
+        custom_tags = get_execution_custom_tags(step_or_execution_info)
     else:
         raise ValueError(f"Unsupported type: {type(step_or_execution_info)}")
 
@@ -289,7 +291,7 @@ def add_mlflow_run(
     run = client.create_run(
         experiment_id=experiment.experiment_id,
         run_name=run_name,
-        tags=context_registry.resolve_tags({tag.value: value for tag, value in tags.items()}),
+        tags=context_registry.resolve_tags({tag.value: value for tag, value in tags.items()} | custom_tags),
     )
     for key, value in params.items():
         client.log_param(run.info.run_id, key, value)
@@ -457,6 +459,14 @@ def get_execution_tags(execution_info: WorkflowExecutionInfo) -> dict[MlflowTag,
         MlflowTag.MLFLOW_RUN_NAME: execution_info.id,
         MlflowTag.MLFACTORY_RUN_TYPE: WorkflowRunType.EXECUTION.value,
     }
+
+
+def get_step_custom_tags(step_info: WorkflowStepInfo) -> dict[str, str]:
+    return {tag: "" for tag in step_info.tags}
+
+
+def get_execution_custom_tags(execution_info: WorkflowExecutionInfo) -> dict[str, str]:
+    return {tag: "" for tag in execution_info.metadata.tags}
 
 
 def get_mlflow_tags_from_run(run: MlflowRun) -> dict[MlflowTag, str]:

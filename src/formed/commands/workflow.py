@@ -1,10 +1,16 @@
 import argparse
 import pathlib
 import sys
+from collections.abc import Sequence
 from logging import getLogger
 
 from formed.settings import load_formed_settings
-from formed.workflow import WorkflowExecutionID, WorkflowExecutionInfo, WorkflowGraph
+from formed.workflow import (
+    WorkflowExecutionID,
+    WorkflowExecutionInfo,
+    WorkflowExecutionMetadata,
+    WorkflowGraph,
+)
 
 from .subcommand import Subcommand
 
@@ -48,6 +54,13 @@ class WorkflowRunCommand(Subcommand):
             default=None,
             help="overrides jsonnet file path",
         )
+        self.parser.add_argument(
+            "--tags",
+            type=str,
+            nargs="+",
+            default=None,
+            help="execution tags",
+        )
 
     def run(self, args: argparse.Namespace) -> None:
         formed_settings = load_formed_settings(args.settings)
@@ -59,7 +72,12 @@ class WorkflowRunCommand(Subcommand):
         if args.step is not None:
             graph = graph.get_subgraph(args.step)
 
-        execution = WorkflowExecutionInfo(graph, id=args.execution_id)
+        tags: Sequence[str] = tuple({*settings.tags, *(args.tags or [])})
+        execution = WorkflowExecutionInfo(
+            graph,
+            id=args.execution_id,
+            metadata=WorkflowExecutionMetadata(tags=tags),
+        )
 
         organizer = settings.organizer
         executor = settings.executor
