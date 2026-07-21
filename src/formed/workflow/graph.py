@@ -27,9 +27,10 @@ Examples:
 
 """
 
+import copy
 import sys
 from collections.abc import Iterator, Mapping
-from typing import Any, Optional, TextIO, TypedDict
+from typing import Any, Optional, TextIO, TypedDict, cast
 
 from colt import ConfigurationError, Lazy
 
@@ -163,7 +164,17 @@ class WorkflowGraph(FromJsonnet):
                 if not isinstance(sub_step_info.step, Lazy):
                     raise TypeError(f"Cannot create subgraph: nested dependency '{sub_step_info.name}' is archived.")
                 subgraph_steps[sub_step_info.name] = sub_step_info.step
-        return WorkflowGraph(subgraph_steps)
+        subgraph = WorkflowGraph(subgraph_steps)
+        if hasattr(self, "__json_config__"):
+            config = copy.deepcopy(self.__json_config__)
+            config_dict = cast(dict[str, JsonValue], config) if isinstance(config, dict) else None
+            if config_dict is not None:
+                steps_config = config_dict.get("steps")
+                if isinstance(steps_config, dict):
+                    filtered_config: dict[str, JsonValue] = {**config_dict}
+                    filtered_config["steps"] = {name: steps_config[name] for name in subgraph_steps}
+                    subgraph.__json_config__ = filtered_config
+        return subgraph
 
     def visualize(
         self,
