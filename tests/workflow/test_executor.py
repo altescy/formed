@@ -187,6 +187,40 @@ class TestAsyncSupportInDefaultExecutor:
 
 
 class TestAsyncWorkflowExecutor:
+    def test_cancellation_finishes_execution_as_canceled(self) -> None:
+        from formed.workflow.callback import WorkflowCallback
+        from formed.workflow.executor import WorkflowExecutionContext, WorkflowExecutionStatus
+
+        started = asyncio.Event()
+
+        @step("test_async_executor_cancellation::step", version="1")
+        async def _() -> None:
+            started.set()
+            await asyncio.Event().wait()
+
+        class RecordingCallback(WorkflowCallback):
+            ended_context: WorkflowExecutionContext | None = None
+
+            def on_execution_end(self, execution_context: WorkflowExecutionContext) -> None:
+                self.ended_context = execution_context
+
+        graph = WorkflowGraph.from_config({"steps": {"running": {"type": "test_async_executor_cancellation::step"}}})
+        callback = RecordingCallback()
+        executor = AsyncWorkflowExecutor()
+
+        async def cancel_execution() -> None:
+            task = asyncio.create_task(executor._run_workflow(graph, callback=callback))
+            await started.wait()
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        asyncio.run(cancel_execution())
+
+        assert callback.ended_context is not None
+        assert callback.ended_context.state.status is WorkflowExecutionStatus.CANCELED
+        assert callback.ended_context.state.finished_at is not None
+
     def test_async_step_keeps_step_context_after_await(self) -> None:
         @step("test_async_executor_context::step", version="1")
         async def _() -> str:

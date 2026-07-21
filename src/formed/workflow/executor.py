@@ -374,6 +374,7 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             execution_context = dataclasses.replace(execution_context, state=execution_state)
         finally:
             execution_state = dataclasses.replace(execution_state, finished_at=datetime.datetime.now())
+            execution_context = dataclasses.replace(execution_context, state=execution_state)
             callback.on_execution_end(execution_context)
 
         return dataclasses.replace(execution_context, state=execution_state)
@@ -579,7 +580,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                 execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.FAILURE)
                 execution_context = dataclasses.replace(execution_context, state=execution_state)
                 raise first_exception
-        except KeyboardInterrupt:
+        except (asyncio.CancelledError, KeyboardInterrupt):
             execution_state = dataclasses.replace(execution_state, status=WorkflowExecutionStatus.CANCELED)
             execution_context = dataclasses.replace(execution_context, state=execution_state)
             raise
@@ -592,6 +593,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
             execution_context = dataclasses.replace(execution_context, state=execution_state)
         finally:
             execution_state = dataclasses.replace(execution_state, finished_at=datetime.datetime.now())
+            execution_context = dataclasses.replace(execution_context, state=execution_state)
             callback.on_execution_end(execution_context)
             _EXECUTION_CONTEXT.reset(token)
 
