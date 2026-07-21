@@ -9,6 +9,7 @@ from .constants import (
     WORKFLOW_DEFAULT_SETTINGS_PATH,
 )
 from .executor import (
+    AsyncWorkflowExecutor,
     DefaultWorkflowExecutor,
     WorkflowExecutionContext,
     WorkflowExecutionID,
@@ -56,6 +57,7 @@ __all__ = [
     # executor
     "WorkflowExecutor",
     "DefaultWorkflowExecutor",
+    "AsyncWorkflowExecutor",
     "WorkflowExecutionInfo",
     "WorkflowExecutionID",
     "WorkflowExecutionMetadata",

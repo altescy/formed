@@ -4,6 +4,7 @@ import datetime
 import inspect
 import typing
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager
 from enum import Enum
 from functools import cached_property
 from logging import Logger, getLogger
@@ -43,6 +44,16 @@ StepFunctionT = TypeVar("StepFunctionT", bound=Callable[..., Any])
 WorkflowStepT = TypeVar("WorkflowStepT", bound="WorkflowStep")
 
 _STEP_CONTEXT = contextvars.ContextVar[Optional["WorkflowStepContext"]]("_STEP_CONTEXT", default=None)
+
+
+@contextmanager
+def _set_step_context(context: "WorkflowStepContext"):
+    """Keep a step context active for the complete execution of a step."""
+    token = _STEP_CONTEXT.set(context)
+    try:
+        yield
+    finally:
+        _STEP_CONTEXT.reset(token)
 
 
 class WorkflowStepArgFlag(str, Enum):

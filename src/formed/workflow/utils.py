@@ -5,8 +5,9 @@ import enum
 import importlib
 import json
 from collections import Counter
+from collections.abc import AsyncIterator, Iterable, Iterator, Sequence
 from contextlib import suppress
-from typing import Any, Final, cast
+from typing import Any, Final, Generic, TypeVar, cast
 
 import cloudpickle
 import colt
@@ -20,6 +21,8 @@ from formed.types import IJsonCompatible, IJsonDeserializable, IJsonSerializable
 _PYTHON_DATA_TYPE_KEY: Final = "__python_type__"
 _PYTHON_DATA_VALUE_KEY: Final = "__python_value__"
 _PYTHON_DATA_CONTAINER_KEY: Final = "__python_container__"
+
+_T = TypeVar("_T")
 
 
 def object_fingerprint(obj: Any) -> str:
@@ -180,3 +183,50 @@ class WorkflowJSONDecoder(json.JSONDecoder):
             data_bytes = base64.b85decode(array_info["data"].encode())
             return numpy.frombuffer(data_bytes, dtype=array_info["dtype"]).reshape(array_info["shape"])
         raise ValueError(f"Unknown data type: {data_type}")
+
+
+class BufferedAsyncIterator(Generic[_T]):
+    def __init__(self, items: Sequence[_T]) -> None:
+        self._items = tuple(items)
+        self._index = 0
+
+    def __aiter__(self) -> "BufferedAsyncIterator[_T]":
+        return self
+
+    async def __anext__(self) -> _T:
+        if self._index >= len(self._items):
+            raise StopAsyncIteration
+        value = self._items[self._index]
+        self._index += 1
+        return value
+
+
+class BufferedAsyncIteratorState(Generic[_T]):
+    def __init__(self, items: Sequence[_T]) -> None:
+        self._items = tuple(items)
+
+    def iterator(self) -> BufferedAsyncIterator[_T]:
+        return BufferedAsyncIterator(self._items)
+
+
+async def buffer_async_iterator(iterator: AsyncIterator[_T]) -> BufferedAsyncIteratorState[_T]:
+    items: list[_T] = []
+    async for item in iterator:
+        items.append(item)
+    return BufferedAsyncIteratorState(items)
+
+
+class BufferedSyncIteratorState(Generic[_T]):
+    """Replayable snapshot of a synchronous iterator.
+
+    A synchronous iterator returned by a step is fully consumed once and stored
+    here so that each consumer can obtain an independent iterator via
+    `iterator()`. This is required by concurrent executors where a single step
+    result may be shared by multiple dependents at the same time.
+    """
+
+    def __init__(self, items: Iterable[_T]) -> None:
+        self._items = tuple(items)
+
+    def iterator(self) -> Iterator[_T]:
+        return iter(self._items)
