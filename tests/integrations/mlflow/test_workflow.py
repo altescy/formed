@@ -13,13 +13,12 @@ def test_logs_metrics_from_non_cached_step(tmp_path: Path) -> None:
     previous_tracking_uri = mlflow.get_tracking_uri()
     mlflow.set_tracking_uri(tmp_path.as_uri())
     try:
+
         @step("test_mlflow_workflow::non_cached_metrics", cacheable=False)
         def _() -> Annotated[dict[str, float], WorkflowStepResultFlag.METRICS]:
             return {"loss": 0.5}
 
-        graph = WorkflowGraph.from_json(
-            {"steps": {"metrics": {"type": "test_mlflow_workflow::non_cached_metrics"}}}
-        )
+        graph = WorkflowGraph.from_json({"steps": {"metrics": {"type": "test_mlflow_workflow::non_cached_metrics"}}})
         experiment_name = "non-cached-metrics"
 
         DefaultWorkflowExecutor()(graph, callback=MlflowWorkflowCallback(experiment_name))

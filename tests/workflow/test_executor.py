@@ -30,9 +30,7 @@ class TestWorkflowExecutor:
         def _() -> dict[str, float]:
             return {"loss": 0.5}
 
-        graph = WorkflowGraph.from_config(
-            {"steps": {"metrics": {"type": "test_default_executor::non_cached_result"}}}
-        )
+        graph = WorkflowGraph.from_config({"steps": {"metrics": {"type": "test_default_executor::non_cached_result"}}})
         callback = ResultCallback()
 
         DefaultWorkflowExecutor()(graph, callback=callback)
