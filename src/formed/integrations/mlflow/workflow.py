@@ -511,8 +511,9 @@ class MlflowWorkflowCallback(WorkflowCallback):
                 WorkflowStepResultFlag.METRICS in WorkflowStepResultFlag.get_flags(step_info)
                 and step_context.state.status == WorkflowStepStatus.COMPLETED
             ):
-                metrics = execution_context.cache[step_info]
-                assert isinstance(metrics, dict), f"Expected dict, got {type(metrics)}"
+                metrics = step_context.result
+                if not isinstance(metrics, dict):
+                    raise TypeError(f"Expected dict, got {type(metrics)}")
                 for key, value in metrics.items():
                     self._client.log_metric(run.info.run_id, key, value)
                 if self._log_execution_metrics:
