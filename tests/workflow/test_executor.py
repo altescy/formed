@@ -206,6 +206,32 @@ class TestAsyncSupportInDefaultExecutor:
 
 
 class TestAsyncWorkflowExecutor:
+    def test_async_executor_with_ref_of_dict_having_type_key(self) -> None:
+        @step("test_async_executor::generate_state")
+        async def _() -> dict:
+            return {"learner_profile": {"type": "Learner"}}
+
+        @step("test_async_executor::consume_state")
+        async def _(state: dict) -> str:
+            return state["learner_profile"]["type"]
+
+        graph = WorkflowGraph.from_config(
+            {
+                "steps": {
+                    "state": {"type": "test_async_executor::generate_state"},
+                    "result": {
+                        "type": "test_async_executor::consume_state",
+                        "state": {"type": "ref", "ref": "state"},
+                    },
+                }
+            }
+        )
+
+        cache = MemoryWorkflowCache()
+        context = AsyncWorkflowExecutor()(graph, cache=cache)
+        result = context.cache[context.info.graph["result"]]
+        assert result == "Learner"
+
     def test_callback_receives_forced_non_cached_step_result(self) -> None:
         class ResultCallback(WorkflowCallback):
             result = None

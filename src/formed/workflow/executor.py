@@ -546,7 +546,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                 dependency_values = await asyncio.gather(*(_run_step(dep) for _, dep in dependency_items))
                 dependencies: Mapping[Union[int, str, Sequence[Union[int, str]]], Any] = cast(
                     Mapping[Union[int, str, Sequence[Union[int, str]]], Any],
-                    {path: value for (path, _), value in zip(dependency_items, dependency_values)},
+                    {path: Constructed(value) for (path, _), value in zip(dependency_items, dependency_values)},
                 )
                 return await _execute_step(dependencies)
 
