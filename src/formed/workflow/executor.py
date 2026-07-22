@@ -338,7 +338,7 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
                     raise e
                 else:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.COMPLETED)
-                    step_context = dataclasses.replace(step_context, state=step_state)
+                    step_context = dataclasses.replace(step_context, state=step_state, result=result)
                 finally:
                     step_state = dataclasses.replace(step_state, finished_at=datetime.datetime.now())
                     step_context = dataclasses.replace(step_context, state=step_state)
@@ -532,7 +532,7 @@ class AsyncWorkflowExecutor(WorkflowExecutor):
                     raise e
                 else:
                     step_state = dataclasses.replace(step_state, status=WorkflowStepStatus.COMPLETED)
-                    step_context = dataclasses.replace(step_context, state=step_state)
+                    step_context = dataclasses.replace(step_context, state=step_state, result=result)
                 finally:
                     step_state = dataclasses.replace(step_state, finished_at=datetime.datetime.now())
                     step_context = dataclasses.replace(step_context, state=step_state)

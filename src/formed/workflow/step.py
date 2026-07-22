@@ -95,6 +95,7 @@ class WorkflowStepState:
 class WorkflowStepContext:
     info: "WorkflowStepInfo"
     state: WorkflowStepState
+    result: Any = None
 
 
 class WorkflowStep(Generic[OutputT], Registrable):

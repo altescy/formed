@@ -9,6 +9,7 @@ from formed.workflow import (
     AsyncWorkflowExecutor,
     DefaultWorkflowExecutor,
     MemoryWorkflowCache,
+    WorkflowCallback,
     WorkflowExecutionID,
     WorkflowExecutionInfo,
     WorkflowGraph,
@@ -18,6 +19,24 @@ from formed.workflow import (
 
 
 class TestWorkflowExecutor:
+    def test_callback_receives_non_cached_step_result(self) -> None:
+        class ResultCallback(WorkflowCallback):
+            result = None
+
+            def on_step_end(self, step_context, execution_context):
+                self.result = step_context.result
+
+        @step("test_default_executor::non_cached_result", cacheable=False)
+        def _() -> dict[str, float]:
+            return {"loss": 0.5}
+
+        graph = WorkflowGraph.from_config({"steps": {"metrics": {"type": "test_default_executor::non_cached_result"}}})
+        callback = ResultCallback()
+
+        DefaultWorkflowExecutor()(graph, callback=callback)
+
+        assert callback.result == {"loss": 0.5}
+
     def test_default_executor_with_fieldref(self) -> None:
         @step("test_default_executor::generate_data")
         def _() -> dict:
@@ -187,6 +206,26 @@ class TestAsyncSupportInDefaultExecutor:
 
 
 class TestAsyncWorkflowExecutor:
+    def test_callback_receives_forced_non_cached_step_result(self) -> None:
+        class ResultCallback(WorkflowCallback):
+            result = None
+
+            def on_step_end(self, step_context, execution_context):
+                self.result = step_context.result
+
+        @step("test_async_executor::forced_non_cached_result")
+        async def _() -> dict[str, float]:
+            return {"loss": 0.25}
+
+        graph = WorkflowGraph.from_config(
+            {"steps": {"metrics!": {"type": "test_async_executor::forced_non_cached_result"}}}
+        )
+        callback = ResultCallback()
+
+        AsyncWorkflowExecutor()(graph, callback=callback)
+
+        assert callback.result == {"loss": 0.25}
+
     def test_cancellation_finishes_execution_as_canceled(self) -> None:
         from formed.workflow.callback import WorkflowCallback
         from formed.workflow.executor import WorkflowExecutionContext, WorkflowExecutionStatus
