@@ -3,7 +3,6 @@ import os
 import shutil
 from collections.abc import Sequence
 from contextlib import suppress
-from io import StringIO
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
@@ -15,7 +14,11 @@ from filelock import BaseFileLock, FileLock
 from mlflow.entities import Experiment as MlflowExperiment
 from mlflow.tracking.client import MlflowClient
 
-from formed.common.logutils import LogCapture
+from formed.common.logutils import (
+    LogCapture,
+    _current_log_capture,
+    install_log_capture,
+)
 from formed.types import JsonValue
 from formed.workflow import (
     WorkflowCache,
@@ -31,7 +34,6 @@ from formed.workflow import (
     WorkflowStepInfo,
     WorkflowStepResultFlag,
     WorkflowStepStatus,
-    get_step_logger_from_info,
     use_step_context,
 )
 
@@ -205,8 +207,10 @@ class MlflowWorkflowCallback(WorkflowCallback):
         self._client = mlflow_client or MlflowClient()
         self._experiment_name = experiment_name
         self._execution_run: Optional[MlflowRun] = None
-        self._execution_log: Optional[LogCapture[StringIO]] = None
-        self._step_log: dict[WorkflowStepInfo, LogCapture[StringIO]] = {}
+        self._execution_log: Optional[LogCapture] = None
+        self._execution_log_token: Optional[contextvars.Token] = None
+        self._step_log: dict[WorkflowStepInfo, LogCapture] = {}
+        self._step_log_tokens: dict[WorkflowStepInfo, contextvars.Token] = {}
         self._log_execution_metrics = log_execution_metrics
         self._step_run_ids: dict[str, str] = {}
         self._dependents_map: dict[str, set[str]] = {}
@@ -219,8 +223,9 @@ class MlflowWorkflowCallback(WorkflowCallback):
         execution_info = execution_context.info
         if execution_info.id is None:
             execution_info.id = mlflow_utils.generate_new_execution_id(self._client, self._experiment_name)
-        self._execution_log = LogCapture(StringIO())
-        self._execution_log.start()
+        install_log_capture()
+        self._execution_log = LogCapture()
+        self._execution_log_token = _current_log_capture.set(self._execution_log)
         self._execution_run = mlflow_utils.add_mlflow_run(
             self._client,
             self._experiment_name,
@@ -269,14 +274,16 @@ class MlflowWorkflowCallback(WorkflowCallback):
             self._experiment_name,
             execution_context.state,
         )
+        if self._execution_log_token is not None:
+            _current_log_capture.reset(self._execution_log_token)
+            self._execution_log_token = None
         if self._execution_log is not None:
-            self._execution_log.stop()
             self._client.log_text(
                 run_id=self._execution_run.info.run_id,
-                text=self._execution_log.stream.getvalue(),
+                text=self._execution_log.format_records(),
                 artifact_file=self._LOG_FILENAME,
             )
-            self._execution_log.stream.close()
+            self._execution_log = None
         self._execution_run = None
 
     def on_step_start(
@@ -297,8 +304,10 @@ class MlflowWorkflowCallback(WorkflowCallback):
             dictionary=step_info.json(),
             artifact_file=self._STEP_METADATA_ARTIFACT_FILENAME,
         )
-        self._step_log[step_info] = LogCapture(StringIO(), logger=get_step_logger_from_info(step_info))
-        self._step_log[step_info].start()
+        install_log_capture()
+        parent_capture = _current_log_capture.get()
+        self._step_log[step_info] = LogCapture(parent=parent_capture)
+        self._step_log_tokens[step_info] = _current_log_capture.set(self._step_log[step_info])
 
         # Store step run ID
         self._step_run_ids[step_info.name] = run.info.run_id
@@ -493,6 +502,8 @@ class MlflowWorkflowCallback(WorkflowCallback):
             self._experiment_name,
             step_context.state,
         )
+        if (token := self._step_log_tokens.pop(step_info, None)) is not None:
+            _current_log_capture.reset(token)
         if (step_log := self._step_log.pop(step_info, None)) is not None:
             run = mlflow_utils.fetch_mlflow_run(
                 self._client,
@@ -501,10 +512,9 @@ class MlflowWorkflowCallback(WorkflowCallback):
             )
             if run is None:
                 raise RuntimeError(f"Run for step {step_info} not found")
-            step_log.stop()
             self._client.log_text(
                 run_id=run.info.run_id,
-                text=step_log.stream.getvalue(),
+                text=step_log.format_records(),
                 artifact_file=self._LOG_FILENAME,
             )
             if (
@@ -521,7 +531,6 @@ class MlflowWorkflowCallback(WorkflowCallback):
                     for key, value in metrics.items():
                         key = f"{step_info.name}/{key}"
                         self._client.log_metric(self._execution_run.info.run_id, key, value)
-            step_log.stream.close()
 
 
 @WorkflowOrganizer.register("mlflow")
