@@ -19,7 +19,7 @@ classifiers = [
 requires-python = ">=3.11,<4.0"
 dependencies = [
     "cloudpickle>=3.1.1",
-    "colt>=0.20.0",
+    "colt>=0.21.0",
     "filelock",
     "minato>=0.12",
     "pyyaml",
