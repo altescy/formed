@@ -42,7 +42,7 @@ from collections.abc import Sequence
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
-from typing import ClassVar, Optional, TypeVar, Union
+from typing import ClassVar, Optional, TextIO, TypeVar, Union
 
 from colt import Registrable
 from filelock import FileLock
@@ -135,8 +135,10 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             self._organizer = organizer
             self._execution_log: Optional[LogCapture] = None
             self._execution_log_token: Optional[contextvars.Token] = None
+            self._execution_log_file: Optional[TextIO] = None
             self._step_log: dict[WorkflowStepInfo, LogCapture] = {}
             self._step_log_tokens: dict[WorkflowStepInfo, contextvars.Token] = {}
+            self._step_log_files: dict[WorkflowStepInfo, TextIO] = {}
 
         def _generate_new_execution_id(self) -> WorkflowExecutionID:
             execution_id = uuid.uuid4().hex[:8]
@@ -169,7 +171,9 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             execution_directory.mkdir(parents=True, exist_ok=True)
 
             install_log_capture()
-            self._execution_log = LogCapture()
+            execution_log_file = (execution_directory / self._LOG_FILENAME).open("w")
+            self._execution_log_file = execution_log_file
+            self._execution_log = LogCapture(sink=execution_log_file, retain=False)
             self._execution_log_token = _current_log_capture.set(self._execution_log)
 
             with FileLock(execution_directory / self._LOCK_FILENAME):
@@ -213,12 +217,13 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
                 _current_log_capture.reset(self._execution_log_token)
                 self._execution_log_token = None
 
-            with FileLock(execution_directory / self._LOCK_FILENAME):
-                if self._execution_log is not None:
-                    with (execution_directory / self._LOG_FILENAME).open("w") as logfile:
-                        self._execution_log.write_to(logfile)
-                    self._execution_log = None
+            # The log has been streamed to disk incrementally; just close it.
+            if self._execution_log_file is not None:
+                self._execution_log_file.close()
+                self._execution_log_file = None
+            self._execution_log = None
 
+            with FileLock(execution_directory / self._LOCK_FILENAME):
                 # Use helper method to save execution state
                 with (execution_directory / self._STATE_FILENAME).open("w") as jsonfile:
                     json.dump(
@@ -242,7 +247,13 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
 
             install_log_capture()
             parent_capture = _current_log_capture.get()
-            self._step_log[step_info] = LogCapture(parent=parent_capture)
+            step_log_file = (step_directory / self._LOG_FILENAME).open("w")
+            self._step_log_files[step_info] = step_log_file
+            self._step_log[step_info] = LogCapture(
+                parent=parent_capture,
+                sink=step_log_file,
+                retain=False,
+            )
             self._step_log_tokens[step_info] = _current_log_capture.set(self._step_log[step_info])
 
             with FileLock(step_directory / self._LOCK_FILENAME):
@@ -286,10 +297,12 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             if (token := self._step_log_tokens.pop(step_info, None)) is not None:
                 _current_log_capture.reset(token)
 
+            # The log has been streamed to disk incrementally; just close it.
+            self._step_log.pop(step_info, None)
+            if (step_log_file := self._step_log_files.pop(step_info, None)) is not None:
+                step_log_file.close()
+
             with FileLock(step_directory / self._LOCK_FILENAME):
-                if (step_log := self._step_log.pop(step_info, None)) is not None:
-                    with (step_directory / self._LOG_FILENAME).open("w") as logfile:
-                        step_log.write_to(logfile)
                 with open(step_directory / self._STATE_FILENAME, "w") as jsonfile:
                     json.dump(
                         step_context.state,

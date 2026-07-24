@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Iterator
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -191,3 +192,41 @@ class TestWorkflowLogCapture:
         capture.append(record)
         assert len(capture) == 1
         assert capture.messages == ["INFO    [test] stored"]
+
+    def _make_record(self, msg: str) -> logging.LogRecord:
+        return logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=msg,
+            args=(),
+            exc_info=None,
+        )
+
+    def test_sink_receives_records_incrementally_without_retaining(self) -> None:
+        sink = StringIO()
+        capture = LogCapture(sink=sink, retain=False)
+
+        capture.append(self._make_record("first"))
+        # Written to the sink as soon as it is appended, not only at the end.
+        assert json.loads(sink.getvalue().splitlines()[0])["message"] == "first"
+        # retain=False keeps memory bounded: nothing is accumulated in-memory.
+        assert len(capture) == 0
+        assert capture.records == []
+
+        capture.append(self._make_record("second"))
+        messages = [json.loads(line)["message"] for line in sink.getvalue().splitlines()]
+        assert messages == ["first", "second"]
+
+    def test_child_sink_forwards_to_parent_sink(self) -> None:
+        parent_sink = StringIO()
+        child_sink = StringIO()
+        parent = LogCapture(sink=parent_sink, retain=False)
+        child = LogCapture(parent=parent, sink=child_sink, retain=False)
+
+        child.append(self._make_record("hello"))
+
+        assert json.loads(child_sink.getvalue())["message"] == "hello"
+        # Forwarded to the parent's sink too, so the execution log stays unified.
+        assert json.loads(parent_sink.getvalue())["message"] == "hello"

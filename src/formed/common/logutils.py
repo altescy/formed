@@ -5,21 +5,16 @@ import contextvars
 import json
 import logging
 import threading
-import uuid
-from collections.abc import Callable, Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import ParamSpec, TextIO, TypeVar
-
-T_TextIO = TypeVar("T_TextIO", bound=TextIO)
-P = ParamSpec("P")
-R = TypeVar("R")
+from typing import TextIO
 
 _current_log_capture: contextvars.ContextVar["LogCapture | None"] = contextvars.ContextVar(
     "_formed_current_log_capture",
     default=None,
 )
 
+_install_lock = threading.Lock()
 _log_record_factory_installed: bool = False
 _capture_handler_installed: bool = False
 
@@ -49,13 +44,25 @@ class LogCapture:
     child are also forwarded to its parent, which makes it possible to keep a
     unified execution log while also maintaining per-step logs.
 
+    A capture may also be given a ``sink`` (an open text stream). Records are
+    then written to it as they arrive rather than only when the capture is
+    drained, so logs are persisted incrementally and survive a non-graceful
+    termination. Pair a ``sink`` with ``retain=False`` to stream records to the
+    stream without accumulating them in memory.
+
     This makes it possible to capture **all** logging output produced inside a
     region (e.g. a workflow step) regardless of which logger was used.
+
+    Only records that are actually emitted are captured: the emitting logger
+    must be enabled for the record's level and must propagate to the root
+    logger (``propagate=True``, the default), since the capturing handler is
+    installed on the root logger.
 
     Examples:
         >>> import logging
         >>> from formed.common.logutils import capture_logs
         >>> logger = logging.getLogger("my.module")
+        >>> logger.setLevel(logging.INFO)
         >>> with capture_logs() as capture:
         ...     logger.info("hello")
         >>> len(capture.records)
@@ -63,16 +70,25 @@ class LogCapture:
 
     """
 
-    capture_id: str = field(
-        default_factory=lambda: uuid.uuid4().hex[:8],
+    parent: "LogCapture | None" = field(
+        default=None,
+        repr=False,
     )
+
+    sink: TextIO | None = field(
+        default=None,
+        repr=False,
+    )
+
+    formatter: logging.Formatter | None = field(
+        default=None,
+        repr=False,
+    )
+
+    retain: bool = True
 
     records: list[logging.LogRecord] = field(
         default_factory=list,
-    )
-
-    parent: "LogCapture | None" = field(
-        default=None,
         repr=False,
     )
 
@@ -81,15 +97,34 @@ class LogCapture:
         repr=False,
     )
 
+    _formatter: logging.Formatter = field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
+    def __post_init__(self) -> None:
+        self._formatter = self.formatter or JsonFormatter()
+
     def append(self, record: logging.LogRecord) -> None:
         """Append a record.
+
+        When ``retain`` is set the record is kept in :attr:`records`. When a
+        ``sink`` is configured, the record is also formatted and written to it
+        immediately (and flushed), so that logs are persisted incrementally
+        rather than only when the capture is drained. The record is then
+        forwarded to the ``parent`` capture, if any.
 
         Args:
             record: Log record.
 
         """
         with self._lock:
-            self.records.append(record)
+            if self.retain:
+                self.records.append(record)
+            if self.sink is not None:
+                self.sink.write(self._formatter.format(record) + "\n")
+                self.sink.flush()
             parent = self.parent
         if parent is not None:
             parent.append(record)
@@ -119,12 +154,8 @@ class LogCapture:
 
         """
         with self._lock:
-            fmt = formatter or JsonFormatter()
+            fmt = formatter or self._formatter
             return "".join(fmt.format(r) + "\n" for r in self.records)
-
-    def write_to(self, file: TextIO) -> None:
-        """Write formatted records to ``file``."""
-        file.write(self.format_records())
 
     def __len__(self) -> int:
         with self._lock:
@@ -137,8 +168,12 @@ class CaptureHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Append the record to the active capture, if any."""
         capture: LogCapture | None = getattr(record, "capture", None)
-        if capture is not None:
+        if capture is None:
+            return
+        try:
             capture.append(record)
+        except Exception:  # pragma: no cover - mirror stdlib handlers on I/O errors
+            self.handleError(record)
 
 
 def install_log_record_factory() -> None:
@@ -147,22 +182,24 @@ def install_log_record_factory() -> None:
     if _log_record_factory_installed:
         return
 
-    old_factory = logging.getLogRecordFactory()
+    with _install_lock:
+        if _log_record_factory_installed:
+            return
 
-    def factory(
-        *args: object,
-        **kwargs: object,
-    ) -> logging.LogRecord:
-        record = old_factory(*args, **kwargs)
+        old_factory = logging.getLogRecordFactory()
 
-        capture = _current_log_capture.get()
-        record.capture = capture
-        record.capture_id = "-" if capture is None else capture.capture_id
+        def factory(
+            *args: object,
+            **kwargs: object,
+        ) -> logging.LogRecord:
+            record = old_factory(*args, **kwargs)
 
-        return record
+            record.capture = _current_log_capture.get()
 
-    logging.setLogRecordFactory(factory)
-    _log_record_factory_installed = True
+            return record
+
+        logging.setLogRecordFactory(factory)
+        _log_record_factory_installed = True
 
 
 def install_capture_handler() -> None:
@@ -171,19 +208,26 @@ def install_capture_handler() -> None:
     if _capture_handler_installed:
         return
 
-    root = logging.getLogger()
-    if not any(isinstance(handler, CaptureHandler) for handler in root.handlers):
-        root.addHandler(CaptureHandler())
+    with _install_lock:
+        if _capture_handler_installed:
+            return
 
-    _capture_handler_installed = True
+        root = logging.getLogger()
+        if not any(isinstance(handler, CaptureHandler) for handler in root.handlers):
+            root.addHandler(CaptureHandler())
+
+        _capture_handler_installed = True
 
 
 def install_log_capture() -> None:
     """Install the log capture machinery.
 
     This installs a process-wide :class:`logging.LogRecord` factory and a
-    :class:`CaptureHandler` on the root logger. It is safe to call multiple
-    times; the installation is performed only once.
+    :class:`CaptureHandler` on the root logger. Both are global side effects
+    that affect all logging in the host process and are never uninstalled. The
+    factory wraps (and preserves) whatever factory is currently installed. It
+    is safe to call multiple times and from multiple threads; the installation
+    is performed only once.
     """
     install_log_record_factory()
     install_capture_handler()
@@ -216,28 +260,3 @@ def capture_logs(capture: LogCapture | None = None) -> Iterator[LogCapture]:
 def get_current_log_capture() -> LogCapture | None:
     """Return the active :class:`LogCapture` for the current context, if any."""
     return _current_log_capture.get()
-
-
-def submit_with_context(
-    executor: ThreadPoolExecutor,
-    fn: Callable[P, R],
-    *args: P.args,
-    **kwargs: P.kwargs,
-) -> Future[R]:
-    """Submit a function to ``executor`` while preserving context variables.
-
-    Use this helper when a step spawns worker threads and you want logs emitted
-    in those threads to be captured by the same :class:`LogCapture`.
-
-    Args:
-        executor: Thread pool to submit to.
-        fn: Function to run.
-        *args: Positional arguments for ``fn``.
-        **kwargs: Keyword arguments for ``fn``.
-
-    Returns:
-        A :class:`concurrent.futures.Future` representing the result.
-
-    """
-    ctx = contextvars.copy_context()
-    return executor.submit(ctx.run, fn, *args, **kwargs)
