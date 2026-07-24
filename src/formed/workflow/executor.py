@@ -246,7 +246,11 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
-                return asyncio.run(cast(Any, result))
+                # Propagate context variables (e.g. the active log capture) into
+                # the short-lived event loop used for this async step.
+                ctx = contextvars.copy_context()
+                with asyncio.Runner() as runner:
+                    return runner.run(cast(Any, result), context=ctx)
             raise RuntimeError(
                 f"Step '{step_name}' returned an awaitable while an event loop is already running. "
                 "Use AsyncWorkflowExecutor in async contexts."
@@ -258,7 +262,9 @@ class DefaultWorkflowExecutor(WorkflowExecutor):
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
-                return asyncio.run(buffer_async_iterator(result))
+                ctx = contextvars.copy_context()
+                with asyncio.Runner() as runner:
+                    return runner.run(buffer_async_iterator(result), context=ctx)
             raise RuntimeError(
                 f"Step '{step_name}' returned an async iterator while an event loop is already running. "
                 "Use AsyncWorkflowExecutor in async contexts."

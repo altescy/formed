@@ -34,6 +34,7 @@ Examples:
 
 """
 
+import contextvars
 import json
 import shutil
 import uuid
@@ -41,12 +42,16 @@ from collections.abc import Sequence
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
-from typing import ClassVar, Optional, TypeVar, Union
+from typing import ClassVar, Optional, TextIO, TypeVar, Union
 
 from colt import Registrable
 from filelock import FileLock
 
-from formed.common.logutils import LogCapture
+from formed.common.logutils import (
+    LogCapture,
+    _current_log_capture,
+    install_log_capture,
+)
 
 from .cache import FilesystemWorkflowCache, MemoryWorkflowCache, WorkflowCache
 from .callback import MultiWorkflowCallback, WorkflowCallback
@@ -59,7 +64,7 @@ from .executor import (
     WorkflowExecutor,
 )
 from .graph import WorkflowGraph
-from .step import WorkflowStepContext, WorkflowStepInfo, get_step_logger_from_info
+from .step import WorkflowStepContext, WorkflowStepInfo
 from .utils import WorkflowJSONDecoder, WorkflowJSONEncoder
 
 logger = getLogger(__name__)
@@ -129,7 +134,11 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
         def __init__(self, organizer: "FilesystemWorkflowOrganizer") -> None:
             self._organizer = organizer
             self._execution_log: Optional[LogCapture] = None
+            self._execution_log_token: Optional[contextvars.Token] = None
+            self._execution_log_file: Optional[TextIO] = None
             self._step_log: dict[WorkflowStepInfo, LogCapture] = {}
+            self._step_log_tokens: dict[WorkflowStepInfo, contextvars.Token] = {}
+            self._step_log_files: dict[WorkflowStepInfo, TextIO] = {}
 
         def _generate_new_execution_id(self) -> WorkflowExecutionID:
             execution_id = uuid.uuid4().hex[:8]
@@ -161,10 +170,13 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             execution_directory = self._get_execution_directory(execution_info)
             execution_directory.mkdir(parents=True, exist_ok=True)
 
-            with FileLock(execution_directory / self._LOCK_FILENAME):
-                self._execution_log = LogCapture((execution_directory / self._LOG_FILENAME).open("w"))
-                self._execution_log.start()
+            install_log_capture()
+            execution_log_file = (execution_directory / self._LOG_FILENAME).open("w")
+            self._execution_log_file = execution_log_file
+            self._execution_log = LogCapture(sink=execution_log_file, retain=False)
+            self._execution_log_token = _current_log_capture.set(self._execution_log)
 
+            with FileLock(execution_directory / self._LOCK_FILENAME):
                 # Use helper method to save execution info
                 with (execution_directory / self._EXECUTION_FILENAME).open("w") as jsonfile:
                     json.dump(
@@ -201,12 +213,17 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             execution_info = execution_context.info
             execution_directory = self._get_execution_directory(execution_info)
 
-            with FileLock(execution_directory / self._LOCK_FILENAME):
-                if self._execution_log is not None:
-                    self._execution_log.stop()
-                    self._execution_log.stream.close()
-                    self._execution_log = None
+            if self._execution_log_token is not None:
+                _current_log_capture.reset(self._execution_log_token)
+                self._execution_log_token = None
 
+            # The log has been streamed to disk incrementally; just close it.
+            if self._execution_log_file is not None:
+                self._execution_log_file.close()
+                self._execution_log_file = None
+            self._execution_log = None
+
+            with FileLock(execution_directory / self._LOCK_FILENAME):
                 # Use helper method to save execution state
                 with (execution_directory / self._STATE_FILENAME).open("w") as jsonfile:
                     json.dump(
@@ -228,13 +245,18 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             step_directory = self._get_step_directory(execution_info, step_info)
             step_directory.mkdir(parents=True, exist_ok=True)
 
-            with FileLock(step_directory / self._LOCK_FILENAME):
-                self._step_log[step_info] = LogCapture(
-                    (step_directory / self._LOG_FILENAME).open("w"),
-                    logger=get_step_logger_from_info(step_info),
-                )
-                self._step_log[step_info].start()
+            install_log_capture()
+            parent_capture = _current_log_capture.get()
+            step_log_file = (step_directory / self._LOG_FILENAME).open("w")
+            self._step_log_files[step_info] = step_log_file
+            self._step_log[step_info] = LogCapture(
+                parent=parent_capture,
+                sink=step_log_file,
+                retain=False,
+            )
+            self._step_log_tokens[step_info] = _current_log_capture.set(self._step_log[step_info])
 
+            with FileLock(step_directory / self._LOCK_FILENAME):
                 with open(step_directory / self._STEP_FILENAME, "w") as jsonfile:
                     json.dump(
                         step_info,
@@ -271,10 +293,16 @@ class FilesystemWorkflowOrganizer(WorkflowOrganizer):
             step_directory = self._get_step_directory(execution_info, step_info)
             cache_directory = self._organizer.cache_directory / step_info.fingerprint
             result_path = step_directory / self._RESULT_FILENAME
+
+            if (token := self._step_log_tokens.pop(step_info, None)) is not None:
+                _current_log_capture.reset(token)
+
+            # The log has been streamed to disk incrementally; just close it.
+            self._step_log.pop(step_info, None)
+            if (step_log_file := self._step_log_files.pop(step_info, None)) is not None:
+                step_log_file.close()
+
             with FileLock(step_directory / self._LOCK_FILENAME):
-                if (step_log := self._step_log.pop(step_info, None)) is not None:
-                    step_log.stop()
-                    step_log.stream.close()
                 with open(step_directory / self._STATE_FILENAME, "w") as jsonfile:
                     json.dump(
                         step_context.state,
