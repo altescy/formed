@@ -145,26 +145,29 @@ class DAG(Generic[NodeT]):
             2
 
         """
-        groups: list[set[NodeT]] = []
+        parent: dict[NodeT, NodeT] = {node: node for node in self._dependencies}
+
+        def find(node: NodeT) -> NodeT:
+            while parent[node] != node:
+                parent[node] = parent[parent[node]]
+                node = parent[node]
+            return node
+
+        def union(x: NodeT, y: NodeT) -> None:
+            root_x, root_y = find(x), find(y)
+            if root_x != root_y:
+                parent[root_x] = root_y
 
         for node, deps in self._dependencies.items():
-            current_group = {node} | deps
-            for group in groups:
-                if group & current_group:
-                    group.update(current_group)
-                    break
-            else:
-                groups.append(current_group)
+            for dep in deps:
+                union(node, dep)
 
-        for i, group in enumerate(groups):
-            for other_group in groups[i + 1 :]:
-                if group & other_group:
-                    group.update(other_group)
-                    other_group.clear()
+        groups: dict[NodeT, set[NodeT]] = {}
+        for node in self._dependencies:
+            root = find(node)
+            groups.setdefault(root, set()).add(node)
 
-        groups = [group for group in groups if group]
-
-        return {DAG({node: self._dependencies[node] for node in group}) for group in groups}
+        return {self.subgraph(group) for group in groups.values()}
 
     def visualize(
         self,
