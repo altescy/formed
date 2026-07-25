@@ -16,10 +16,14 @@ local inferenceDataloader = {
   sampler: { type: 'basic', batch_size: 64, shuffle: false },
   collator: ref('datamodule.batch'),
 };
-local greedySampler = {
-  type: 'greedy',
+local sequenceSampler = {
+  type: 'beam_search',
   adapter: { type: 'default' },
   max_steps: 64,
+  beam_size: 4,
+  num_return_sequences: 1,
+  hypothesis_scorer: { type: 'length_penalty', alpha: 0.6 },
+  termination_policy: { type: 'score_bound' },
   stopping_criteria: [
     {
       type: 'end_of_sequence',
@@ -151,7 +155,7 @@ local greedySampler = {
       datamodule: ref('datamodule'),
       dataset: ref('prediction_dataset'),
       dataloader: inferenceDataloader,
-      sampler: greedySampler,
+      sampler: sequenceSampler,
     },
     test_predictions: {
       type: 'seq2seq::predict',
@@ -159,7 +163,7 @@ local greedySampler = {
       datamodule: ref('datamodule'),
       dataset: ref('test_dataset'),
       dataloader: inferenceDataloader,
-      sampler: greedySampler,
+      sampler: sequenceSampler,
       print_results: false,
     },
     generation_metrics: {

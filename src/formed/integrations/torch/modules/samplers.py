@@ -12,6 +12,8 @@ Key Components:
     - `BernoulliMultilabelSampler`: Samples labels from independent Bernoulli distributions
     - `BaseSequenceSampler`: Abstract base class for autoregressive sequence samplers
     - `GreedySequenceSampler`: Generates sequences using greedy selection
+    - `BeamSearchSequenceSampler`: Generates ranked n-best sequences with beam search
+    - `BaseSequenceHypothesisScorer`: Ranks partial and completed hypotheses
 
 
 Examples:
@@ -42,6 +44,7 @@ import torch.nn.functional as F
 from colt import Registrable
 
 from ..model import BaseTorchModel
+from .states import ReorderableState
 
 _ParamsT = TypeVar("_ParamsT", bound=Optional[object])
 _ModelInputT = TypeVar("_ModelInputT")
@@ -403,14 +406,21 @@ class SequenceSamplingContext:
 
 @dataclass
 class SequenceCandidateRuleUpdate(Generic[_StateT]):
-    """State transition and optional completion signal from a candidate rule."""
+    """State transition and optional completion signal from a candidate rule.
+
+    Stateful rules used with beam search must return a ``ReorderableState``.
+    """
 
     state: _StateT | None = None
     finished: torch.Tensor | None = None
 
 
 class BaseSequenceCandidateRule(nn.Module, Registrable, Generic[_StateT], abc.ABC):
-    """Modify candidate scores before selection and optionally maintain state."""
+    """Modify candidate scores before selection and optionally maintain state.
+
+    A non-``None`` rule state must implement :class:`ReorderableState` when the
+    rule is used by a sampler that branches or reorders hypotheses.
+    """
 
     @abc.abstractmethod
     def forward(
@@ -441,6 +451,116 @@ class BaseSequenceScoreModifier(BaseSequenceCandidateRule[_StateT], abc.ABC):
     """Soft candidate rule that adjusts candidate scores."""
 
 
+@dataclass(frozen=True)
+class SequenceHypothesisScoringContext:
+    """Inputs used to rank hypotheses and estimate their optimistic bounds."""
+
+    sequence_scores: torch.Tensor
+    lengths: torch.Tensor
+    finished: torch.Tensor
+    max_steps: int
+
+
+class BaseSequenceHypothesisScorer(nn.Module, Registrable, abc.ABC):
+    """Compute scores used to rank complete or partial hypotheses."""
+
+    @abc.abstractmethod
+    def forward(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        """Return ranking scores with the same shape as ``sequence_scores``."""
+        raise NotImplementedError
+
+    def upper_bound(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        """Return a conservative optimistic bound when no tighter bound is known."""
+        return torch.full_like(context.sequence_scores, torch.inf)
+
+
+@BaseSequenceHypothesisScorer.register("cumulative_log_probability")
+class CumulativeLogProbabilityScorer(BaseSequenceHypothesisScorer):
+    """Rank hypotheses by their unmodified cumulative log probability."""
+
+    def forward(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        return context.sequence_scores
+
+    def upper_bound(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        return context.sequence_scores
+
+
+@BaseSequenceHypothesisScorer.register("length_penalty")
+class LengthPenaltySequenceHypothesisScorer(BaseSequenceHypothesisScorer):
+    """Normalize cumulative log probability with the GNMT length penalty."""
+
+    def __init__(self, alpha: float = 1.0) -> None:
+        super().__init__()
+        if alpha < 0:
+            raise ValueError("alpha must be non-negative")
+        self.alpha = alpha
+
+    def _penalty(self, lengths: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+        return ((lengths.to(dtype).clamp_min(1) + 5.0) / 6.0).pow(self.alpha)
+
+    def forward(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        return context.sequence_scores / self._penalty(context.lengths, context.sequence_scores.dtype)
+
+    def upper_bound(self, context: SequenceHypothesisScoringContext) -> torch.Tensor:
+        optimistic_lengths = torch.where(
+            context.finished,
+            context.lengths,
+            torch.full_like(context.lengths, context.max_steps),
+        )
+        return context.sequence_scores / self._penalty(optimistic_lengths, context.sequence_scores.dtype)
+
+
+@dataclass(frozen=True)
+class BeamSearchTerminationContext:
+    """Per-input beam state used to decide whether search may terminate."""
+
+    sequence_scores: torch.Tensor
+    ranking_scores: torch.Tensor
+    upper_bound_scores: torch.Tensor
+    lengths: torch.Tensor
+    finished: torch.Tensor
+    step: int
+    max_steps: int
+    num_return_sequences: int
+
+
+class BaseBeamSearchTerminationPolicy(nn.Module, Registrable, abc.ABC):
+    """Decide whether beam search is complete for each input in a batch."""
+
+    @abc.abstractmethod
+    def forward(self, context: BeamSearchTerminationContext) -> torch.Tensor:
+        """Return a boolean tensor of shape ``(batch_size,)``."""
+        raise NotImplementedError
+
+
+@BaseBeamSearchTerminationPolicy.register("all_finished")
+class AllBeamsFinishedTerminationPolicy(BaseBeamSearchTerminationPolicy):
+    """Terminate only after every beam has finished."""
+
+    def forward(self, context: BeamSearchTerminationContext) -> torch.Tensor:
+        return context.finished.all(dim=-1)
+
+
+@BaseBeamSearchTerminationPolicy.register("enough_finished")
+class EnoughFinishedHypothesesTerminationPolicy(BaseBeamSearchTerminationPolicy):
+    """Terminate once enough hypotheses have finished, without a score guarantee."""
+
+    def forward(self, context: BeamSearchTerminationContext) -> torch.Tensor:
+        return context.finished.sum(dim=-1) >= context.num_return_sequences
+
+
+@BaseBeamSearchTerminationPolicy.register("score_bound")
+class ScoreBoundTerminationPolicy(BaseBeamSearchTerminationPolicy):
+    """Terminate when unfinished hypotheses cannot enter the requested n-best."""
+
+    def forward(self, context: BeamSearchTerminationContext) -> torch.Tensor:
+        enough_finished = context.finished.sum(dim=-1) >= context.num_return_sequences
+        finished_scores = context.ranking_scores.masked_fill(~context.finished, -torch.inf)
+        threshold = finished_scores.topk(context.num_return_sequences, dim=-1).values[:, -1]
+        unfinished_upper_bound = context.upper_bound_scores.masked_fill(context.finished, -torch.inf).max(dim=-1).values
+        return enough_finished & (threshold >= unfinished_upper_bound)
+
+
 class SequenceTerminationReason(enum.IntEnum):
     """Reason why generation ended for an individual sequence."""
 
@@ -450,6 +570,7 @@ class SequenceTerminationReason(enum.IntEnum):
     END_OF_SEQUENCE = 3
     CONSTRAINT_SATISFIED = 4
     CONSTRAINT_DEAD_END = 5
+    SEARCH_PRUNED = 6
 
 
 class BaseSequenceStoppingCriterion(nn.Module, Registrable, abc.ABC):
@@ -483,6 +604,13 @@ class SequenceSamplerParams(TypedDict, total=False):
     max_steps: int
 
 
+class BeamSearchSequenceSamplerParams(SequenceSamplerParams, total=False):
+    """Optional runtime overrides for beam search."""
+
+    beam_size: int
+    num_return_sequences: int
+
+
 @dataclass(frozen=True)
 class SampledSequenceBatch:
     """A batch of sampled token IDs structurally compatible with sequence indexers."""
@@ -502,6 +630,7 @@ class SequenceSamplerOutput:
     lengths: torch.Tensor
     mask: torch.Tensor
     sequence_scores: torch.Tensor | None = None
+    ranking_scores: torch.Tensor | None = None
     termination_reasons: torch.Tensor | None = None
 
     def get_sequence_batch(self, rank: int = 0) -> SampledSequenceBatch:
@@ -549,6 +678,15 @@ class BaseSequenceSampler(
     ) -> SequenceSamplerOutput:
         """Generate sequences from a model in batch-first form."""
         raise NotImplementedError
+
+
+def _reorder_sequence_state(state: _StateT | None, indices: torch.Tensor, name: str) -> _StateT | None:
+    """Reorder a decoder or rule state while preserving its concrete type."""
+    if state is None:
+        return None
+    if not isinstance(state, ReorderableState):
+        raise TypeError(f"{name} must implement ReorderableState for beam search")
+    return cast(_StateT, state.reorder(indices))
 
 
 @BaseSequenceSampler.register("greedy")
@@ -749,5 +887,333 @@ class GreedySequenceSampler(
             lengths=lengths.unsqueeze(1),
             mask=mask.unsqueeze(1),
             sequence_scores=sequence_scores.unsqueeze(1),
+            ranking_scores=sequence_scores.unsqueeze(1),
             termination_reasons=termination_reasons.unsqueeze(1),
+        )
+
+
+@BaseSequenceSampler.register("beam_search")
+class BeamSearchSequenceSampler(
+    BaseSequenceSampler[
+        _ModelInputT,
+        _ModelOutputT,
+        _ModelParamsT,
+        _StateT,
+        BeamSearchSequenceSamplerParams,
+    ],
+):
+    """Generate ranked hypotheses with batched beam search.
+
+    Hypotheses are ranked by cumulative log probability. Finished hypotheses
+    remain in the beam without being expanded further.
+    """
+
+    def __init__(
+        self,
+        adapter: BaseSequenceSamplingAdapter[_ModelInputT, _ModelOutputT, _ModelParamsT, _StateT],
+        max_steps: int,
+        beam_size: int,
+        num_return_sequences: int = 1,
+        hypothesis_scorer: BaseSequenceHypothesisScorer | None = None,
+        termination_policy: BaseBeamSearchTerminationPolicy | None = None,
+        candidate_rules: Sequence[BaseSequenceCandidateRule[Any]] = (),
+        stopping_criteria: Sequence[BaseSequenceStoppingCriterion] = (),
+    ) -> None:
+        super().__init__(adapter, candidate_rules, stopping_criteria)
+        self._validate_parameters(max_steps, beam_size, num_return_sequences)
+        self.max_steps = max_steps
+        self.beam_size = beam_size
+        self.num_return_sequences = num_return_sequences
+        self.hypothesis_scorer = hypothesis_scorer or CumulativeLogProbabilityScorer()
+        self.termination_policy = termination_policy or AllBeamsFinishedTerminationPolicy()
+
+    @staticmethod
+    def _validate_parameters(max_steps: int, beam_size: int, num_return_sequences: int) -> None:
+        if max_steps <= 0:
+            raise ValueError("max_steps must be greater than zero")
+        if beam_size <= 0:
+            raise ValueError("beam_size must be greater than zero")
+        if num_return_sequences <= 0:
+            raise ValueError("num_return_sequences must be greater than zero")
+        if num_return_sequences > beam_size:
+            raise ValueError("num_return_sequences must not exceed beam_size")
+
+    def forward(
+        self,
+        model: BaseTorchModel[_ModelInputT, _ModelOutputT, _ModelParamsT],
+        inputs: _ModelInputT,
+        initial_state: _StateT | None = None,
+        params: BeamSearchSequenceSamplerParams | None = None,
+    ) -> SequenceSamplerOutput:
+        """Generate an n-best list for every input in the batch."""
+        params = params or {}
+        max_steps = params.get("max_steps", self.max_steps)
+        beam_size = params.get("beam_size", self.beam_size)
+        num_return_sequences = params.get("num_return_sequences", self.num_return_sequences)
+        self._validate_parameters(max_steps, beam_size, num_return_sequences)
+
+        sequences: torch.Tensor | None = None
+        lengths: torch.Tensor | None = None
+        sequence_scores: torch.Tensor | None = None
+        finished: torch.Tensor | None = None
+        termination_reasons: torch.Tensor | None = None
+        batch_indices: torch.Tensor | None = None
+        rule_states: list[Any | None] = [None] * len(self.candidate_rules)
+        state = initial_state
+        batch_size: int | None = None
+        current_beam_size = 1
+
+        for step in range(max_steps):
+            step_output = self.adapter.step(
+                model,
+                SequenceSamplingStepInput(
+                    inputs=inputs,
+                    sequences=sequences,
+                    state=state,
+                    batch_indices=batch_indices,
+                    step=step,
+                ),
+            )
+            scores = step_output.logits
+            if scores.ndim != 2:
+                raise ValueError(
+                    "Sequence sampling scores must have shape "
+                    f"(effective_batch_size, num_candidates), got {tuple(scores.shape)}"
+                )
+            if scores.size(-1) == 0:
+                raise ValueError("Sequence sampling requires at least one candidate")
+
+            if sequences is None:
+                batch_size = scores.size(0)
+                sequences = torch.empty((batch_size, 0), dtype=torch.long, device=scores.device)
+                batch_indices = torch.arange(batch_size, device=scores.device)
+                lengths = torch.zeros(batch_size, dtype=torch.long, device=scores.device)
+                sequence_scores = torch.zeros(batch_size, dtype=scores.dtype, device=scores.device)
+                finished = torch.zeros(batch_size, dtype=torch.bool, device=scores.device)
+                termination_reasons = torch.full(
+                    (batch_size,),
+                    SequenceTerminationReason.UNFINISHED,
+                    dtype=torch.long,
+                    device=scores.device,
+                )
+            elif scores.size(0) != sequences.size(0):
+                raise ValueError("The effective batch size returned by the adapter changed during sampling")
+
+            assert batch_size is not None
+            assert batch_indices is not None
+            assert lengths is not None
+            assert sequence_scores is not None
+            assert finished is not None
+            assert termination_reasons is not None
+
+            context = SequenceSamplingContext(
+                sequences=sequences,
+                lengths=lengths,
+                finished=finished,
+                batch_indices=batch_indices,
+                step=step,
+            )
+            candidate_scores = scores
+            for rule, rule_state in zip(self.candidate_rules, rule_states):
+                candidate_scores = rule(candidate_scores, context, rule_state)
+                if candidate_scores.shape != scores.shape:
+                    raise ValueError("Candidate rules must preserve the shape of candidate scores")
+
+            active = ~finished
+            has_candidate = torch.isfinite(candidate_scores).any(dim=-1)
+            dead_end = active & ~has_candidate
+            carried = finished | dead_end
+            safe_scores = candidate_scores.clone()
+            safe_scores[carried] = 0
+            candidate_log_probs = torch.log_softmax(safe_scores, dim=-1)
+            if carried.any():
+                candidate_log_probs[carried] = -torch.inf
+                candidate_log_probs[carried, 0] = 0
+
+            num_candidates = scores.size(-1)
+            total_scores = sequence_scores.unsqueeze(-1) + candidate_log_probs
+            candidate_lengths = lengths.unsqueeze(-1) + (~carried).long().unsqueeze(-1)
+            candidate_lengths = candidate_lengths.expand_as(total_scores)
+            candidate_finished = carried.unsqueeze(-1).expand_as(total_scores)
+            scoring_context = SequenceHypothesisScoringContext(
+                sequence_scores=total_scores,
+                lengths=candidate_lengths,
+                finished=candidate_finished,
+                max_steps=max_steps,
+            )
+            ranking_scores = self.hypothesis_scorer(scoring_context)
+            if ranking_scores.shape != total_scores.shape:
+                raise ValueError("Hypothesis scorers must preserve the shape of sequence scores")
+            flat_ranking_scores = ranking_scores.view(batch_size, current_beam_size * num_candidates)
+            flat_total_scores = total_scores.view(batch_size, current_beam_size * num_candidates)
+            if flat_ranking_scores.size(-1) < beam_size:
+                raise ValueError("beam_size must not exceed the number of candidates available at the first step")
+            _, flat_candidate_indices = flat_ranking_scores.topk(beam_size, dim=-1)
+            next_scores = flat_total_scores.gather(-1, flat_candidate_indices)
+            parent_beams = torch.div(flat_candidate_indices, num_candidates, rounding_mode="floor")
+            samples = flat_candidate_indices.remainder(num_candidates)
+            batch_offsets = torch.arange(batch_size, device=scores.device).unsqueeze(1) * current_beam_size
+            parent_indices = (parent_beams + batch_offsets).reshape(-1)
+            samples = samples.reshape(-1)
+
+            parent_finished = finished.index_select(0, parent_indices)
+            parent_dead_end = dead_end.index_select(0, parent_indices)
+            viable = torch.isfinite(next_scores).reshape(-1)
+            parent_dead_end = parent_dead_end | (~viable & ~parent_finished)
+            selected = ~parent_finished & ~parent_dead_end
+            sequences = sequences.index_select(0, parent_indices)
+            sequences = torch.cat((sequences, samples.unsqueeze(-1)), dim=-1)
+            lengths = lengths.index_select(0, parent_indices) + selected.long()
+            finished = parent_finished | parent_dead_end
+            termination_reasons = termination_reasons.index_select(0, parent_indices)
+            termination_reasons = torch.where(
+                parent_dead_end,
+                torch.full_like(termination_reasons, SequenceTerminationReason.CONSTRAINT_DEAD_END),
+                termination_reasons,
+            )
+            sequence_scores = next_scores.reshape(-1)
+            batch_indices = batch_indices.index_select(0, parent_indices)
+            state = _reorder_sequence_state(step_output.state, parent_indices, "Decoder state")
+            rule_states = [
+                _reorder_sequence_state(rule_state, parent_indices, "Candidate rule state")
+                for rule_state in rule_states
+            ]
+            current_beam_size = beam_size
+
+            context = SequenceSamplingContext(
+                sequences=sequences,
+                lengths=lengths,
+                finished=finished,
+                batch_indices=batch_indices,
+                step=step,
+            )
+            constraint_finished = torch.zeros_like(finished)
+            for index, (rule, rule_state) in enumerate(zip(self.candidate_rules, rule_states)):
+                update = rule.update(samples, context, rule_state)
+                rule_states[index] = update.state
+                if update.finished is not None:
+                    if update.finished.shape != finished.shape:
+                        raise ValueError("Candidate rule completion masks must match the effective batch shape")
+                    constraint_finished |= update.finished & ~finished
+
+            termination_reasons = torch.where(
+                constraint_finished,
+                torch.full_like(termination_reasons, SequenceTerminationReason.CONSTRAINT_SATISFIED),
+                termination_reasons,
+            )
+            finished = finished | constraint_finished
+            context = SequenceSamplingContext(
+                sequences=sequences,
+                lengths=lengths,
+                finished=finished,
+                batch_indices=batch_indices,
+                step=step,
+            )
+            current_finished = finished
+            for criterion in self.stopping_criteria:
+                criterion_mask = criterion(context)
+                if criterion_mask.shape != current_finished.shape:
+                    raise ValueError("Stopping criteria must return the effective batch shape")
+                criterion_finished = criterion_mask & ~current_finished
+                termination_reasons = torch.where(
+                    criterion_finished,
+                    torch.full_like(termination_reasons, criterion.reason),
+                    termination_reasons,
+                )
+                current_finished = current_finished | criterion_finished
+                context = SequenceSamplingContext(
+                    sequences=sequences,
+                    lengths=lengths,
+                    finished=current_finished,
+                    batch_indices=batch_indices,
+                    step=step,
+                )
+            finished = current_finished
+            assert finished is not None
+            beam_sequence_scores = sequence_scores.view(batch_size, beam_size)
+            beam_lengths = lengths.view(batch_size, beam_size)
+            beam_finished = finished.view(batch_size, beam_size)
+            scoring_context = SequenceHypothesisScoringContext(
+                sequence_scores=beam_sequence_scores,
+                lengths=beam_lengths,
+                finished=beam_finished,
+                max_steps=max_steps,
+            )
+            beam_ranking_scores = self.hypothesis_scorer(scoring_context)
+            upper_bound_scores = self.hypothesis_scorer.upper_bound(scoring_context)
+            if beam_ranking_scores.shape != beam_sequence_scores.shape:
+                raise ValueError("Hypothesis scorers must preserve the shape of sequence scores")
+            if upper_bound_scores.shape != beam_sequence_scores.shape:
+                raise ValueError("Hypothesis scorer upper bounds must preserve the shape of sequence scores")
+            search_terminated = self.termination_policy(
+                BeamSearchTerminationContext(
+                    sequence_scores=beam_sequence_scores,
+                    ranking_scores=beam_ranking_scores,
+                    upper_bound_scores=upper_bound_scores,
+                    lengths=beam_lengths,
+                    finished=beam_finished,
+                    step=step,
+                    max_steps=max_steps,
+                    num_return_sequences=num_return_sequences,
+                )
+            )
+            if search_terminated.shape != (batch_size,):
+                raise ValueError("Beam search termination policies must return the input batch shape")
+            pruned = search_terminated.unsqueeze(1).expand_as(beam_finished) & ~beam_finished
+            if pruned.any():
+                finished = (beam_finished | pruned).reshape(-1)
+                termination_reasons = torch.where(
+                    pruned.reshape(-1),
+                    torch.full_like(termination_reasons, SequenceTerminationReason.SEARCH_PRUNED),
+                    termination_reasons,
+                )
+                sequence_scores = beam_sequence_scores.masked_fill(pruned, -torch.inf).reshape(-1)
+            if search_terminated.all():
+                break
+
+        assert batch_size is not None
+        assert sequences is not None
+        assert lengths is not None
+        assert sequence_scores is not None
+        assert finished is not None
+        assert termination_reasons is not None
+        termination_reasons = torch.where(
+            ~finished,
+            torch.full_like(termination_reasons, SequenceTerminationReason.MAX_STEPS),
+            termination_reasons,
+        )
+        generated_length = int(lengths.max().item()) if lengths.numel() else 0
+        sequences = sequences[:, :generated_length]
+        mask = torch.arange(generated_length, device=sequences.device).unsqueeze(0) < lengths.unsqueeze(1)
+        final_ranking_scores = self.hypothesis_scorer(
+            SequenceHypothesisScoringContext(
+                sequence_scores=sequence_scores,
+                lengths=lengths,
+                finished=finished,
+                max_steps=max_steps,
+            )
+        )
+        if final_ranking_scores.shape != sequence_scores.shape:
+            raise ValueError("Hypothesis scorers must preserve the shape of sequence scores")
+        final_ranking_scores = final_ranking_scores.view(batch_size, beam_size)
+        rank_order = final_ranking_scores.argsort(dim=-1, descending=True)
+
+        def reorder_beams(tensor: torch.Tensor) -> torch.Tensor:
+            view = tensor.view(batch_size, beam_size, *tensor.shape[1:])
+            index = rank_order.view(batch_size, beam_size, *([1] * (view.ndim - 2))).expand_as(view)
+            return view.gather(1, index)
+
+        sequences = reorder_beams(sequences)
+        lengths = reorder_beams(lengths)
+        mask = reorder_beams(mask)
+        sequence_scores = reorder_beams(sequence_scores)
+        termination_reasons = reorder_beams(termination_reasons)
+        final_ranking_scores = final_ranking_scores.gather(1, rank_order)
+        return SequenceSamplerOutput(
+            sequences=sequences[:, :num_return_sequences],
+            lengths=lengths[:, :num_return_sequences],
+            mask=mask[:, :num_return_sequences],
+            sequence_scores=sequence_scores[:, :num_return_sequences],
+            ranking_scores=final_ranking_scores[:, :num_return_sequences],
+            termination_reasons=termination_reasons[:, :num_return_sequences],
         )

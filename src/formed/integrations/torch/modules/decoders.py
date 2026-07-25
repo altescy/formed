@@ -1,26 +1,15 @@
 import abc
 from dataclasses import dataclass
-from typing import Generic, Protocol, Self, TypeAlias, TypeVar, runtime_checkable
+from typing import Generic, Self, TypeAlias, TypeVar
 
 import torch
 import torch.nn as nn
 from colt import Registrable
 
+from .states import ReorderableState
+
 _StateT = TypeVar("_StateT")
 _ParamsT = TypeVar("_ParamsT")
-
-
-@runtime_checkable
-class ReorderableState(Protocol):
-    """Complete state required to continue decoding.
-
-    State may include mutable runtime data, such as recurrent states or
-    attention caches, and immutable conditioning data, such as encoder memory.
-    """
-
-    def reorder(self, indices: torch.Tensor) -> Self:
-        """Select, reorder, or duplicate states using flattened batch indices."""
-        ...
 
 
 ReorderableDecoderState: TypeAlias = ReorderableState

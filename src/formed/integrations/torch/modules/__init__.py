@@ -12,7 +12,6 @@ from .decoders import (
     LSTMSequenceDecoder,
     LSTMSequenceDecoderStateInitializer,
     ReorderableDecoderState,
-    ReorderableState,
 )
 from .embedders import AnalyzedTextEmbedder, BaseEmbedder, EmbedderOutput, TokenEmbedder
 from .encoders import (
@@ -38,22 +37,33 @@ from .losses import (
 )
 from .masks import BaseAttentionMask, CausalMask, CombinedMask, SlidingWindowAttentionMask
 from .samplers import (
+    AllBeamsFinishedTerminationPolicy,
     ArgmaxLabelSampler,
+    BaseBeamSearchTerminationPolicy,
     BaseLabelSampler,
     BaseMultilabelSampler,
     BaseSequenceCandidateRule,
     BaseSequenceConstraint,
+    BaseSequenceHypothesisScorer,
     BaseSequenceSampler,
     BaseSequenceSamplingAdapter,
     BaseSequenceScoreModifier,
     BaseSequenceStoppingCriterion,
+    BeamSearchSequenceSampler,
+    BeamSearchSequenceSamplerParams,
+    BeamSearchTerminationContext,
     BernoulliMultilabelSampler,
+    CumulativeLogProbabilityScorer,
     DefaultSequenceSamplingAdapter,
     EndOfSequenceStoppingCriterion,
+    EnoughFinishedHypothesesTerminationPolicy,
     GreedySequenceSampler,
+    LengthPenaltySequenceHypothesisScorer,
     MultinomialLabelSampler,
     SampledSequenceBatch,
+    ScoreBoundTerminationPolicy,
     SequenceCandidateRuleUpdate,
+    SequenceHypothesisScoringContext,
     SequenceSamplerOutput,
     SequenceSamplerParams,
     SequenceSamplingContext,
@@ -65,6 +75,7 @@ from .samplers import (
     ThresholdMultilabelSampler,
     TopKMultilabelSampler,
 )
+from .states import ReorderableState
 from .vectorizers import BagOfEmbeddingsSequenceVectorizer, BaseSequenceVectorizer
 from .weighters import BalancedByDistributionLabelWeighter, BaseLabelWeighter, StaticLabelWeighter
 
@@ -111,19 +122,29 @@ __all__ = [
     "ArgmaxLabelSampler",
     "BaseLabelSampler",
     "BaseMultilabelSampler",
+    "BaseBeamSearchTerminationPolicy",
     "BaseSequenceCandidateRule",
     "BaseSequenceConstraint",
+    "BaseSequenceHypothesisScorer",
     "BaseSequenceSampler",
     "BaseSequenceSamplingAdapter",
     "BaseSequenceScoreModifier",
     "BaseSequenceStoppingCriterion",
+    "AllBeamsFinishedTerminationPolicy",
+    "BeamSearchSequenceSampler",
+    "BeamSearchSequenceSamplerParams",
+    "BeamSearchTerminationContext",
+    "CumulativeLogProbabilityScorer",
     "BernoulliMultilabelSampler",
     "DefaultSequenceSamplingAdapter",
     "EndOfSequenceStoppingCriterion",
+    "EnoughFinishedHypothesesTerminationPolicy",
     "GreedySequenceSampler",
+    "LengthPenaltySequenceHypothesisScorer",
     "MultinomialLabelSampler",
     "SampledSequenceBatch",
     "SequenceCandidateRuleUpdate",
+    "SequenceHypothesisScoringContext",
     "SequenceSamplerOutput",
     "SequenceSamplerParams",
     "SequenceSamplingContext",
@@ -132,6 +153,7 @@ __all__ = [
     "SequenceSamplingStepInput",
     "SequenceSamplingStepOutput",
     "SequenceTerminationReason",
+    "ScoreBoundTerminationPolicy",
     "ThresholdMultilabelSampler",
     "TopKMultilabelSampler",
     # vectorizers

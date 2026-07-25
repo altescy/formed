@@ -167,7 +167,36 @@ The `formed.integrations.torch.modules` package provides building blocks for com
 3. **Vectorizers** - Aggregate sequences to fixed-size vectors (e.g., `BagOfEmbeddingsSequenceVectorizer`)
 4. **FeedForward** - Additional transformation layers with configurable depth and activations
 5. **Losses** - Task-specific loss functions (e.g., `CrossEntropyLoss`, `BCEWithLogitsLoss`)
-6. **Samplers** - Convert logits to labels (e.g., `ArgmaxLabelSampler`, `MultinomialLabelSampler`)
+6. **Samplers** - Convert logits to labels or generate autoregressive sequences
+
+### Autoregressive sequence generation
+
+Sequence samplers call a model through an injected sampling adapter. The model
+owns its decoder, while the sampler owns the search strategy. Any decoder or
+candidate-rule state used by beam search implements `ReorderableState`, allowing
+the sampler to duplicate and reorder hypotheses without knowing the state
+representation.
+
+```jsonnet
+{
+  type: 'beam_search',
+  adapter: { type: 'default' },
+  max_steps: 64,
+  beam_size: 4,
+  num_return_sequences: 1,
+  hypothesis_scorer: { type: 'length_penalty', alpha: 0.6 },
+  termination_policy: { type: 'score_bound' },
+  stopping_criteria: [
+    { type: 'end_of_sequence', end_index: 2 },
+  ],
+}
+```
+
+`stopping_criteria` finish individual hypotheses, such as when an EOS token is
+selected. A beam-search `termination_policy` decides when an input's entire
+search can stop. `score_bound` is safe when the injected hypothesis scorer
+provides a tight `upper_bound`; custom scorers inherit a conservative infinite
+bound and therefore remain correct without enabling early termination.
 
 Additional modules include positional encoders, attention masks, and label weighters. See the API reference for complete details.
 

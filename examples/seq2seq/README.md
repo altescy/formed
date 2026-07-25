@@ -16,8 +16,11 @@ teacher-forced metrics to MLflow after each epoch. The evaluator receives its
 task metrics through configuration, following the same DI pattern as the text
 classification example. A `torch::evaluate` step records those metrics on the
 test set, while a separate generation-evaluation step records autoregressive
-exact match. Prediction uses an injected DataLoader and greedy sampler, so it
-does not materialize the entire dataset as one batch.
+exact match. Prediction uses an injected DataLoader and beam-search sampler, so
+it does not materialize the entire dataset as one batch. The sampler keeps four
+hypotheses per input, ranks them with an injected length-penalty scorer, and
+returns the highest-scoring sequence. A score-bound termination policy stops
+an input's search once no unfinished hypothesis can enter the requested n-best.
 
 The source and target vocabularies are owned by the DataModule. Their sizes and
 special-token indices are passed to torch components through Jsonnet `ref`
