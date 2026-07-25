@@ -347,7 +347,9 @@ class TestBeamSearchSequenceSampler:
         self,
         hypothesis_scorer: BaseSequenceHypothesisScorer,
     ) -> None:
-        logits = torch.tensor([[[2.0, 1.0, 0.0], [1.5, 0.8, 0.5], [1.0, 0.4, 0.0]]])
+        # Keep frontier scores distinct because torch.topk does not guarantee
+        # a stable ordering for ties across platforms.
+        logits = torch.tensor([[[2.0, 1.0, 0.0], [1.5, 0.8, 0.6], [1.0, 0.4, 0.0]]])
         log_probs = torch.log_softmax(logits[0], dim=-1)
         exhaustive: list[tuple[float, float, tuple[int, ...]]] = []
 
