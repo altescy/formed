@@ -5,6 +5,15 @@ including embedders, encoders, and other building blocks.
 
 """
 
+from .decoders import (
+    BaseSequenceDecoder,
+    BaseSequenceDecoderStateInitializer,
+    LSTMDecoderState,
+    LSTMSequenceDecoder,
+    LSTMSequenceDecoderStateInitializer,
+    ReorderableDecoderState,
+    ReorderableState,
+)
 from .embedders import AnalyzedTextEmbedder, BaseEmbedder, EmbedderOutput, TokenEmbedder
 from .encoders import (
     BasePositionalEncoder,
@@ -32,8 +41,27 @@ from .samplers import (
     ArgmaxLabelSampler,
     BaseLabelSampler,
     BaseMultilabelSampler,
+    BaseSequenceCandidateRule,
+    BaseSequenceConstraint,
+    BaseSequenceSampler,
+    BaseSequenceSamplingAdapter,
+    BaseSequenceScoreModifier,
+    BaseSequenceStoppingCriterion,
     BernoulliMultilabelSampler,
+    DefaultSequenceSamplingAdapter,
+    EndOfSequenceStoppingCriterion,
+    GreedySequenceSampler,
     MultinomialLabelSampler,
+    SampledSequenceBatch,
+    SequenceCandidateRuleUpdate,
+    SequenceSamplerOutput,
+    SequenceSamplerParams,
+    SequenceSamplingContext,
+    SequenceSamplingModelOutput,
+    SequenceSamplingModelParams,
+    SequenceSamplingStepInput,
+    SequenceSamplingStepOutput,
+    SequenceTerminationReason,
     ThresholdMultilabelSampler,
     TopKMultilabelSampler,
 )
@@ -41,6 +69,14 @@ from .vectorizers import BagOfEmbeddingsSequenceVectorizer, BaseSequenceVectoriz
 from .weighters import BalancedByDistributionLabelWeighter, BaseLabelWeighter, StaticLabelWeighter
 
 __all__ = [
+    # decoders
+    "BaseSequenceDecoder",
+    "BaseSequenceDecoderStateInitializer",
+    "LSTMDecoderState",
+    "LSTMSequenceDecoder",
+    "LSTMSequenceDecoderStateInitializer",
+    "ReorderableDecoderState",
+    "ReorderableState",
     # embedders
     "AnalyzedTextEmbedder",
     "BaseEmbedder",
@@ -75,8 +111,27 @@ __all__ = [
     "ArgmaxLabelSampler",
     "BaseLabelSampler",
     "BaseMultilabelSampler",
+    "BaseSequenceCandidateRule",
+    "BaseSequenceConstraint",
+    "BaseSequenceSampler",
+    "BaseSequenceSamplingAdapter",
+    "BaseSequenceScoreModifier",
+    "BaseSequenceStoppingCriterion",
     "BernoulliMultilabelSampler",
+    "DefaultSequenceSamplingAdapter",
+    "EndOfSequenceStoppingCriterion",
+    "GreedySequenceSampler",
     "MultinomialLabelSampler",
+    "SampledSequenceBatch",
+    "SequenceCandidateRuleUpdate",
+    "SequenceSamplerOutput",
+    "SequenceSamplerParams",
+    "SequenceSamplingContext",
+    "SequenceSamplingModelOutput",
+    "SequenceSamplingModelParams",
+    "SequenceSamplingStepInput",
+    "SequenceSamplingStepOutput",
+    "SequenceTerminationReason",
     "ThresholdMultilabelSampler",
     "TopKMultilabelSampler",
     # vectorizers

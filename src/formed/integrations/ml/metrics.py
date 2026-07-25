@@ -207,6 +207,98 @@ class Average(BaseMetric[Sequence[float]]):
         return {self._name: self._total / self._count if self._count > 0 else 0.0}
 
 
+@dataclasses.dataclass(frozen=True)
+class TokenSequenceInput(Generic[LabelT]):
+    """Predicted and target token sequences with a target validity mask."""
+
+    predictions: Sequence[Sequence[LabelT]]
+    targets: Sequence[Sequence[LabelT]]
+    mask: Sequence[Sequence[bool]]
+    loss: float | None = None
+
+
+class TokenSequenceMetric(BaseMetric[TokenSequenceInput[LabelT]], Generic[LabelT], abc.ABC):
+    """Base class for metrics over padded token sequences."""
+
+    Input: type[TokenSequenceInput[LabelT]] = TokenSequenceInput
+
+
+@BaseMetric.register("token_sequence_loss")
+@TokenSequenceMetric.register("loss")
+class TokenSequenceLoss(TokenSequenceMetric[LabelT], Generic[LabelT]):
+    """Average a supplied token-mean loss, weighted by valid token count."""
+
+    def __init__(self, name: str = "loss") -> None:
+        self._name = name
+        self.reset()
+
+    def reset(self) -> None:
+        self._total = 0.0
+        self._token_count = 0
+
+    def update(self, inputs: TokenSequenceInput[LabelT]) -> None:
+        if inputs.loss is None:
+            raise ValueError("TokenSequenceLoss requires TokenSequenceInput.loss")
+        token_count = sum(sum(row) for row in inputs.mask)
+        self._total += inputs.loss * token_count
+        self._token_count += token_count
+
+    def compute(self) -> dict[str, float]:
+        return {self._name: self._total / max(self._token_count, 1)}
+
+
+@BaseMetric.register("token_sequence_accuracy")
+@TokenSequenceMetric.register("accuracy")
+class TokenSequenceAccuracy(TokenSequenceMetric[LabelT], Generic[LabelT]):
+    """Compute accuracy over valid token positions."""
+
+    def __init__(self, name: str = "token_accuracy") -> None:
+        self._name = name
+        self.reset()
+
+    def reset(self) -> None:
+        self._correct = 0
+        self._total = 0
+
+    def update(self, inputs: TokenSequenceInput[LabelT]) -> None:
+        for predictions, targets, mask in zip(inputs.predictions, inputs.targets, inputs.mask):
+            if not (len(predictions) == len(targets) == len(mask)):
+                raise ValueError("Token sequence predictions, targets, and masks must have matching lengths")
+            for prediction, target, valid in zip(predictions, targets, mask):
+                if valid:
+                    self._correct += prediction == target
+                    self._total += 1
+
+    def compute(self) -> dict[str, float]:
+        return {self._name: self._correct / max(self._total, 1)}
+
+
+@BaseMetric.register("token_sequence_exact_match")
+@TokenSequenceMetric.register("exact_match")
+class TokenSequenceExactMatch(TokenSequenceMetric[LabelT], Generic[LabelT]):
+    """Compute exact match after ignoring invalid padded positions."""
+
+    def __init__(self, name: str = "sequence_exact_match") -> None:
+        self._name = name
+        self.reset()
+
+    def reset(self) -> None:
+        self._correct = 0
+        self._total = 0
+
+    def update(self, inputs: TokenSequenceInput[LabelT]) -> None:
+        for predictions, targets, mask in zip(inputs.predictions, inputs.targets, inputs.mask):
+            if not (len(predictions) == len(targets) == len(mask)):
+                raise ValueError("Token sequence predictions, targets, and masks must have matching lengths")
+            self._correct += all(
+                not valid or prediction == target for prediction, target, valid in zip(predictions, targets, mask)
+            )
+            self._total += 1
+
+    def compute(self) -> dict[str, float]:
+        return {self._name: self._correct / max(self._total, 1)}
+
+
 @dataclasses.dataclass
 class ClassificationInput(Generic[_T]):
     """Input data for classification metrics.

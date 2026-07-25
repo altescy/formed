@@ -24,11 +24,12 @@ from os import PathLike
 
 from transformers import PreTrainedTokenizerBase
 
+from formed.integrations.ml import BaseTextAnalyzer
 from formed.integrations.ml.types import AnalyzedText
 
 
 @dataclasses.dataclass
-class PretrainedTransformerAnalyzer:
+class PretrainedTransformerAnalyzer(BaseTextAnalyzer):
     """Text analyzer using pretrained transformer tokenizers.
 
     This analyzer uses tokenizers from the Hugging Face transformers library
@@ -72,10 +73,10 @@ class PretrainedTransformerAnalyzer:
         return self.tokenizer
 
     def __call__(self, text: str | Sequence[str] | AnalyzedText) -> AnalyzedText:
-        if isinstance(text, AnalyzedText):
-            return text
-        if isinstance(text, str):
-            surfaces = self._tokenizer.tokenize(text)
-        elif isinstance(text, Sequence):
-            surfaces = text
-        return AnalyzedText(surfaces=surfaces)
+        return super().__call__(text)
+
+    def tokenize(self, text: str) -> list[str]:
+        return self._tokenizer.tokenize(text)
+
+    def detokenize(self, tokens: Sequence[str]) -> str:
+        return self._tokenizer.convert_tokens_to_string(list(tokens))

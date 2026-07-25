@@ -1,14 +1,283 @@
 """Tests for samplers module."""
 
+from dataclasses import dataclass
+from typing import Self
+
+import pytest
 import torch
 
+from formed.integrations.torch.model import BaseTorchModel
 from formed.integrations.torch.modules.samplers import (
     ArgmaxLabelSampler,
+    BaseSequenceCandidateRule,
+    BaseSequenceConstraint,
+    BaseSequenceSampler,
+    BaseSequenceSamplingAdapter,
     BernoulliMultilabelSampler,
+    DefaultSequenceSamplingAdapter,
+    EndOfSequenceStoppingCriterion,
+    GreedySequenceSampler,
     MultinomialLabelSampler,
+    SequenceCandidateRuleUpdate,
+    SequenceSamplerParams,
+    SequenceSamplingContext,
+    SequenceSamplingModelOutput,
+    SequenceSamplingModelParams,
+    SequenceSamplingStepInput,
+    SequenceSamplingStepOutput,
+    SequenceTerminationReason,
     ThresholdMultilabelSampler,
     TopKMultilabelSampler,
 )
+from formed.workflow.colt import COLT_BUILDER
+
+
+@dataclass
+class ToyDecoderState:
+    values: torch.Tensor
+
+    def reorder(self, indices: torch.Tensor) -> Self:
+        return type(self)(self.values.index_select(0, indices))
+
+
+class ScheduledLogitsModel(BaseTorchModel[torch.Tensor, torch.Tensor, None]):
+    """Return a precomputed schedule of logits for sampler tests."""
+
+    def forward(self, inputs: torch.Tensor, params: None = None) -> torch.Tensor:
+        return inputs
+
+
+class StandardSamplingModel(
+    BaseTorchModel[
+        torch.Tensor,
+        SequenceSamplingModelOutput[None],
+        SequenceSamplingModelParams[None],
+    ]
+):
+    """Model using the standard sampling parameters and output."""
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        params: SequenceSamplingModelParams[None] | None = None,
+    ) -> SequenceSamplingModelOutput[None]:
+        assert params is not None
+        return SequenceSamplingModelOutput(logits=inputs[:, params.step])
+
+
+@BaseSequenceSamplingAdapter.register("scheduled_logits_test")
+class ScheduledLogitsAdapter(BaseSequenceSamplingAdapter[torch.Tensor, torch.Tensor, None, ToyDecoderState]):
+    def step(
+        self,
+        model: BaseTorchModel[torch.Tensor, torch.Tensor, None],
+        request: SequenceSamplingStepInput[torch.Tensor, ToyDecoderState],
+    ) -> SequenceSamplingStepOutput[ToyDecoderState]:
+        logits = model(request.inputs)[:, request.step]
+        if request.step == 0:
+            assert request.batch_indices is None
+        else:
+            assert request.batch_indices is not None
+            assert torch.equal(request.batch_indices, torch.arange(logits.size(0), device=logits.device))
+        state = request.state or ToyDecoderState(torch.arange(logits.size(0), device=logits.device))
+        return SequenceSamplingStepOutput(logits=logits, state=state)
+
+
+@BaseSequenceCandidateRule.register("finish_after_two_test")
+class FinishAfterTwoCandidatesConstraint(BaseSequenceConstraint[torch.Tensor]):
+    def forward(
+        self,
+        scores: torch.Tensor,
+        context: SequenceSamplingContext,
+        state: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        return scores
+
+    def update(
+        self,
+        samples: torch.Tensor,
+        context: SequenceSamplingContext,
+        state: torch.Tensor | None = None,
+    ) -> SequenceCandidateRuleUpdate[torch.Tensor]:
+        del samples
+        if state is None:
+            state = torch.zeros_like(context.lengths)
+        state = state + (~context.finished).long()
+        return SequenceCandidateRuleUpdate(state=state, finished=state >= 2)
+
+
+class RejectFirstBatchConstraint(BaseSequenceConstraint[None]):
+    def forward(
+        self,
+        scores: torch.Tensor,
+        context: SequenceSamplingContext,
+        state: None = None,
+    ) -> torch.Tensor:
+        scores = scores.clone()
+        scores[context.batch_indices == 0] = -torch.inf
+        return scores
+
+
+class TestGreedySequenceSampler:
+    def test_constructs_from_config(self) -> None:
+        sampler = COLT_BUILDER(
+            {
+                "type": "greedy",
+                "adapter": {"type": "scheduled_logits_test"},
+                "max_steps": 4,
+            },
+            BaseSequenceSampler,
+        )
+
+        assert isinstance(sampler, GreedySequenceSampler)
+        assert isinstance(sampler.adapter, ScheduledLogitsAdapter)
+
+    def test_default_adapter_constructs_from_config(self) -> None:
+        sampler = COLT_BUILDER(
+            {
+                "type": "greedy",
+                "adapter": {"type": "default"},
+                "max_steps": 4,
+            },
+            BaseSequenceSampler,
+        )
+
+        assert isinstance(sampler, GreedySequenceSampler)
+        assert isinstance(sampler.adapter, DefaultSequenceSamplingAdapter)
+
+    def test_rules_and_criteria_construct_from_config(self) -> None:
+        sampler = COLT_BUILDER(
+            {
+                "type": "greedy",
+                "adapter": {"type": "scheduled_logits_test"},
+                "candidate_rules": [{"type": "finish_after_two_test"}],
+                "stopping_criteria": [
+                    {
+                        "type": "end_of_sequence",
+                        "end_index": 2,
+                    }
+                ],
+                "max_steps": 4,
+            },
+            BaseSequenceSampler,
+        )
+
+        assert isinstance(sampler.candidate_rules[0], FinishAfterTwoCandidatesConstraint)
+        assert isinstance(sampler.stopping_criteria[0], EndOfSequenceStoppingCriterion)
+
+    def test_batched_sampling_stops_after_every_sequence_reaches_eos(self) -> None:
+        model = ScheduledLogitsModel()
+        sampler = GreedySequenceSampler(
+            adapter=ScheduledLogitsAdapter(),
+            max_steps=4,
+            stopping_criteria=[EndOfSequenceStoppingCriterion(end_index=2)],
+        )
+        logits = torch.tensor(
+            [
+                [[4.0, 1.0, 0.0], [0.0, 1.0, 4.0], [0.0, 4.0, 1.0], [4.0, 0.0, 1.0]],
+                [[0.0, 4.0, 1.0], [4.0, 1.0, 0.0], [0.0, 1.0, 4.0], [4.0, 0.0, 1.0]],
+            ]
+        )
+
+        output = sampler(model, logits)
+
+        assert output.sequences.shape == (2, 1, 3)
+        assert torch.equal(output.sequences[:, 0], torch.tensor([[0, 2, 0], [1, 0, 2]]))
+        assert torch.equal(output.lengths, torch.tensor([[2], [3]]))
+        assert torch.equal(output.mask[:, 0], torch.tensor([[True, True, False], [True, True, True]]))
+        assert torch.equal(
+            output.termination_reasons,
+            torch.tensor([[SequenceTerminationReason.END_OF_SEQUENCE], [SequenceTerminationReason.END_OF_SEQUENCE]]),
+        )
+        assert output.sequence_scores is not None
+        assert output.sequence_scores.shape == (2, 1)
+        assert torch.equal(output.best_sequences.ids, output.sequences[:, 0])
+        assert torch.equal(output.best_sequences.mask, output.mask[:, 0])
+        assert len(output.best_sequences) == 2
+
+    def test_sequence_batch_validates_nbest_rank(self) -> None:
+        model = ScheduledLogitsModel()
+        sampler = GreedySequenceSampler(adapter=ScheduledLogitsAdapter(), max_steps=1)
+        output = sampler(model, torch.tensor([[[3.0, 1.0]]]))
+
+        assert torch.equal(output.get_sequence_batch(0).ids, torch.tensor([[0]]))
+        with pytest.raises(IndexError, match="rank"):
+            output.get_sequence_batch(1)
+
+    def test_runtime_params_partially_override_defaults(self) -> None:
+        model = ScheduledLogitsModel()
+        sampler = GreedySequenceSampler(adapter=ScheduledLogitsAdapter(), max_steps=4)
+        logits = torch.tensor([[[3.0, 1.0], [1.0, 3.0], [3.0, 1.0], [1.0, 3.0]]])
+
+        output = sampler(model, logits, params=SequenceSamplerParams(max_steps=3))
+
+        assert torch.equal(output.sequences, torch.tensor([[[0, 1, 0]]]))
+        assert torch.equal(output.lengths, torch.tensor([[3]]))
+
+    def test_constructor_requires_positive_max_steps(self) -> None:
+        with pytest.raises(ValueError, match="max_steps must be greater than zero"):
+            GreedySequenceSampler(adapter=ScheduledLogitsAdapter(), max_steps=0)
+
+    def test_runtime_max_steps_must_be_positive(self) -> None:
+        sampler = GreedySequenceSampler(adapter=ScheduledLogitsAdapter(), max_steps=4)
+
+        with pytest.raises(ValueError, match="max_steps must be greater than zero"):
+            sampler(
+                ScheduledLogitsModel(),
+                torch.randn(1, 1, 2),
+                params=SequenceSamplerParams(max_steps=0),
+            )
+
+    def test_default_adapter_supports_standard_model_contract(self) -> None:
+        model = StandardSamplingModel()
+        sampler = GreedySequenceSampler(
+            adapter=DefaultSequenceSamplingAdapter(),
+            max_steps=3,
+        )
+        logits = torch.tensor([[[3.0, 1.0], [1.0, 3.0], [3.0, 1.0]]])
+
+        output = sampler(model, logits)
+
+        assert torch.equal(output.sequences, torch.tensor([[[0, 1, 0]]]))
+        assert torch.equal(output.lengths, torch.tensor([[3]]))
+
+    def test_stateful_constraint_can_finish_generation(self) -> None:
+        sampler = GreedySequenceSampler(
+            adapter=ScheduledLogitsAdapter(),
+            max_steps=4,
+            candidate_rules=[FinishAfterTwoCandidatesConstraint()],
+        )
+        logits = torch.tensor([[[3.0, 1.0], [1.0, 3.0], [3.0, 1.0], [1.0, 3.0]]])
+
+        output = sampler(ScheduledLogitsModel(), logits)
+
+        assert torch.equal(output.sequences, torch.tensor([[[0, 1]]]))
+        assert torch.equal(output.lengths, torch.tensor([[2]]))
+        assert torch.equal(
+            output.termination_reasons,
+            torch.tensor([[SequenceTerminationReason.CONSTRAINT_SATISFIED]]),
+        )
+
+    def test_constraint_dead_end_is_distinguished_from_completion(self) -> None:
+        sampler = GreedySequenceSampler(
+            adapter=ScheduledLogitsAdapter(),
+            max_steps=2,
+            candidate_rules=[RejectFirstBatchConstraint()],
+        )
+        logits = torch.tensor(
+            [
+                [[3.0, 1.0], [1.0, 3.0]],
+                [[1.0, 3.0], [3.0, 1.0]],
+            ]
+        )
+
+        output = sampler(ScheduledLogitsModel(), logits)
+
+        assert torch.equal(output.lengths, torch.tensor([[0], [2]]))
+        assert torch.equal(output.mask[:, 0], torch.tensor([[False, False], [True, True]]))
+        assert torch.equal(
+            output.termination_reasons,
+            torch.tensor([[SequenceTerminationReason.CONSTRAINT_DEAD_END], [SequenceTerminationReason.MAX_STEPS]]),
+        )
 
 
 class TestArgmaxLabelSampler:

@@ -1,0 +1,34 @@
+# Sequence-to-sequence workflow example
+
+This example trains a character-level LSTM encoder-decoder to convert
+`camelCase` identifiers into `snake_case`. All datasets are generated locally.
+
+From this directory, run:
+
+```bash
+uv run formed workflow run config.jsonnet --execution-id camel-to-snake
+```
+
+The workflow generates training, validation, and test datasets, trains the
+character vocabularies in a DataModule, and trains the model with `torch::train`.
+An evaluation callback reports validation loss and explicitly named
+teacher-forced metrics to MLflow after each epoch. The evaluator receives its
+task metrics through configuration, following the same DI pattern as the text
+classification example. A `torch::evaluate` step records those metrics on the
+test set, while a separate generation-evaluation step records autoregressive
+exact match. Prediction uses an injected DataLoader and greedy sampler, so it
+does not materialize the entire dataset as one batch.
+
+The source and target vocabularies are owned by the DataModule. Their sizes and
+special-token indices are passed to torch components through Jsonnet `ref`
+values, without introducing a dependency between the ML and torch integrations.
+Both fields use `TextIndexer` with an injected character analyzer, so raw
+examples and reconstructed predictions remain strings; character tokenization
+and detokenization are entirely owned by the DataModule.
+
+The model is only responsible for wiring together injected components. Source
+and target embedders, the sequence encoder, decoder-state initializer, decoder,
+and output projection are all selected in `config.jsonnet`. The initializer
+converts encoded source vectors into the decoder's opaque state; that state may
+also contain conditioning context such as encoder memory in other decoder
+implementations.
