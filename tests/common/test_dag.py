@@ -68,6 +68,45 @@ class TestDagutils:
         assert dag.weekly_connected_components() == expected
 
     @staticmethod
+    def test_weekly_connected_components_no_overlap() -> None:
+        # Regression test: a graph where the old greedy grouping algorithm
+        # produced overlapping components and therefore duplicated nodes.
+        dag = DAG(
+            {
+                "a": set(),
+                "b": set(),
+                "c": set(),
+                "d": {"c"},
+                "e": {"b", "d"},
+                "f": {"a", "c"},
+            }
+        )
+        components = dag.weekly_connected_components()
+        seen: set[str] = set()
+        for component in components:
+            assert not (seen & component.nodes)
+            seen |= component.nodes
+        assert seen == dag.nodes
+        assert len(components) == 1
+
+    @staticmethod
+    def test_visualize_overlapping_components() -> None:
+        # Regression test: visualize should not raise "Node ... already placed".
+        dag = DAG(
+            {
+                "a": set(),
+                "b": set(),
+                "c": set(),
+                "d": {"c"},
+                "e": {"b", "d"},
+                "f": {"a", "c"},
+            }
+        )
+        output = StringIO()
+        dag.visualize(output=output)
+        assert "c" in output.getvalue()
+
+    @staticmethod
     @pytest.mark.parametrize(
         "dag, expected",
         [
