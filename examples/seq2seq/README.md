@@ -1,6 +1,6 @@
 # Sequence-to-sequence workflow example
 
-This example trains a character-level LSTM encoder-decoder to convert
+This example trains a character-level Transformer encoder-decoder to convert
 `camelCase` identifiers into `snake_case`. All datasets are generated locally.
 
 From this directory, run:
@@ -8,6 +8,13 @@ From this directory, run:
 ```bash
 uv run formed workflow run config.jsonnet --execution-id camel-to-snake
 ```
+
+`config.jsonnet` wires a Transformer encoder, the matching Transformer state
+initializer, and a cross-attending Transformer decoder with a reorderable
+key/value cache. Because `Seq2SeqModel` is decoder-agnostic, switching to an
+LSTM stack (or any other) is purely a matter of swapping the `encoder`,
+`decoder_state_initializer`, and `decoder` blocks in the config -- the model,
+steps, and workflow are unchanged.
 
 The workflow generates training, validation, and test datasets, trains the
 character vocabularies in a DataModule, and trains the model with `torch::train`.

@@ -1,7 +1,18 @@
+// Seq2seq example built from a Transformer encoder, the matching state
+// initializer, and a cross-attending Transformer decoder. Because Seq2SeqModel
+// is decoder-agnostic, switching to an LSTM stack is purely a matter of swapping
+// the encoder / decoder_state_initializer / decoder blocks below.
 local ref(name) = { type: 'ref', ref: name };
-local embeddingDim = 48;
-local encoderDim = 128;
-local decoderDim = 128;
+local modelDim = 64;
+local numHeads = 4;
+local numLayers = 2;
+local feedforwardDim = 256;
+local dropout = 0.1;
+local positionalEncoder = {
+  type: 'sinusoidal',
+  input_dim: modelDim,
+  dropout: dropout,
+};
 local evaluator = {
   type: 'seq2seq.evaluators:Seq2SeqEvaluator',
   target_pad_index: ref('datamodule.target.pad_index'),
@@ -78,33 +89,42 @@ local sequenceSampler = {
         source_embedder: {
           type: 'torch.nn:Embedding',
           num_embeddings: ref('datamodule.source.vocab_size'),
-          embedding_dim: embeddingDim,
+          embedding_dim: modelDim,
           padding_idx: ref('datamodule.source.pad_index'),
         },
         target_embedder: {
           type: 'torch.nn:Embedding',
           num_embeddings: ref('datamodule.target.vocab_size'),
-          embedding_dim: embeddingDim,
+          embedding_dim: modelDim,
           padding_idx: ref('datamodule.target.pad_index'),
         },
+        // Bidirectional Transformer encoder (no attention_mask -> full attention).
         encoder: {
-          type: 'lstm',
-          input_dim: embeddingDim,
-          hidden_dim: encoderDim,
+          type: 'transformer',
+          input_dim: modelDim,
+          num_heads: numHeads,
+          num_layers: numLayers,
+          feedforward_dim: feedforwardDim,
+          dropout: dropout,
+          positional_encoder: positionalEncoder,
         },
-        decoder_state_initializer: {
-          type: 'lstm',
-          input_dim: encoderDim,
-          hidden_dim: decoderDim,
-        },
+        // Carries the encoder outputs into the decoder state; holds no parameters.
+        decoder_state_initializer: { type: 'transformer' },
+        // Causal Transformer decoder cross-attending to the encoder memory.
         decoder: {
-          type: 'lstm',
-          input_dim: embeddingDim,
-          hidden_dim: decoderDim,
+          type: 'transformer',
+          input_dim: modelDim,
+          num_heads: numHeads,
+          num_layers: numLayers,
+          feedforward_dim: feedforwardDim,
+          dropout: dropout,
+          cross_attention: true,
+          memory_dim: modelDim,
+          positional_encoder: positionalEncoder,
         },
         output_projection: {
           type: 'torch.nn:Linear',
-          in_features: decoderDim,
+          in_features: modelDim,
           out_features: ref('datamodule.target.vocab_size'),
         },
         target_pad_index: ref('datamodule.target.pad_index'),
@@ -123,7 +143,7 @@ local sequenceSampler = {
         },
         engine: {
           type: 'default',
-          optimizer: { type: 'torch.optim:Adam', lr: 3e-3 },
+          optimizer: { type: 'torch.optim:Adam', lr: 1e-3 },
           max_grad_norm: 1.0,
         },
         max_epochs: 30,

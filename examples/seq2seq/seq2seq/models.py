@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TypeAlias
+from typing import Generic, TypeAlias, TypeVar
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,8 @@ import formed.integrations.torch.modules as ftm
 
 from .datamodules import Seq2SeqDataModule
 
+_StateT = TypeVar("_StateT")
+
 
 @dataclass
 class Seq2SeqTrainingOutput:
@@ -19,19 +21,38 @@ class Seq2SeqTrainingOutput:
     loss: torch.Tensor
 
 
-SamplingParams: TypeAlias = ftm.SequenceSamplingModelParams[ftm.LSTMDecoderState]
-ModelOutput: TypeAlias = Seq2SeqTrainingOutput | ftm.SequenceSamplingModelOutput[ftm.LSTMDecoderState]
+# Decoder-agnostic aliases parameterized by the concrete decoder state type
+# (LSTMDecoderState, TransformerDecoderState, ...), which the config selects.
+ModelOutput: TypeAlias = Seq2SeqTrainingOutput | ftm.SequenceSamplingModelOutput[_StateT]
+SamplingParams: TypeAlias = ftm.SequenceSamplingModelParams[_StateT]
 
 
 @ft.BaseTorchModel.register("seq2seq::model")
-class LSTMSeq2SeqModel(ft.BaseTorchModel[Seq2SeqDataModule[mlt.AsBatch], ModelOutput, SamplingParams]):
+class Seq2SeqModel(
+    ft.BaseTorchModel[
+        Seq2SeqDataModule[mlt.AsBatch],
+        "ModelOutput[_StateT]",
+        "SamplingParams[_StateT]",
+    ],
+    Generic[_StateT],
+):
+    """Encoder-decoder model that is agnostic to the concrete decoder.
+
+    The encoder conditioning flows through the decoder state: a
+    :class:`~formed.integrations.torch.modules.BaseSequenceDecoderStateInitializer`
+    turns the encoder outputs into the decoder's initial state, and the decoder
+    consumes it via ``initial_state``. Swapping ``encoder`` / ``decoder`` /
+    ``decoder_state_initializer`` in the config is enough to switch between, e.g.,
+    an LSTM and a Transformer decoder without touching this model.
+    """
+
     def __init__(
         self,
         source_embedder: nn.Module,
         target_embedder: nn.Module,
         encoder: ftm.BaseSequenceEncoder,
-        decoder_state_initializer: ftm.BaseSequenceDecoderStateInitializer[ftm.LSTMDecoderState],
-        decoder: ftm.BaseSequenceDecoder[ftm.LSTMDecoderState, None],
+        decoder_state_initializer: ftm.BaseSequenceDecoderStateInitializer[_StateT],
+        decoder: ftm.BaseSequenceDecoder[_StateT, None],
         output_projection: nn.Module,
         target_pad_index: int,
         target_bos_index: int,
@@ -46,7 +67,7 @@ class LSTMSeq2SeqModel(ft.BaseTorchModel[Seq2SeqDataModule[mlt.AsBatch], ModelOu
         self._decoder = decoder
         self._output_projection = output_projection
 
-    def _encode(self, inputs: Seq2SeqDataModule[mlt.AsBatch]) -> ftm.LSTMDecoderState:
+    def _encode(self, inputs: Seq2SeqDataModule[mlt.AsBatch]) -> _StateT:
         source_ids = ft.ensure_torch_tensor(inputs.source.ids)
         source_mask = ft.ensure_torch_tensor(inputs.source.mask)
         embeddings = self._source_embedder(source_ids)
@@ -56,8 +77,8 @@ class LSTMSeq2SeqModel(ft.BaseTorchModel[Seq2SeqDataModule[mlt.AsBatch], ModelOu
     def forward(
         self,
         inputs: Seq2SeqDataModule[mlt.AsBatch],
-        params: SamplingParams | None = None,
-    ) -> ModelOutput:
+        params: "SamplingParams[_StateT] | None" = None,
+    ) -> "ModelOutput[_StateT]":
         if params is None:
             target_ids = ft.ensure_torch_tensor(inputs.target.ids)
             target_mask = ft.ensure_torch_tensor(inputs.target.mask)

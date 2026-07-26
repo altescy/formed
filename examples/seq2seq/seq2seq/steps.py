@@ -1,6 +1,6 @@
 import random
 from collections.abc import Sequence
-from typing import Annotated
+from typing import Annotated, Any, TypeVar
 
 import torch
 
@@ -11,8 +11,10 @@ from formed import workflow
 from formed.integrations.torch.types import IStreamingDataLoader
 
 from .datamodules import Seq2SeqDataModule
-from .models import LSTMSeq2SeqModel, ModelOutput, SamplingParams
+from .models import ModelOutput, SamplingParams, Seq2SeqModel
 from .types import Seq2SeqExample
+
+_StateT = TypeVar("_StateT")
 
 WORDS = (
     "add",
@@ -71,12 +73,12 @@ def generate_camel_case_dataset(num_examples: int, random_seed: int) -> list[Seq
 
 @workflow.step("seq2seq::predict", format="json")
 def predict(
-    model: LSTMSeq2SeqModel,
+    model: Seq2SeqModel[_StateT],
     datamodule: Seq2SeqDataModule[mlt.AsConverter],
     dataset: Sequence[Seq2SeqExample],
     dataloader: IStreamingDataLoader[Seq2SeqExample, Seq2SeqDataModule[mlt.AsBatch]],
     sampler: ftm.BaseSequenceSampler[
-        Seq2SeqDataModule[mlt.AsBatch], ModelOutput, SamplingParams, ftm.LSTMDecoderState, object
+        Seq2SeqDataModule[mlt.AsBatch], "ModelOutput[_StateT]", "SamplingParams[_StateT]", _StateT, Any
     ],
     print_results: bool = True,
 ) -> list[dict[str, str]]:

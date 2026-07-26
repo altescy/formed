@@ -12,6 +12,9 @@ from .decoders import (
     LSTMSequenceDecoder,
     LSTMSequenceDecoderStateInitializer,
     ReorderableDecoderState,
+    TransformerDecoderState,
+    TransformerSequenceDecoder,
+    TransformerSequenceDecoderStateInitializer,
 )
 from .embedders import AnalyzedTextEmbedder, BaseEmbedder, EmbedderOutput, TokenEmbedder
 from .encoders import (
@@ -88,6 +91,9 @@ __all__ = [
     "LSTMSequenceDecoderStateInitializer",
     "ReorderableDecoderState",
     "ReorderableState",
+    "TransformerDecoderState",
+    "TransformerSequenceDecoder",
+    "TransformerSequenceDecoderStateInitializer",
     # embedders
     "AnalyzedTextEmbedder",
     "BaseEmbedder",
