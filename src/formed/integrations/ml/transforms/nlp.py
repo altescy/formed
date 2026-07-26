@@ -36,7 +36,7 @@ Examples:
 """
 
 import dataclasses
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from logging import getLogger
 from typing import Any, Generic, Union, cast
@@ -44,9 +44,16 @@ from typing import Any, Generic, Union, cast
 import numpy
 from typing_extensions import TypeVar
 
-from formed.common.nlputils import punkt_tokenize
-
-from ..types import AnalyzedText, AsBatch, AsConverter, AsInstance, DataModuleModeT, IDSequenceBatch  # noqa: F401
+from ..analyzers import BaseTextAnalyzer, PunktTextAnalyzer
+from ..types import (  # noqa: F401
+    AnalyzedText,
+    AsBatch,
+    AsConverter,
+    AsInstance,
+    DataModuleModeT,
+    IDSequenceBatch,
+    IIDSequenceBatch,
+)
 from .base import BaseTransform, DataModule, Extra, Param
 from .basic import TensorSequenceTransform, TensorTransform
 
@@ -284,7 +291,7 @@ class TokenSequenceIndexer(
             mask[i, :length] = 1
         return IDSequenceBatch(ids=ids, mask=mask)
 
-    def reconstruct(self, batch: IDSequenceBatch, /) -> list[Sequence[str]]:
+    def reconstruct(self, batch: IIDSequenceBatch[Any], /) -> Sequence[Sequence[str]]:
         """Reconstruct token sequences from a batch of indices."""
         sequences = []
         for i in range(batch.ids.shape[0]):
@@ -298,6 +305,21 @@ class TokenSequenceIndexer(
             tokens = [token for token in tokens if token != self.pad_token]
             sequences.append(tokens)
         return sequences
+
+
+@BaseTransform.register("text")
+class TextIndexer(TokenSequenceIndexer[_S], Generic[_S]):
+    """Index raw text using an injected analyzer for tokenization and reconstruction."""
+
+    analyzer: BaseTextAnalyzer = dataclasses.field(default_factory=PunktTextAnalyzer)
+
+    def instance(self, text: Sequence[str], /) -> Sequence[str]:
+        if not isinstance(text, str):
+            raise TypeError(f"TextIndexer expects str input, got {type(text).__name__}")
+        return super().instance(self.analyzer.tokenize(text))
+
+    def reconstruct(self, batch: IIDSequenceBatch[Any], /) -> list[str]:
+        return [self.analyzer.detokenize(tokens) for tokens in super().reconstruct(batch)]
 
 
 @BaseTransform.register("token_characters")
@@ -367,7 +389,7 @@ class TokenCharactersIndexer(TokenSequenceIndexer[_S], Generic[_S]):
                 mask[i, j, :length] = 1
         return IDSequenceBatch(ids=ids, mask=mask)
 
-    def reconstruct(self, batch: IDSequenceBatch, /) -> list[Sequence[str]]:
+    def reconstruct(self, batch: IIDSequenceBatch[Any], /) -> Sequence[Sequence[str]]:
         sequences = []
         for i in range(batch.ids.shape[0]):
             token_indices = batch.ids[i]
@@ -413,7 +435,7 @@ class Tokenizer(
         surfaces: Required token sequence indexer for surface forms (words).
         postags: Optional indexer for part-of-speech tags.
         characters: Optional character-level indexer for tokens.
-        analyzer: Optional custom text analyzer/tokenizer function.
+        analyzer: Text analyzer providing analysis, tokenization, and detokenization.
 
     Examples:
         >>> # Basic tokenization
@@ -446,7 +468,7 @@ class Tokenizer(
         >>> print(instance.characters)  # Character indices
 
     Note:
-        - Default analyzer uses punkt tokenization for raw strings
+        - Default analyzer uses punkt tokenization and space-joined detokenization
         - Accepts string, token list, or AnalyzedText as input
         - Extra fields (postags, characters) can be None
         - All indexers share the same training context
@@ -459,15 +481,11 @@ class Tokenizer(
     text_vector: Extra[TensorTransform] = Extra.default(None)
     token_vectors: Extra[TensorSequenceTransform] = Extra.default(None)
 
-    analyzer: Param[Callable[[str | Sequence[str] | AnalyzedText], AnalyzedText] | None] = Param.default(None)
-
-    @staticmethod
-    def _default_analyzer(text: str | Sequence[str] | AnalyzedText) -> AnalyzedText:
-        if isinstance(text, AnalyzedText):
-            return text
-        surfaces = punkt_tokenize(text) if isinstance(text, str) else text
-        return AnalyzedText(surfaces=surfaces)
+    analyzer: Param[BaseTextAnalyzer] = dataclasses.field(default_factory=Param.default_factory(PunktTextAnalyzer))
 
     def instance(self: "Tokenizer[AsConverter]", x: str | Sequence[str] | AnalyzedText, /) -> "Tokenizer[AsInstance]":
-        analyzer = self.analyzer or self._default_analyzer
-        return cast(DataModule[AsConverter], super()).instance(analyzer(x))
+        return cast(DataModule[AsConverter], super()).instance(self.analyzer(x))
+
+    def reconstruct(self: "Tokenizer[AsConverter]", batch: "Tokenizer[AsBatch]", /) -> list[str]:
+        token_sequences = self.surfaces.reconstruct(batch.surfaces)
+        return [self.analyzer.detokenize(tokens) for tokens in token_sequences]

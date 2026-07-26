@@ -10,10 +10,14 @@ from typing_extensions import TypeVar
 from formed.common.iterutils import batched
 from formed.integrations.ml import (
     BaseTransform,
+    CharacterTextAnalyzer,
     DataModule,
     Extra,
     LabelIndexer,
     MetadataTransform,
+    Param,
+    PunktTextAnalyzer,
+    TextIndexer,
     Tokenizer,
     TokenSequenceIndexer,
 )
@@ -36,6 +40,69 @@ TextTransformT = TypeVar(
     default=Any,
     covariant=True,
 )
+
+
+def test_character_text_analyzer_round_trip() -> None:
+    analyzer = CharacterTextAnalyzer()
+
+    assert analyzer.tokenize("camelCase") == list("camelCase")
+    assert analyzer("camelCase").surfaces == list("camelCase")
+    assert analyzer.detokenize(list("camelCase")) == "camelCase"
+
+
+@pytest.mark.parametrize("mode", ["prefix", "suffix", "separate"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Hello, world!",
+        "  leading and trailing  ",
+        "Hello,\n\tworld!",
+        "   ",
+        "",
+    ],
+)
+def test_punkt_text_analyzer_preserved_delimiters_round_trip(mode: str, text: str) -> None:
+    analyzer = PunktTextAnalyzer(delimiter_attachment=mode)  # type: ignore[arg-type]
+
+    assert analyzer.detokenize(analyzer.tokenize(text)) == text
+
+
+def test_punkt_text_analyzer_separates_punctuation_and_whitespace() -> None:
+    analyzer = PunktTextAnalyzer()
+
+    assert analyzer.tokenize("Hello, world!") == ["Hello", ",", " ", "world", "!"]
+    assert analyzer.tokenize("Hello,   world!") == ["Hello", ",", "   ", "world", "!"]
+
+
+def test_punkt_text_analyzer_can_discard_and_canonically_restore_delimiters() -> None:
+    analyzer = PunktTextAnalyzer(delimiter_attachment="discard", detokenization_separator="_")
+
+    tokens = analyzer.tokenize("Hello, world!")
+
+    assert tokens == ["Hello", "world"]
+    assert analyzer.detokenize(tokens) == "Hello_world"
+
+
+def test_text_indexer_reconstructs_text_with_analyzer() -> None:
+    indexer = TextIndexer(analyzer=CharacterTextAnalyzer(), bos_token="<BOS>", eos_token="<EOS>")
+    with indexer.train():
+        instances = [indexer.instance("camelCase"), indexer.instance("snake_case")]
+
+    batch = indexer.batch(instances)
+
+    assert indexer.reconstruct(batch) == ["camelCase", "snake_case"]
+
+
+def test_tokenizer_reconstructs_surfaces_with_analyzer() -> None:
+    tokenizer = Tokenizer(
+        analyzer=Param.cast(CharacterTextAnalyzer()),
+        surfaces=TokenSequenceIndexer(),
+    )
+    with tokenizer.train():
+        instances = [tokenizer.instance("abc"), tokenizer.instance("xyz")]
+    batch = tokenizer.batch(instances)
+
+    assert tokenizer.reconstruct(batch) == ["abc", "xyz"]
 
 
 class TestTextClassificationDataModule:
@@ -107,7 +174,7 @@ class TestTextClassificationDataModule:
         first_batch = train_batches[0]
         assert first_batch.id == [f"example_{i}" for i in range(8)]
         assert isinstance(first_batch.text.surfaces.ids, numpy.ndarray)
-        assert first_batch.text.surfaces.ids.shape == (8, 9)
+        assert first_batch.text.surfaces.ids.shape == (8, 17)
         assert isinstance(first_batch.text.surfaces.mask, numpy.ndarray)
-        assert first_batch.text.surfaces.mask.shape == (8, 9)
-        assert first_batch.text.surfaces.mask.sum(axis=1).tolist() == [5, 6, 7, 8, 9, 5, 6, 7]
+        assert first_batch.text.surfaces.mask.shape == (8, 17)
+        assert first_batch.text.surfaces.mask.sum(axis=1).tolist() == [9, 11, 13, 15, 17, 9, 11, 13]

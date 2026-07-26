@@ -7,7 +7,7 @@ from .basic import (
     TensorTransform,
     VariableTensorTransform,
 )
-from .nlp import TokenCharactersIndexer, Tokenizer, TokenSequenceIndexer
+from .nlp import TextIndexer, TokenCharactersIndexer, Tokenizer, TokenSequenceIndexer
 
 __all__ = [
     # base
@@ -24,6 +24,7 @@ __all__ = [
     "TensorTransform",
     "VariableTensorTransform",
     # nlp
+    "TextIndexer",
     "Tokenizer",
     "TokenSequenceIndexer",
     "TokenCharactersIndexer",

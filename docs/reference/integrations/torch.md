@@ -8,12 +8,14 @@
 - [Schedulers](#formed.integrations.torch.schedulers)
 - [Utils](#formed.integrations.torch.utils)
 - Modules
+    - [Decoders](#formed.integrations.torch.modules.decoders)
     - [Embedders](#formed.integrations.torch.modules.embedders)
     - [Encoders](#formed.integrations.torch.modules.encoders)
     - [Feedforward](#formed.integrations.torch.modules.feedforward)
     - [Losses](#formed.integrations.torch.modules.losses)
     - [Masks](#formed.integrations.torch.modules.masks)
     - [Samplers](#formed.integrations.torch.modules.samplers)
+    - [States](#formed.integrations.torch.modules.states)
     - [ScalarMix](#formed.integrations.torch.modules.scalarmix)
     - [Vectorizers](#formed.integrations.torch.modules.vectorizers)
     - [Weighters](#formed.integrations.torch.modules.weighters)
@@ -32,12 +34,14 @@
 ::: formed.integrations.torch.model
 ::: formed.integrations.torch.schedulers
 ::: formed.integrations.torch.utils
+::: formed.integrations.torch.modules.decoders
 ::: formed.integrations.torch.modules.embedders
 ::: formed.integrations.torch.modules.encoders
 ::: formed.integrations.torch.modules.feedforward
 ::: formed.integrations.torch.modules.losses
 ::: formed.integrations.torch.modules.masks
 ::: formed.integrations.torch.modules.samplers
+::: formed.integrations.torch.modules.states
 ::: formed.integrations.torch.modules.scalarmix
 ::: formed.integrations.torch.modules.vectorizers
 ::: formed.integrations.torch.modules.weighters

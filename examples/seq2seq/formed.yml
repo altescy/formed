@@ -1,0 +1,9 @@
+workflow:
+  organizer:
+    type: mlflow
+
+required_modules:
+  - formed.integrations.ml
+  - formed.integrations.mlflow
+  - formed.integrations.torch
+  - seq2seq

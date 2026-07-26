@@ -22,6 +22,10 @@ from formed.integrations.ml.metrics import (
     MultilabelFBeta,
     RankingInput,
     RegressionInput,
+    TokenSequenceAccuracy,
+    TokenSequenceExactMatch,
+    TokenSequenceInput,
+    TokenSequenceLoss,
 )
 
 # Try to import sklearn for comparison tests
@@ -49,6 +53,46 @@ except ImportError:
     def roc_auc_score(y_true: list[int], y_score: list[float]) -> float:
         """Dummy implementation for when sklearn is not available."""
         raise ImportError("sklearn is not available")
+
+
+class TestTokenSequenceMetric:
+    @staticmethod
+    def test_masked_accuracy_and_exact_match() -> None:
+        inputs = TokenSequenceInput(
+            predictions=[[1, 2, 9], [3, 0, 0]],
+            targets=[[1, 4, 0], [3, 5, 0]],
+            mask=[[True, True, False], [True, False, False]],
+        )
+        accuracy = TokenSequenceAccuracy()
+        exact_match = TokenSequenceExactMatch()
+
+        accuracy.update(inputs)
+        exact_match.update(inputs)
+
+        assert accuracy.compute() == {"token_accuracy": 2 / 3}
+        assert exact_match.compute() == {"sequence_exact_match": 0.5}
+
+    @staticmethod
+    def test_loss_is_weighted_by_valid_token_count() -> None:
+        metric = TokenSequenceLoss()
+        metric.update(
+            TokenSequenceInput(
+                predictions=[[1, 2]],
+                targets=[[1, 2]],
+                mask=[[True, True]],
+                loss=2.0,
+            )
+        )
+        metric.update(
+            TokenSequenceInput(
+                predictions=[[1]],
+                targets=[[1]],
+                mask=[[True]],
+                loss=5.0,
+            )
+        )
+
+        assert metric.compute() == {"loss": 3.0}
 
 
 class TestEmptyMetric:
