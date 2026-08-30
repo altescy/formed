@@ -43,6 +43,16 @@ class ChatReducer(BaseReducer[ChatState, ChatMessage]):
                         ],
                     )
                 ]
+            case "thinking_part_done":
+                return state, [
+                    AssistantMessage(
+                        role="assistant",
+                        parts=[],
+                        thinking=[
+                            {"kind": "thinking", "thoughts": event["thoughts"], "metadata": event.get("metadata")}
+                        ],
+                    )
+                ]
         return state, []
 
 
@@ -104,7 +114,6 @@ class ChatHandler(Generic[FormatT], BaseHandler[ChatRequest, ChatQuery, ChatStat
         tool_calls: Sequence[ToolCallRecord],
         tool_definitions: Mapping[str, ToolDefinition],
     ) -> list[ToolResultMessage]:
-
         async def execute_tool(tool_call: ToolCallRecord) -> ToolResultMessage:
             tool_def = tool_definitions.get(tool_call["name"])
             if not tool_def:
